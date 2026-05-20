@@ -61,7 +61,6 @@ export async function middleware(request: NextRequest) {
 
     // Routes restricted to super_admin only
     const superAdminOnlyPaths = [
-      "/admin/evento",
       "/admin/productos/inventario",
       "/admin/inventario-inicial",
       "/admin/sucursales",
@@ -83,7 +82,8 @@ export async function middleware(request: NextRequest) {
     } else if (
       token?.user?.role !== "manager" &&
       token?.user?.role !== "director" &&
-      token?.user?.role !== "super_admin"
+      token?.user?.role !== "super_admin" &&
+      token?.user?.role !== "organizer"
     ) {
       signInUrl = new URL("/no-autorizado", request.url);
       return NextResponse.redirect(signInUrl);
