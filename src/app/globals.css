@@ -1,0 +1,172 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: hsl(0 0% 3.9%);
+    --foreground: hsl(0 0% 98%);
+    --card: hsl(0, 0%, 13%);
+    --card-foreground: hsl(0 0% 98%);
+    --popover: hsl(0 0% 3.9%);
+    --popover-foreground: hsl(0 0% 98%);
+    --primary: hsl(0, 66%, 37%);
+    --primary-opacity: hsla(0, 66%, 37%, 0.535);
+    --primary-foreground: hsl(0 85.7% 97.3%);
+    --secondary: hsl(0 0% 14.9%);
+    --secondary-opacity: hsla(0, 0%, 4%, 0.727);
+    --secondary-foreground: hsl(0 0% 98%);
+    --muted: hsla(0, 0%, 69%, 0.87);
+    --muted-foreground: hsl(0 0% 63.9%);
+    --accent: hsl(0 0% 14.9%);
+    --accent-foreground: hsl(0 0% 98%);
+    --destructive: hsl(0 62.8% 30.6%);
+    --destructive-foreground: hsl(0 0% 98%);
+    --border: hsl(0 0% 14.9%);
+    --input: hsl(0 0% 14.9%);
+    --ring: hsl(0 72.2% 50.6%);
+    --chart-1: hsl(220 70% 50%);
+    --chart-2: hsl(160 60% 45%);
+    --chart-3: hsl(30 80% 55%);
+    --chart-4: hsl(280 65% 60%);
+    --chart-5: hsl(340 75% 55%);
+  }
+
+  .dark {
+    --background: hsl(0 0% 3.9%);
+    --foreground: hsl(0 0% 98%);
+    --card: hsl(0, 0%, 13%);
+    --card-foreground: hsl(0 0% 98%);
+    --popover: hsl(0 0% 3.9%);
+    --popover-foreground: hsl(0 0% 98%);
+    --primary: hsl(0, 66%, 37%);
+    --primary-opacity: hsla(0, 66%, 37%, 0.535);
+    --primary-foreground: hsl(0 85.7% 97.3%);
+    --secondary: hsl(0 0% 14.9%);
+    --secondary-opacity: hsla(0, 0%, 4%, 0.727);
+    --secondary-foreground: hsl(0 0% 98%);
+    --muted: hsla(0, 0%, 69%, 0.87);
+    --muted-foreground: hsl(0 0% 63.9%);
+    --accent: hsl(0 0% 14.9%);
+    --accent-foreground: hsl(0 0% 98%);
+    --destructive: hsl(0 62.8% 30.6%);
+    --destructive-foreground: hsl(0 0% 98%);
+    --border: hsl(0 0% 14.9%);
+    --input: hsl(0 0% 14.9%);
+    --ring: hsl(0 72.2% 50.6%);
+    --chart-1: hsl(220 70% 50%);
+    --chart-2: hsl(160 60% 45%);
+    --chart-3: hsl(30 80% 55%);
+    --chart-4: hsl(280 65% 60%);
+    --chart-5: hsl(340 75% 55%);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* CSS to remove arrows */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield; /* Firefox */
+}
+
+/* ── Print styles ─────────────────────────────────────────────────────────── */
+.print-only {
+  display: none;
+}
+
+@media print {
+  /* Hide sidebar, nav, and any no-print UI */
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+
+  /* Reset page chrome */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Let report content fill the page */
+  @page {
+    margin: 1.5cm;
+  }
+
+  /* Force table borders to show */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  th,
+  td {
+    border: 1px solid #ccc;
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  thead {
+    background-color: #f3f4f6 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Show all tab sections when printing */
+  [data-print-section] {
+    display: block !important;
+  }
+}
+
+/* ── POS Ticket (58mm thermal printer) ──────────────────────────────────── */
+@media print {
+  /* When a POS ticket is present: hide EVERYTHING, then reveal only the ticket */
+  body:has(#pos-ticket) * {
+    visibility: hidden !important;
+  }
+
+  body:has(#pos-ticket) #pos-ticket,
+  body:has(#pos-ticket) #pos-ticket * {
+    visibility: visible !important;
+  }
+
+  body:has(#pos-ticket) #pos-ticket {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 58mm !important;
+    font-size: 10px !important;
+    font-family: "Courier New", Courier, monospace !important;
+    color: black !important;
+    background: white !important;
+    padding: 3mm !important;
+    margin: 0 !important;
+  }
+
+  body:has(#pos-ticket) {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  @page {
+    size: 58mm auto;
+    margin: 0;
+  }
+
+  /* Hide screen-only buttons/headers inside the receipt view */
+  body:has(#pos-ticket) .no-print {
+    display: none !important;
+  }
+}

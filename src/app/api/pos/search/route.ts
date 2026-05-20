@@ -1,0 +1,98 @@
+import { options } from "@/app/api/auth/[...nextauth]/options";
+import Product from "@/backend/models/Product";
+import StoreInventory from "@/backend/models/StoreInventory";
+import dbConnect from "@/lib/db";
+import { getServerSession } from "next-auth";
+import { NextResponse } from "next/server";
+import mongoose from "mongoose";
+
+const ALLOWED_ROLES = ["manager", "sucursal", "pos", "organizer"];
+
+// GET /api/pos/search?q=xxx&storeId=xxx&limit=8
+// Searches active products by title, ASIN, category OR exact _id.
+// When storeId is provided, filters out variations with 0 branch stock.
+export async function GET(req: Request) {
+  try {
+    const session = await getServerSession(options);
+    const role = (session?.user as any)?.role;
+    if (!session || !ALLOWED_ROLES.includes(role)) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+    await dbConnect();
+
+    const url = new URL(req.url);
+    const q = url.searchParams.get("q")?.trim() ?? "";
+    const storeId = url.searchParams.get("storeId") ?? "";
+    const limit = Math.min(Number(url.searchParams.get("limit")) || 8, 30);
+
+    if (!q) return NextResponse.json([], { status: 200 });
+
+    // Check if query looks like a MongoDB ObjectId (24 hex chars)
+    const isObjectId = /^[a-f\d]{24}$/i.test(q);
+
+    const filter: any = { active: true };
+
+    if (isObjectId) {
+      // Search by exact product _id OR by name/ASIN
+      filter.$or = [
+        { _id: new mongoose.Types.ObjectId(q) },
+        { title: { $regex: q, $options: "i" } },
+        { ASIN: { $regex: q, $options: "i" } },
+      ];
+    } else {
+      filter.$or = [
+        { title: { $regex: q, $options: "i" } },
+        { ASIN: { $regex: q, $options: "i" } },
+        { category: { $regex: q, $options: "i" } },
+        { brand: { $regex: q, $options: "i" } },
+        { "variations.title": { $regex: q, $options: "i" } },
+      ];
+    }
+
+    const products = await Product.find(filter)
+      .select("_id title price images variations")
+      .limit(limit)
+      .lean();
+
+    if (!storeId || products.length === 0) {
+      return NextResponse.json(products, { status: 200 });
+    }
+
+    // Fetch StoreInventory records for these products in this branch
+    const productIds = products.map((p: any) => p._id);
+    const inventoryRecords = await StoreInventory.find({
+      store: storeId,
+      product: { $in: productIds },
+    })
+      .select("variationId quantity")
+      .lean();
+
+    // Build lookup: variationId -> branch quantity
+    const stockMap = new Map<string, number>();
+    for (const rec of inventoryRecords) {
+      stockMap.set(rec.variationId, rec.quantity);
+    }
+
+    // Annotate each variation with branch stock, filter out zero-stock
+    const filtered = products
+      .map((product: any) => {
+        const variations = product.variations
+          .map((v: any) => {
+            const variationId = v._id.toString();
+            // Use branch inventory if available, else fall back to product stock
+            const branchStock = stockMap.has(variationId)
+              ? stockMap.get(variationId)!
+              : (v.stock ?? 0);
+            return { ...v, stock: branchStock };
+          })
+          .filter((v: any) => v.stock > 0);
+        return { ...product, variations };
+      })
+      // Drop products where every variation has 0 branch stock
+      .filter((p: any) => p.variations.length > 0);
+
+    return NextResponse.json(filtered, { status: 200 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

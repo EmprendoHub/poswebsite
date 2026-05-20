@@ -1,0 +1,146 @@
+.body {
+  overflow: hidden;
+}
+.container {
+  position: relative;
+  width: 100%;
+  height: 800px;
+  padding: 50px;
+  padding: 0px;
+}
+
+#slider {
+  width: max-content;
+  margin-top: 50px;
+}
+/* Responsive styles for screens up to 678px */
+@media screen and (max-width: 678px) {
+  .container {
+    margin-top: 0px; /* Adjust the margin-top as needed */
+    margin-bottom: 0px;
+    padding-top: 0px;
+  }
+
+  /* Add any other responsive styles for smaller screens here */
+  .item {
+    width: 100px;
+    height: 150px;
+  }
+}
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(
+    0,
+    0,
+    0,
+    0.5
+  ); /* Adjust the color and opacity as needed */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white; /* Text color for overlay content */
+  opacity: 10%; /* Initially hidden */
+  transition: opacity 0.5s ease-in-out; /* Add a smooth transition effect */
+  z-index: 3333;
+}
+.item {
+  width: 150px;
+  height: 180px;
+  background-position: 50% 50%;
+  display: inline-block;
+  transition: 1.5s;
+  background-size: cover;
+  position: absolute;
+  z-index: 1;
+  top: 75%;
+  transform: translate(0, -50%);
+  border-radius: 20px;
+  box-shadow: 0 10px 10px #97979779;
+}
+.item:nth-child(1) {
+  left: 0;
+  top: 0%;
+  transform: translate(0, 0);
+  border-radius: 0;
+  width: 100%;
+  height: 70%;
+}
+.item:nth-child(2) {
+  left: 2%;
+  filter: grayscale(1);
+}
+.item:nth-child(3) {
+  left: calc(2% + 160px);
+  filter: grayscale(1);
+}
+.item:nth-child(4) {
+  left: calc(2% + 320px);
+  filter: grayscale(1);
+}
+.item:nth-child(5) {
+  left: calc(2% + 480px);
+  filter: grayscale(1);
+}
+.item:nth-child(6) {
+  left: calc(2% + 640px);
+  filter: grayscale(1);
+}
+
+.item:nth-child(2):hover {
+  filter: grayscale(1%);
+}
+.item:nth-child(3):hover {
+  filter: grayscale(1%);
+}
+.item:nth-child(4):hover {
+  filter: grayscale(1%);
+}
+.item:nth-child(5):hover {
+  filter: grayscale(1%);
+}
+.item:nth-child(6):hover {
+  filter: grayscale(1%);
+}
+
+@keyframes showcontent {
+  from {
+    opacity: 0;
+    transform: translate(0, 100px);
+    filter: blur(33px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0);
+    filter: blur(0);
+  }
+}
+.buttons {
+  position: absolute;
+  z-index: 222222;
+  display: flex;
+  gap: 0.75rem;
+  top: 55%;
+  transform: translate(-50%, -50%);
+  padding: 50px;
+}
+.buttons button {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 1px solid #c4c4c4;
+  transition: 0.5s;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  color: #f4f4f4;
+}
+.buttons button:hover {
+  background-color: #0c0c0c;
+}
