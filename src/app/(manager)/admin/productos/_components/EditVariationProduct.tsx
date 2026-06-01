@@ -18,6 +18,8 @@ import ToggleSwitch from "@/components/layouts/ToggleSwitch";
 import { StaticImport } from "next/dist/shared/lib/get-img-props";
 import { toast } from "@/components/ui/use-toast";
 import { Loader } from "@/components/loader";
+import BarcodeScannerModal from "@/components/modals/BarcodeScannerModal";
+import { MdQrCodeScanner } from "react-icons/md";
 import { ValidationError } from "@/types";
 
 // Modify the extractImageName function to handle potential errors
@@ -65,6 +67,7 @@ const EditVariationProduct = ({
   const [category, setCategory] = useState(product?.category);
   const [gender, setGender] = useState(product?.gender);
   const [asin, setAsin] = useState(product?.ASIN || "");
+  const [showScanner, setShowScanner] = useState(false);
   const [featured, setFeatured] = useState(product?.featured);
   const [active, setActive] = useState(product?.active ?? true);
   const [onlineAvailability, setOnlineAvailability] = useState(
@@ -960,12 +963,12 @@ const EditVariationProduct = ({
                   {/* Changed Gender from dropdown to input */}
                   <div className="mb-1 w-full">
                     <label className="block mb-1 font-EB_Garamond  text-xs">
-                      Gender
+                      Genero
                     </label>
                     <input
                       type="text"
                       className="appearance-none border bg-card text-card-foreground rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
-                      placeholder="Ej. Unisex, Masculino, Femenino"
+                      placeholder="Ej. Pokémon, NFL, Nascar, etc."
                       value={gender || ""}
                       onChange={(e) => setGender(e.target.value)}
                       name="gender"
@@ -985,7 +988,7 @@ const EditVariationProduct = ({
                     <input
                       type="text"
                       className="appearance-none border bg-card text-card-foreground rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
-                      placeholder="Ej. Cartas Pokemon, Cartas Dragon Ball, etc."
+                      placeholder="Ej. Tarjetas, Guantes, Balones, etc."
                       value={category || ""}
                       onChange={(e) => setCategory(e.target.value)}
                       name="category"
@@ -1000,16 +1003,26 @@ const EditVariationProduct = ({
                   {/* ASIN */}
                   <div className="mb-1 w-full">
                     <label className="block mb-1 font-EB_Garamond text-xs">
-                      ASIN
+                      Codigo de Barras/QR
                     </label>
-                    <input
-                      type="text"
-                      className="appearance-none border bg-card text-card-foreground rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full uppercase"
-                      placeholder="Ej. B08N5WRWNW"
-                      value={asin}
-                      onChange={(e) => setAsin(e.target.value.toUpperCase())}
-                      name="asin"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        className="appearance-none border bg-card text-card-foreground rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full uppercase"
+                        placeholder="Ej. B08N5WRWNW"
+                        value={asin}
+                        onChange={(e) => setAsin(e.target.value.toUpperCase())}
+                        name="asin"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowScanner(true)}
+                        className="flex-shrink-0 flex items-center gap-1 px-3 py-2 bg-muted hover:bg-primary hover:text-primary-foreground rounded-xl transition-colors text-sm"
+                        title="Escanear código"
+                      >
+                        <MdQrCodeScanner size={20} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1080,6 +1093,16 @@ const EditVariationProduct = ({
             <h2 className="text-sm">Actualizando producto...</h2>
           </div>
         </section>
+      )}
+
+      {showScanner && (
+        <BarcodeScannerModal
+          onScan={(value) => {
+            setAsin(value.toUpperCase());
+            setShowScanner(false);
+          }}
+          onClose={() => setShowScanner(false)}
+        />
       )}
     </main>
   );

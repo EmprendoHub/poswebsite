@@ -26,6 +26,8 @@
     "@types/papaparse": "^5.5.2",
     "@types/qrcode": "^1.5.5",
     "@types/slick-carousel": "^1.6.40",
+    "@zxing/browser": "^0.2.0",
+    "@zxing/library": "^0.22.0",
     "axios": "^1.7.7",
     "bcrypt": "^5.1.1",
     "chart.js": "^4.5.1",
