@@ -31,7 +31,10 @@ export async function GET(
         { status: 404 },
       );
     }
-    return NextResponse.json(employee, { status: 200 });
+    const obj = (employee as any).toObject();
+    obj.hasManagerCode = !!obj.managerCode;
+    delete obj.managerCode; // don't expose plain-text code to the client
+    return NextResponse.json(obj, { status: 200 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -52,8 +55,16 @@ export async function PUT(
     }
     await dbConnect();
 
-    const { name, email, phone, role, active, assignedStore, newPassword } =
-      await req.json();
+    const {
+      name,
+      email,
+      phone,
+      role,
+      active,
+      assignedStore,
+      newPassword,
+      newManagerCode,
+    } = await req.json();
 
     const isSuperAdmin = (session.user as any)?.role === "super_admin";
     const allowedRoles = isSuperAdmin ? [...POS_ROLES, "manager"] : POS_ROLES;
@@ -82,21 +93,52 @@ export async function PUT(
       }
     }
 
-    const updateData: any = {};
-    if (name !== undefined) updateData.name = name;
-    if (email !== undefined) updateData.email = email;
-    if (phone !== undefined) updateData.phone = phone;
-    if (role !== undefined) updateData.role = role;
-    if (active !== undefined) updateData.active = active;
-    if (assignedStore !== undefined) updateData.assignedStore = assignedStore;
+    const $set: any = {};
+    const $unset: any = {};
 
-    // Only update password if explicitly provided
-    if (newPassword) {
-      updateData.password = await bcrypt.hash(newPassword, 10);
-      updateData.loginAttempts = 0; // reset login lockout on password change
+    if (name !== undefined) $set.name = name;
+    if (email !== undefined) $set.email = email;
+    if (phone !== undefined) $set.phone = phone;
+    if (role !== undefined) $set.role = role;
+    if (active !== undefined) $set.active = active;
+
+    // Use $unset for null/empty assignedStore to avoid Mongoose ObjectId cast errors
+    if (assignedStore !== undefined) {
+      if (assignedStore === null || assignedStore === "") {
+        $unset.assignedStore = "";
+      } else {
+        $set.assignedStore = assignedStore;
+      }
     }
 
-    const employee = await User.findByIdAndUpdate(params.id, updateData, {
+    if (newPassword) {
+      $set.password = await bcrypt.hash(newPassword, 10);
+      $set.loginAttempts = 0;
+    }
+
+    // Manager code is updated independently — not blocked by any other field
+    if (newManagerCode !== undefined && newManagerCode !== "") {
+      if (!/^\d{6}$/.test(String(newManagerCode))) {
+        return NextResponse.json(
+          { error: "El código de manager debe ser exactamente 6 dígitos" },
+          { status: 400 },
+        );
+      }
+      $set.managerCode = String(newManagerCode);
+    }
+
+    const updateOp: any = {};
+    if (Object.keys($set).length > 0) updateOp.$set = $set;
+    if (Object.keys($unset).length > 0) updateOp.$unset = $unset;
+
+    if (Object.keys(updateOp).length === 0) {
+      return NextResponse.json(
+        { error: "Nada que actualizar" },
+        { status: 400 },
+      );
+    }
+
+    const employee = await User.findByIdAndUpdate(params.id, updateOp, {
       new: true,
     }).select("-password -verificationToken -mercado_token -favorites");
 

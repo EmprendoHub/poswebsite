@@ -9,6 +9,7 @@ import {
   MdAdd,
   MdRemove,
   MdPrint,
+  MdShield,
 } from "react-icons/md";
 
 /* ──────────────────── Types ──────────────────── */
@@ -47,6 +48,15 @@ interface CorteRecord {
   notes?: string;
   createdAt: string;
 }
+interface MovementRecord {
+  _id: string;
+  type: "manual_in" | "manual_out";
+  cashAmount: number;
+  notes?: string;
+  createdByName?: string;
+  authorizedByName?: string;
+  createdAt: string;
+}
 
 /* ──────────────────── Ticket component (58mm POS receipt) ──────────────────── */
 function CajaTicket({
@@ -79,10 +89,12 @@ function CajaTicket({
       id="pos-ticket"
       className="font-mono text-black bg-white"
       style={{
-        width: "58mm",
+        width: "100%",
         fontSize: "10px",
-        padding: "4mm",
+        padding: "2mm",
         lineHeight: "1.4",
+        textTransform: "uppercase",
+        fontWeight: "bold",
       }}
     >
       {/* Header */}
@@ -200,7 +212,7 @@ function CajaTicket({
       <div className="text-xs text-center mt-3 mb-1">FIRMA DEL SUPERVISOR</div>
       <div className="text-xs text-center mt-4 mb-1">____________________</div>
       <div className="text-xs text-center mt-2">
-        {isCierre ? "FIN DE CAJA" : "CONTINUACIÓN DE TURNO"}
+        {isCierre ? "CORTE DE CAJA" : "CONTINUACIÓN DE TURNO"}
       </div>
     </div>
   );
@@ -215,6 +227,7 @@ export default function CajaPage() {
   const [storeName, setStoreName] = useState("");
   const [activeSession, setActiveSession] = useState<CajaSession | null>(null);
   const [recentCuts, setRecentCuts] = useState<CorteRecord[]>([]);
+  const [movements, setMovements] = useState<MovementRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modals
@@ -222,6 +235,15 @@ export default function CajaPage() {
   const [showCorteModal, setShowCorteModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showMovModal, setShowMovModal] = useState<"in" | "out" | null>(null);
+  // pending direction while manager code is being verified
+  const [showManagerCodeFor, setShowManagerCodeFor] = useState<
+    "in" | "out" | null
+  >(null);
+  const [authorizedManager, setAuthorizedManager] = useState<{
+    _id: string;
+    name: string;
+    role: string;
+  } | null>(null);
 
   // Forms
   const [openingCash, setOpeningCash] = useState("0");
@@ -246,6 +268,7 @@ export default function CajaPage() {
     const data = await res.json();
     setActiveSession(data?.activeSession ?? null);
     setRecentCuts(data?.recentCuts ?? []);
+    setMovements(data?.movements ?? []);
     setLoading(false);
   }, [storeId]);
 
@@ -321,6 +344,8 @@ export default function CajaPage() {
           type: showMovModal === "in" ? "manual_in" : "manual_out",
           cashAmount: Number(movAmount),
           notes: movNotes,
+          authorizedById: authorizedManager?._id ?? null,
+          authorizedByName: authorizedManager?.name ?? null,
         }),
       });
       const d = await res.json();
@@ -328,6 +353,7 @@ export default function CajaPage() {
       setShowMovModal(null);
       setMovAmount("");
       setMovNotes("");
+      setAuthorizedManager(null);
       await fetchState();
     } catch (e: any) {
       setActionError(e.message);
@@ -479,8 +505,8 @@ export default function CajaPage() {
               <div className="ml-auto flex gap-2">
                 <button
                   onClick={() => {
-                    setShowMovModal("in");
                     setActionError("");
+                    setShowManagerCodeFor("in");
                   }}
                   className="flex items-center gap-1 text-xs bg-muted hover:bg-green-100 dark:hover:bg-green-900 px-3 py-2 rounded-lg transition-colors"
                 >
@@ -488,14 +514,14 @@ export default function CajaPage() {
                 </button>
                 <button
                   onClick={() => {
-                    setShowMovModal("out");
                     setActionError("");
+                    setShowManagerCodeFor("out");
                   }}
                   className="flex items-center gap-1 text-xs bg-muted hover:bg-red-100 dark:hover:bg-red-900 px-3 py-2 rounded-lg transition-colors"
                 >
                   <MdRemove size={14} /> Salida
                 </button>
-                <button
+                {/* <button
                   onClick={() => {
                     setShowCorteModal(true);
                     setActionError("");
@@ -503,7 +529,7 @@ export default function CajaPage() {
                   className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-2 rounded-lg"
                 >
                   <MdContentCut size={14} /> Corte
-                </button>
+                </button> */}
                 <button
                   onClick={() => {
                     setShowCloseModal(true);
@@ -554,6 +580,77 @@ export default function CajaPage() {
                 </div>
               ))}
             </div>
+
+            {/* Movements list */}
+            {movements.length > 0 && (
+              <>
+                <h2 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
+                  Entradas y Salidas del turno
+                </h2>
+                <div className="overflow-x-auto rounded-xl border border-muted mb-6">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/30 text-xs text-muted-foreground uppercase">
+                      <tr>
+                        <th className="px-4 py-3 text-left">Tipo</th>
+                        <th className="px-4 py-3 text-left">Hora</th>
+                        <th className="px-4 py-3 text-right">Monto</th>
+                        <th className="px-4 py-3 text-left">Nota</th>
+                        <th className="px-4 py-3 text-left">Registró</th>
+                        <th className="px-4 py-3 text-left">Autorizó</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {movements.map((m) => (
+                        <tr key={m._id} className="border-t border-muted">
+                          <td className="px-4 py-3">
+                            <span
+                              className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                m.type === "manual_in"
+                                  ? "bg-green-100 text-green-700"
+                                  : "bg-red-100 text-red-600"
+                              }`}
+                            >
+                              {m.type === "manual_in"
+                                ? "↑ ENTRADA"
+                                : "↓ SALIDA"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            {fmtDate(m.createdAt)}
+                          </td>
+                          <td
+                            className={`px-4 py-3 text-right font-bold ${
+                              m.type === "manual_in"
+                                ? "text-green-600"
+                                : "text-red-500"
+                            }`}
+                          >
+                            {m.type === "manual_out" ? "-" : "+"}
+                            {fmt(m.cashAmount)}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                            {m.notes ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            {m.createdByName ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            {m.authorizedByName ? (
+                              <span className="flex items-center gap-1">
+                                <MdShield size={12} className="text-primary" />
+                                {m.authorizedByName}
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </>
         )}
 
@@ -572,6 +669,8 @@ export default function CajaPage() {
                     <th className="px-4 py-3 text-left">Cajero</th>
                     <th className="px-4 py-3 text-left">Fecha</th>
                     <th className="px-4 py-3 text-right">Ventas</th>
+                    <th className="px-4 py-3 text-right">Entradas</th>
+                    <th className="px-4 py-3 text-right">Salidas</th>
                     <th className="px-4 py-3 text-right">Efe. Esp.</th>
                     <th className="px-4 py-3 text-right">Declarado</th>
                     <th className="px-4 py-3 text-right">Dif.</th>
@@ -600,6 +699,12 @@ export default function CajaPage() {
                             c.totals.mixedCashSales +
                             c.totals.mixedCardSales,
                         )}
+                      </td>
+                      <td className="px-4 py-3 text-right text-green-600">
+                        {fmt(c.totals.inflows)}
+                      </td>
+                      <td className="px-4 py-3 text-right text-red-500">
+                        {fmt(c.totals.outflows)}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {fmt(c.expectedCash)}
@@ -663,13 +768,37 @@ export default function CajaPage() {
         </Modal>
       )}
 
+      {showManagerCodeFor && (
+        <ManagerCodeModal
+          direction={showManagerCodeFor}
+          onAuthorized={(employee) => {
+            setAuthorizedManager(employee);
+            setShowMovModal(showManagerCodeFor);
+            setShowManagerCodeFor(null);
+          }}
+          onClose={() => setShowManagerCodeFor(null)}
+        />
+      )}
+
       {showMovModal && (
         <Modal
           title={
             showMovModal === "in" ? "Entrada de Efectivo" : "Salida de Efectivo"
           }
-          onClose={() => setShowMovModal(null)}
+          onClose={() => {
+            setShowMovModal(null);
+            setAuthorizedManager(null);
+          }}
         >
+          {authorizedManager && (
+            <p className="text-xs text-green-600 bg-green-50 dark:bg-green-900/20 rounded-lg px-3 py-2 mb-3 flex items-center gap-1">
+              <MdShield size={14} className="flex-shrink-0" />
+              Autorizado por:{" "}
+              <span className="font-semibold ml-1">
+                {authorizedManager.name}
+              </span>
+            </p>
+          )}
           <label className="text-xs text-muted-foreground mb-1 block">
             Monto ($)
           </label>
@@ -743,6 +872,104 @@ export default function CajaPage() {
           confirmClass="bg-red-600 text-white"
         />
       )}
+    </div>
+  );
+}
+
+/* ──────────────────── Manager code verification modal ──────────────────── */
+function ManagerCodeModal({
+  direction,
+  onAuthorized,
+  onClose,
+}: {
+  direction: "in" | "out";
+  onAuthorized: (employee: { _id: string; name: string; role: string }) => void;
+  onClose: () => void;
+}) {
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleVerify() {
+    if (code.length !== 6) {
+      setError("El código debe tener 6 dígitos.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/pos/verify-manager-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        onAuthorized(data.employee);
+      } else {
+        setError("Código incorrecto. Intenta de nuevo.");
+        setCode("");
+      }
+    } catch {
+      setError("Error de red. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="bg-background rounded-2xl shadow-2xl w-full max-w-xs">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-muted">
+          <h2 className="font-bold text-base flex items-center gap-2">
+            <MdShield size={18} className="text-primary" />
+            Autorización requerida
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground text-lg"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="px-6 py-5">
+          <p className="text-xs text-muted-foreground mb-4">
+            Ingresa el código de manager para autorizar la{" "}
+            <span className="font-semibold">
+              {direction === "in" ? "entrada" : "salida"} de efectivo
+            </span>
+            .
+          </p>
+          <input
+            type="password"
+            value={code}
+            onChange={(e) => {
+              const v = e.target.value.replace(/\D/g, "").slice(0, 6);
+              setCode(v);
+              setError("");
+            }}
+            onKeyDown={(e) => e.key === "Enter" && handleVerify()}
+            inputMode="numeric"
+            maxLength={6}
+            autoFocus
+            placeholder="••••••"
+            className="w-full border border-border rounded-lg px-3 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-primary tracking-widest text-center text-lg mb-1"
+          />
+          <p className="text-xs text-muted-foreground text-center mb-3">
+            {code.length}/6 dígitos
+          </p>
+          {error && (
+            <p className="text-xs text-red-500 mb-3 text-center">{error}</p>
+          )}
+          <button
+            onClick={handleVerify}
+            disabled={loading || code.length !== 6}
+            className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold text-sm disabled:opacity-50"
+          >
+            {loading ? "Verificando..." : "Autorizar"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

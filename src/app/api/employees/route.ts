@@ -52,8 +52,15 @@ export async function GET(req: Request) {
       .skip((page - 1) * perPage)
       .limit(perPage);
 
+    const safeEmployees = employees.map((emp: any) => {
+      const obj = emp.toObject();
+      obj.hasManagerCode = !!obj.managerCode;
+      delete obj.managerCode; // don't expose the plain-text code to the client
+      return obj;
+    });
+
     return NextResponse.json(
-      { employees, total, page, perPage },
+      { employees: safeEmployees, total, page, perPage },
       { status: 200 },
     );
   } catch (error: any) {
@@ -73,7 +80,7 @@ export async function POST(req: Request) {
     }
     await dbConnect();
 
-    const { name, email, phone, role, password, assignedStore } =
+    const { name, email, phone, role, password, assignedStore, managerCode } =
       await req.json();
 
     if (!name || !email || !password || !role) {
@@ -81,6 +88,15 @@ export async function POST(req: Request) {
         { error: "Nombre, email, contraseña y rol son requeridos" },
         { status: 400 },
       );
+    }
+
+    if (managerCode !== undefined && managerCode !== "") {
+      if (!/^\d{6}$/.test(String(managerCode))) {
+        return NextResponse.json(
+          { error: "El código de manager debe ser exactamente 6 dígitos" },
+          { status: 400 },
+        );
+      }
     }
 
     const isSuperAdmin = (session.user as any)?.role === "super_admin";
@@ -103,15 +119,20 @@ export async function POST(req: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const employee = await User.create({
+    const createData: any = {
       name,
       email,
       phone: phone ?? "",
       role,
       password: hashedPassword,
-      active: true, // POS staff active by default
+      active: true,
       assignedStore: assignedStore ?? null,
-    });
+    };
+    if (managerCode) {
+      createData.managerCode = String(managerCode);
+    }
+
+    const employee = await User.create(createData);
 
     // Return without password
     const { password: _pw, ...safeEmployee } = (employee as any)._doc;

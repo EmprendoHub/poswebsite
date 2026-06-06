@@ -1,4 +1,5 @@
 import { options } from "@/app/api/auth/[...nextauth]/options";
+import StockAdjustmentLog from "@/backend/models/StockAdjustmentLog";
 import StoreInventory from "@/backend/models/StoreInventory";
 import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
@@ -78,11 +79,19 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
     await dbConnect();
-    const { storeId, variationId, delta } = await req.json();
+    const { storeId, variationId, delta, reason } = await req.json();
+
+    const safeDelta = Number(delta);
+    if (!Number.isFinite(safeDelta) || safeDelta === 0) {
+      return NextResponse.json(
+        { error: "delta debe ser un número distinto de 0" },
+        { status: 400 },
+      );
+    }
 
     const record = await StoreInventory.findOneAndUpdate(
       { store: storeId, variationId },
-      { $inc: { quantity: delta }, lastUpdated: new Date() },
+      { $inc: { quantity: safeDelta }, lastUpdated: new Date() },
       { new: true },
     );
 
@@ -92,6 +101,20 @@ export async function PATCH(req: Request) {
         { status: 404 },
       );
     }
+
+    const previousQuantity = Number(record.quantity) - safeDelta;
+    await StockAdjustmentLog.create({
+      store: storeId,
+      product: record.product,
+      variationId,
+      delta: safeDelta,
+      previousQuantity,
+      newQuantity: Number(record.quantity),
+      reason: reason?.trim() || "Ajuste manual de inventario",
+      createdBy: (session?.user as any)?._id,
+      createdByName:
+        (session?.user as any)?.name || (session?.user as any)?.email || "—",
+    });
 
     return NextResponse.json(record, { status: 200 });
   } catch (error: any) {

@@ -12,6 +12,8 @@ export interface CashRegisterMovementDocument extends Document {
   orderId?: number;
   createdBy?: mongoose.Types.ObjectId;
   createdByName?: string;
+  authorizedById?: mongoose.Types.ObjectId;
+  authorizedByName?: string;
   notes?: string;
   createdAt?: Date;
 }
@@ -48,6 +50,8 @@ const CashRegisterMovementSchema = new Schema<CashRegisterMovementDocument>(
     orderId: { type: Number },
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
     createdByName: { type: String },
+    authorizedById: { type: Schema.Types.ObjectId, ref: "User" },
+    authorizedByName: { type: String },
     notes: { type: String },
     createdAt: { type: Date, default: Date.now, index: true },
   },

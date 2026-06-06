@@ -92,6 +92,9 @@ const UserSchema = new mongoose.Schema(
       ref: "Store",
       default: null,
     },
+    managerCode: {
+      type: String,
+    },
   },
   { timestamps: true },
 );

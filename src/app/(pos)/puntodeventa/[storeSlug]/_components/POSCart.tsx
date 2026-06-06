@@ -66,9 +66,7 @@ export default function POSCart({
               <p className="text-xs font-medium leading-tight truncate">
                 {item.title}
               </p>
-              <p className="text-xs text-muted-foreground">
-                {item.variationLabel}
-              </p>
+
               <p className="text-xs font-semibold text-primary mt-0.5">
                 ${(item.price * item.quantity).toFixed(2)}
               </p>

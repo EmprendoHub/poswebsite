@@ -14,6 +14,7 @@ import {
   MdInventory,
   MdAttachMoney,
   MdFactCheck,
+  MdTableChart,
 } from "react-icons/md";
 import { FaCartPlus } from "react-icons/fa6";
 import { BsCardImage } from "react-icons/bs";
@@ -123,6 +124,14 @@ const SideBarRender = () => {
         active={pathname === "/admin/reportes" ? "true" : "false"}
         url={"/admin/reportes"}
       />
+      {(userRole === "manager" || userRole === "super_admin") && (
+        <SideBarItem
+          icon={<MdTableChart size={20} />}
+          text={"Cardex"}
+          active={pathname.startsWith("/admin/cardex") ? "true" : "false"}
+          url={"/admin/cardex"}
+        />
+      )}
 
       {userRole === "super_admin" && (
         <SideBarItem

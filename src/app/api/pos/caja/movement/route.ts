@@ -18,7 +18,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const { sessionId, type, cashAmount, notes } = await req.json();
+    const {
+      sessionId,
+      type,
+      cashAmount,
+      notes,
+      authorizedById,
+      authorizedByName,
+    } = await req.json();
 
     if (!sessionId || !type) {
       return NextResponse.json(
@@ -63,6 +70,8 @@ export async function POST(req: Request) {
       notes: notes || "",
       createdBy: user._id,
       createdByName: user?.name || "Cajero",
+      authorizedById: authorizedById || null,
+      authorizedByName: authorizedByName || null,
     });
 
     // Update session totals

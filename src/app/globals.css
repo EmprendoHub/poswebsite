@@ -146,13 +146,16 @@ input[type="number"] {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
-    width: 58mm !important;
+    width: 100% !important;
+    max-width: 100% !important;
     font-size: 10px !important;
     font-family: "Courier New", Courier, monospace !important;
     color: black !important;
     background: white !important;
-    padding: 3mm !important;
+    padding: 2mm !important;
     margin: 0 !important;
+    text-transform: uppercase !important;
+    font-weight: bold !important;
   }
 
   body:has(#pos-ticket) {
@@ -161,8 +164,8 @@ input[type="number"] {
   }
 
   @page {
-    size: 58mm auto;
-    margin: 0;
+    size: auto;
+    margin: 0mm;
   }
 
   /* Hide screen-only buttons/headers inside the receipt view */

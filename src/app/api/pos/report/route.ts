@@ -41,14 +41,16 @@ export async function GET(req: Request) {
     const start = new Date(date + "T00:00:00.000Z");
     const end = new Date(date + "T23:59:59.999Z");
 
-    // Query by storeId (new) OR by legacy branch name (backward-compatible)
+    // Query by slug (branch field POS checkout always saves) OR legacy branch name
+    const branchValues = [store.slug];
+    if (store.branchLegacyName && store.branchLegacyName !== store.slug) {
+      branchValues.push(store.branchLegacyName);
+    }
+
     const query: any = {
       orderStatus: { $ne: "Cancelado" },
       createdAt: { $gte: start, $lte: end },
-      $or: [
-        { storeId: store._id },
-        ...(store.branchLegacyName ? [{ branch: store.branchLegacyName }] : []),
-      ],
+      branch: { $in: branchValues },
     };
 
     const orders = await Order.find(query).sort({ createdAt: 1 });

@@ -19,6 +19,7 @@ interface CheckoutModalProps {
   storeId: string;
   storeSlug: string;
   storeName: string;
+  cashierName: string;
   isOnline?: boolean;
   onClose: () => void;
   onSuccess: (orderId: string) => void;
@@ -35,6 +36,7 @@ interface ReceiptData {
   customerName: string;
   customerPhone: string;
   storeName: string;
+  cashierName: string;
   date: Date;
   isOffline?: boolean;
 }
@@ -48,6 +50,7 @@ export default function CheckoutModal({
   storeId,
   storeSlug,
   storeName,
+  cashierName,
   isOnline = true,
   onClose,
   onSuccess,
@@ -131,6 +134,7 @@ export default function CheckoutModal({
           customerName,
           customerPhone,
           storeName,
+          cashierName,
           date: new Date(),
           isOffline: true,
         });
@@ -171,6 +175,7 @@ export default function CheckoutModal({
         customerName,
         customerPhone,
         storeName,
+        cashierName,
         date: new Date(),
         isOffline: false,
       });
@@ -355,7 +360,7 @@ function SaleReceipt({
       hour12: true,
     });
 
-  const line = "─".repeat(32);
+  const line = "═ ".repeat(22);
 
   const cashTotal =
     receipt.payMethod === "EFECTIVO"
@@ -414,32 +419,13 @@ function SaleReceipt({
           className="font-mono text-black bg-white"
           style={{
             width: "100%",
-            maxWidth: "58mm",
-            margin: "0 auto",
-            fontSize: "10px",
+            fontSize: "12px",
             padding: "4mm",
             lineHeight: "1.5",
+            textTransform: "uppercase",
+            fontWeight: "bold",
           }}
         >
-          {/* Offline watermark — screen only, hidden when printing */}
-          {receipt.isOffline && (
-            <div
-              className="no-print"
-              style={{
-                textAlign: "center",
-                background: "#FFF3CD",
-                border: "1px solid #FFCA2C",
-                padding: "2px 4px",
-                fontSize: "8px",
-                fontWeight: "bold",
-                marginBottom: "4px",
-                letterSpacing: "0.5px",
-              }}
-            >
-              *** SIN CONEXION — PENDIENTE DE SYNC ***
-            </div>
-          )}
-
           {/* Header */}
           <div
             style={{
@@ -449,13 +435,15 @@ function SaleReceipt({
               marginBottom: "2px",
             }}
           >
-            SUPER COLLECTIBLES
+            SUPERCOLLECTIBLESMX
+            <p>Tienda de Articulos Coleccionables</p>
           </div>
+
           <div
             style={{
               textAlign: "center",
-              fontSize: "10px",
-              marginBottom: "2px",
+              fontSize: "12px",
+              marginBottom: "1px",
             }}
           >
             {receipt.storeName}
@@ -463,8 +451,8 @@ function SaleReceipt({
           <div
             style={{
               textAlign: "center",
-              fontSize: "9px",
-              marginBottom: "4px",
+              fontSize: "11px",
+              marginBottom: "2px",
             }}
           >
             {fmtDate(receipt.date)}
@@ -473,54 +461,54 @@ function SaleReceipt({
           <div style={{ textAlign: "center", marginBottom: "4px" }}>{line}</div>
 
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span>Orden:</span>
+            <span>Cajero:</span>
+            <span>{receipt.cashierName || "—"}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>Folio:</span>
             <span style={{ fontWeight: "bold" }}>#{receipt.orderId}</span>
           </div>
-          {receipt.customerName &&
-            receipt.customerName !== "Publico General" && (
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span>Cliente:</span>
-                <span>{receipt.customerName}</span>
-              </div>
-            )}
-          {receipt.customerPhone && (
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span>Tel:</span>
-              <span>{receipt.customerPhone}</span>
-            </div>
-          )}
 
-          <div style={{ textAlign: "center", margin: "4px 0" }}>{line}</div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>Cliente:</span>
+            <span>{receipt.customerName}</span>
+          </div>
 
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginTop: "4px",
+            }}
+          >
+            <div>Cant.</div>
+            <div>Descrp.</div>
+            <div style={{ textAlign: "right" }}>Importe</div>
+          </div>
+          <div style={{ textAlign: "center", marginBottom: "4px" }}>{line}</div>
           {/* Items */}
           {receipt.items.map((item, idx) => (
             <div key={idx} style={{ marginBottom: "3px" }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>{item.quantity}</span>
                 <span
                   style={{
-                    maxWidth: "38mm",
                     overflow: "hidden",
                     whiteSpace: "nowrap",
                     textOverflow: "ellipsis",
                     display: "block",
+                    paddingRight: "4px",
                   }}
                 >
-                  {item.title}
+                  {item.title.substring(0, 20)}
                 </span>
                 <span style={{ fontWeight: "bold", flexShrink: 0 }}>
                   {fmt(item.price * item.quantity)}
                 </span>
               </div>
-              {item.quantity > 1 && (
-                <div style={{ color: "#555", fontSize: "9px" }}>
-                  {item.quantity} x {fmt(item.price)}
-                </div>
-              )}
             </div>
           ))}
-
           <div style={{ textAlign: "center", margin: "4px 0" }}>{line}</div>
-
           <div
             style={{
               display: "flex",
@@ -532,24 +520,26 @@ function SaleReceipt({
             <span>TOTAL:</span>
             <span>{fmt(receipt.subtotal)}</span>
           </div>
-
           {/* IVA breakdown */}
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
               fontSize: "9px",
-              color: "#555",
               marginTop: "2px",
             }}
           >
             <span>IVA incluido (16%):</span>
             <span>{fmt(receipt.iva)}</span>
           </div>
-
           <div style={{ textAlign: "center", margin: "4px 0" }}>{line}</div>
-
-          {/* Payment details */}
+          {/* Article count + Payment details */}
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>No. de art&iacute;culos:</span>
+            <span style={{ fontWeight: "bold" }}>
+              {receipt.items.reduce((s, i) => s + i.quantity, 0)}
+            </span>
+          </div>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span>Forma de pago:</span>
             <span style={{ fontWeight: "bold" }}>{receipt.payMethod}</span>
@@ -557,7 +547,7 @@ function SaleReceipt({
           {receipt.payMethod === "EFECTIVO" && (
             <>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span>Recibido:</span>
+                <span>Pago con:</span>
                 <span>{fmt(receipt.cashReceived)}</span>
               </div>
               <div
@@ -572,15 +562,26 @@ function SaleReceipt({
               </div>
             </>
           )}
-
           <div style={{ textAlign: "center", margin: "6px 0 2px" }}>{line}</div>
-          <div style={{ textAlign: "center", fontSize: "9px" }}>
+          <div style={{ textAlign: "center", fontSize: "12px" }}>
             ¡Gracias por su compra!
           </div>
           <div
-            style={{ textAlign: "center", fontSize: "9px", marginTop: "2px" }}
+            style={{ textAlign: "center", fontSize: "12px", marginTop: "2px" }}
           >
-            www.supercollectibles.mx
+            www.supercollectibles.com.mx
+          </div>
+
+          <div
+            style={{
+              textAlign: "center",
+              fontSize: "11px",
+              lineHeight: "1.4",
+              marginBottom: "4px",
+            }}
+          >
+            No aceptamos devoluciones. Para verificar la garantia o validez de
+            la misma, comunicarse directamente con el fabricante.
           </div>
         </div>
       </div>

@@ -27,6 +27,7 @@ interface Employee {
   role: AnyRole;
   active: boolean;
   assignedStore?: string | null;
+  hasManagerCode?: boolean;
 }
 
 interface Props {
@@ -52,10 +53,13 @@ export default function EmployeeFormModal({
     active: employee?.active ?? true,
     assignedStore: employee?.assignedStore ?? "",
     password: "",
+    managerCode: "",
   });
   const [stores, setStores] = useState<Store[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [saveDebug, setSaveDebug] = useState<string | null>(null);
+  const [showCode, setShowCode] = useState(false);
 
   useEffect(() => {
     fetch("/api/stores")
@@ -87,6 +91,13 @@ export default function EmployeeFormModal({
       return;
     }
 
+    if (form.managerCode && !/^\d{6}$/.test(form.managerCode)) {
+      setError(
+        "El código de manager debe ser exactamente 6 dígitos numéricos.",
+      );
+      return;
+    }
+
     setSaving(true);
     try {
       const url = isEdit ? `/api/employees/${employee._id}` : "/api/employees";
@@ -101,9 +112,16 @@ export default function EmployeeFormModal({
       };
       if (form.password) {
         if (isEdit) {
-          body.newPassword = form.password; // PUT route uses newPassword
+          body.newPassword = form.password;
         } else {
-          body.password = form.password; // POST route uses password
+          body.password = form.password;
+        }
+      }
+      if (form.managerCode) {
+        if (isEdit) {
+          body.newManagerCode = form.managerCode;
+        } else {
+          body.managerCode = form.managerCode;
         }
       }
 
@@ -115,8 +133,10 @@ export default function EmployeeFormModal({
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Error al guardar");
+        setSaveDebug(`HTTP ${res.status} — ${JSON.stringify(data)}`);
         return;
       }
+      setSaveDebug(null);
       onSaved();
     } catch {
       setError("Error de red. Intenta de nuevo.");
@@ -127,7 +147,7 @@ export default function EmployeeFormModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-background border border-border rounded-xl shadow-xl w-full max-w-lg">
+      <div className="bg-background border border-border rounded-xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="font-bold text-lg">
@@ -142,13 +162,10 @@ export default function EmployeeFormModal({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {error && (
-            <p className="text-sm text-red-500 bg-red-50 dark:bg-red-950/30 rounded-lg px-3 py-2">
-              {error}
-            </p>
-          )}
-
+        <form
+          onSubmit={handleSubmit}
+          className="px-6 py-5 space-y-4 overflow-y-auto flex-1"
+        >
           {/* Name */}
           <div>
             <label className="block text-sm font-medium mb-1">
@@ -257,6 +274,51 @@ export default function EmployeeFormModal({
             />
           </div>
 
+          {/* Manager code — only visible when role is "manager" */}
+          {form.role === "manager" && (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Código de Manager{" "}
+                <span className="text-muted-foreground font-normal text-xs">
+                  (6 dígitos —{" "}
+                  {isEdit && employee?.hasManagerCode
+                    ? "ya tiene código, dejar en blanco para no cambiar"
+                    : "opcional"}
+                  )
+                </span>
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  name="mgr_authorization_code"
+                  id="managerCode-field"
+                  value={form.managerCode}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "").slice(0, 6);
+                    setForm((prev) => ({ ...prev, managerCode: v }));
+                  }}
+                  inputMode="numeric"
+                  maxLength={6}
+                  autoComplete="off"
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary tracking-widest font-mono"
+                  placeholder={
+                    isEdit && employee?.hasManagerCode
+                      ? "tiene código activo"
+                      : "ej. 123456"
+                  }
+                />
+              </div>
+              {form.managerCode.length > 0 && form.managerCode.length < 6 && (
+                <p className="text-xs text-amber-500 mt-1">
+                  {form.managerCode.length}/6 dígitos
+                </p>
+              )}
+              {form.managerCode.length === 6 && (
+                <p className="text-xs text-green-600 mt-1">✓ Código completo</p>
+              )}
+            </div>
+          )}
+
           {/* Active toggle (edit mode only) */}
           {isEdit && (
             <div className="flex items-center gap-3">
@@ -275,6 +337,16 @@ export default function EmployeeFormModal({
           )}
 
           {/* Footer */}
+          {error && (
+            <p className="text-sm text-red-500 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">
+              ⚠ {error}
+            </p>
+          )}
+          {saveDebug && (
+            <pre className="text-xs text-red-400 bg-red-50 dark:bg-red-950/20 border border-red-200 rounded-lg px-3 py-2 whitespace-pre-wrap break-all">
+              {saveDebug}
+            </pre>
+          )}
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"

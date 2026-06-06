@@ -22,7 +22,7 @@ interface DayOrder {
   branch: string;
 }
 
-/* ─── 58mm reprint ticket ─────────────────────────────────────────────── */
+/* ─── Reprint ticket ─────────────────────────────────────────────── */
 function ReprintModal({
   order,
   storeName,
@@ -34,15 +34,15 @@ function ReprintModal({
 }) {
   const fmt = (n: number) =>
     n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
-  const line = "─".repeat(32);
-  const date = new Date(order.createdAt);
-  const fmtDate = date.toLocaleString("es-MX", {
+  const line = "═ ".repeat(22);
+  const fmtDate = new Date(order.createdAt).toLocaleString("es-MX", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
+    timeZone: "UTC",
   });
 
   const transRef = order.paymentInfo?.id ?? "";
@@ -53,6 +53,7 @@ function ReprintModal({
 
   const subtotal = order.paymentInfo?.amountPaid ?? 0;
   const iva = Math.round(((subtotal * 16) / 116) * 100) / 100;
+  const totalItems = order.orderItems.reduce((s, i) => s + i.quantity, 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -78,19 +79,20 @@ function ReprintModal({
           </div>
         </div>
 
-        {/* 58mm ticket */}
+        {/* Ticket */}
         <div
           id="pos-ticket"
           className="font-mono text-black bg-white"
           style={{
             width: "100%",
-            maxWidth: "58mm",
-            margin: "0 auto",
-            fontSize: "10px",
+            fontSize: "12px",
             padding: "4mm",
             lineHeight: "1.5",
+            textTransform: "uppercase",
+            fontWeight: "bold",
           }}
         >
+          {/* Header */}
           <div
             style={{
               textAlign: "center",
@@ -99,13 +101,14 @@ function ReprintModal({
               marginBottom: "2px",
             }}
           >
-            SUPER COLLECTIBLES
+            SUPERCOLLECTIBLESMX
+            <p>Tienda de Articulos Coleccionables</p>
           </div>
           <div
             style={{
               textAlign: "center",
-              fontSize: "10px",
-              marginBottom: "2px",
+              fontSize: "12px",
+              marginBottom: "1px",
             }}
           >
             {storeName}
@@ -113,8 +116,8 @@ function ReprintModal({
           <div
             style={{
               textAlign: "center",
-              fontSize: "9px",
-              marginBottom: "4px",
+              fontSize: "11px",
+              marginBottom: "2px",
             }}
           >
             {fmtDate}
@@ -123,15 +126,17 @@ function ReprintModal({
           <div style={{ textAlign: "center", marginBottom: "4px" }}>{line}</div>
 
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span>Orden:</span>
+            <span>Cajero:</span>
+            <span>—</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>Folio:</span>
             <span style={{ fontWeight: "bold" }}>#{order.orderId}</span>
           </div>
-          {order.customerName && order.customerName !== "Publico General" && (
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span>Cliente:</span>
-              <span>{order.customerName}</span>
-            </div>
-          )}
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>Cliente:</span>
+            <span>{order.customerName || "—"}</span>
+          </div>
           {order.phone && (
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span>Tel:</span>
@@ -139,31 +144,45 @@ function ReprintModal({
             </div>
           )}
 
-          <div style={{ textAlign: "center", margin: "4px 0" }}>{line}</div>
+          {/* Column headers */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginTop: "4px",
+            }}
+          >
+            <div>Cant.</div>
+            <div>Descrp.</div>
+            <div style={{ textAlign: "right" }}>Importe</div>
+          </div>
+          <div style={{ textAlign: "center", marginBottom: "4px" }}>{line}</div>
 
+          {/* Items */}
           {order.orderItems.map((item, idx) => (
-            <div key={idx} style={{ marginBottom: "3px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span
-                  style={{
-                    maxWidth: "38mm",
-                    overflow: "hidden",
-                    whiteSpace: "nowrap",
-                    textOverflow: "ellipsis",
-                    display: "block",
-                  }}
-                >
-                  {item.name}
-                </span>
-                <span style={{ fontWeight: "bold", flexShrink: 0 }}>
-                  {fmt(item.price * item.quantity)}
-                </span>
-              </div>
-              {item.quantity > 1 && (
-                <div style={{ color: "#555", fontSize: "9px" }}>
-                  {item.quantity} x {fmt(item.price)}
-                </div>
-              )}
+            <div
+              key={idx}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: "3px",
+              }}
+            >
+              <span>{item.quantity}</span>
+              <span
+                style={{
+                  overflow: "hidden",
+                  whiteSpace: "nowrap",
+                  textOverflow: "ellipsis",
+                  display: "block",
+                  paddingRight: "4px",
+                }}
+              >
+                {item.name.substring(0, 20)}
+              </span>
+              <span style={{ fontWeight: "bold", flexShrink: 0 }}>
+                {fmt(item.price * item.quantity)}
+              </span>
             </div>
           ))}
 
@@ -185,7 +204,6 @@ function ReprintModal({
               display: "flex",
               justifyContent: "space-between",
               fontSize: "9px",
-              color: "#555",
               marginTop: "2px",
             }}
           >
@@ -196,23 +214,43 @@ function ReprintModal({
           <div style={{ textAlign: "center", margin: "4px 0" }}>{line}</div>
 
           <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>No. de art&iacute;culos:</span>
+            <span style={{ fontWeight: "bold" }}>{totalItems}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span>Forma de pago:</span>
             <span style={{ fontWeight: "bold" }}>{payMethod}</span>
           </div>
 
-          <div style={{ textAlign: "center", margin: "4px 0" }}>{line}</div>
-          <div style={{ textAlign: "center", fontSize: "9px" }}>
-            *** REIMPRESIÓN ***
-          </div>
+          <div style={{ textAlign: "center", margin: "6px 0 2px" }}>{line}</div>
           <div
-            style={{ textAlign: "center", fontSize: "9px", marginTop: "4px" }}
+            style={{
+              textAlign: "center",
+              fontSize: "10px",
+              marginBottom: "2px",
+            }}
           >
+            *** REIMPRESI&Oacute;N ***
+          </div>
+          <div style={{ textAlign: "center", fontSize: "12px" }}>
             ¡Gracias por su compra!
           </div>
           <div
-            style={{ textAlign: "center", fontSize: "9px", marginTop: "2px" }}
+            style={{ textAlign: "center", fontSize: "12px", marginTop: "2px" }}
           >
-            www.supercollectibles.mx
+            www.supercollectibles.com.mx
+          </div>
+          <div
+            style={{
+              textAlign: "center",
+              fontSize: "11px",
+              lineHeight: "1.4",
+              marginTop: "4px",
+              marginBottom: "4px",
+            }}
+          >
+            No aceptamos devoluciones. Para verificar la garantia o validez de
+            la misma, comunicarse directamente con el fabricante.
           </div>
         </div>
       </div>
@@ -282,12 +320,12 @@ export default function POSReportPage() {
                 onChange={(e) => setSelectedDate(e.target.value)}
                 className="bg-muted rounded-lg px-3 py-2 text-sm outline-none"
               />
-              <button
+              {/* <button
                 onClick={() => window.print()}
                 className="flex items-center gap-2 bg-muted hover:bg-primary hover:text-primary-foreground px-4 py-2 rounded-lg text-sm transition-colors"
               >
                 <MdPrint size={16} /> Imprimir
-              </button>
+              </button> */}
             </div>
           </div>
 
@@ -395,6 +433,7 @@ export default function POSReportPage() {
                             {
                               hour: "2-digit",
                               minute: "2-digit",
+                              timeZone: "UTC",
                             },
                           )}
                         </td>

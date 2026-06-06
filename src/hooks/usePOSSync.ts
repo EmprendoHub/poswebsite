@@ -66,6 +66,7 @@ export function usePOSSync(storeId: string | null, storeSlug: string) {
           id: p._id,
           storeId,
           title: p.title,
+          asin: p.ASIN ?? undefined,
           images: p.images ?? [],
           variations: p.variations ?? [],
           cachedAt: now,

@@ -31,6 +31,7 @@ interface OrderDocument extends Document {
   createdAt?: Date;
   updatedAt?: Date;
   branch?: string;
+  storeId?: mongoose.Types.ObjectId;
   email?: string;
   phone?: string;
   customerName?: string;
@@ -141,6 +142,10 @@ const OrderSchema = new Schema<OrderDocument>({
   },
   branch: {
     type: String,
+  },
+  storeId: {
+    type: Schema.Types.ObjectId,
+    ref: "Store",
   },
   email: {
     type: String,

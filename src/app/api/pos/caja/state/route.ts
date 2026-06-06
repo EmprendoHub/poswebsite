@@ -7,6 +7,7 @@ import {
   CashRegisterCut,
   CashRegisterSession,
 } from "@/lib/posCaja";
+import CashRegisterMovement from "@/backend/models/CashRegisterMovement";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
@@ -48,6 +49,15 @@ export async function GET(req: Request) {
       .limit(10)
       .lean();
 
+    const movements = activeSession
+      ? await CashRegisterMovement.find({
+          session: activeSession._id,
+          type: { $in: ["manual_in", "manual_out"] },
+        })
+          .sort({ createdAt: -1 })
+          .lean()
+      : [];
+
     return NextResponse.json(
       {
         activeSession: activeSession
@@ -57,6 +67,7 @@ export async function GET(req: Request) {
             }
           : null,
         recentCuts,
+        movements,
       },
       { status: 200 },
     );

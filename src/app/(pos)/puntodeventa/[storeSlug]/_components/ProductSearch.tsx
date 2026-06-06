@@ -8,6 +8,7 @@ import { posDB } from "@/lib/posDB";
 interface SearchResult {
   _id: string;
   title: string;
+  ASIN?: string;
   price: number;
   images: { url: string }[];
   variations: {
@@ -89,6 +90,7 @@ export default function ProductSearch({
       .filter(
         (p) =>
           p.title.toLowerCase().includes(term) ||
+          p.asin?.toLowerCase().includes(term) ||
           p.variations.some(
             (v) =>
               v.title?.toLowerCase().includes(term) ||
@@ -112,6 +114,16 @@ export default function ProductSearch({
       })
       .catch(() => setLoading(false));
   }, [debouncedQuery, storeId, isOnline]);
+
+  // ── Auto-add on exact ASIN match ──────────────────────────────────────
+  useEffect(() => {
+    if (!debouncedQuery.trim() || results.length === 0) return;
+    const term = debouncedQuery.trim().toUpperCase();
+    const exact = results.find((p) => p.ASIN?.toUpperCase() === term);
+    if (exact?.variations?.[0]) {
+      handleAdd(exact, exact.variations[0]);
+    }
+  }, [results]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAdd = (
     product: SearchResult,
@@ -159,7 +171,7 @@ export default function ProductSearch({
               ? "Buscar por nombre, ID, marca o categoría..."
               : "Modo sin conexión — buscando en caché local..."
           }
-          className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+          className="flex-1 bg-transparent outline-none text-sm placeholder:text-slate-300"
           // Recapture focus if user clicks away (keeps scanner working)
           onBlur={() => {
             if (!pauseFocus) setTimeout(() => inputRef.current?.focus(), 150);

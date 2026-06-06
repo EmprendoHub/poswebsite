@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import POSSidebar from "./_components/POSSidebar";
 import ProductSearch, { CartItem } from "./_components/ProductSearch";
 import POSCart from "./_components/POSCart";
@@ -11,6 +12,9 @@ import { usePOSSync } from "@/hooks/usePOSSync";
 export default function POSSalesPage() {
   const params = useParams();
   const storeSlug = params?.storeSlug as string;
+  const { data: session } = useSession();
+  const cashierName =
+    (session?.user as any)?.name ?? (session?.user as any)?.email ?? "Cajero";
 
   // In a real render the storeId and storeName come from a server component or context;
   // here we fetch them once and cache in state.
@@ -225,6 +229,7 @@ export default function POSSalesPage() {
           storeId={storeId}
           storeSlug={storeSlug}
           storeName={storeName}
+          cashierName={cashierName}
           isOnline={isOnline}
           onClose={() => setShowCheckout(false)}
           onSuccess={handleSuccess}

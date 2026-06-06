@@ -12,6 +12,7 @@ export interface CachedProduct {
   id: string; // = product._id string
   storeId: string;
   title: string;
+  asin?: string;
   images: { url: string }[];
   variations: {
     _id: string;
