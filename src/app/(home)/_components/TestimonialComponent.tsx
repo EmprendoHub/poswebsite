@@ -6,18 +6,8 @@ import "slick-carousel/slick/slick-theme.css";
 import Image from "next/image";
 import { testimonials } from "@/constants/testimoniolsdata";
 import { Star } from "lucide-react";
-import SectionTextColorComponent from "@/components/texts/SectionTextColorComponent";
 
 const TestimonialComponent = () => {
-  const starRating = (props: any) => {
-    const starArray = Array.from({ length: props }, (_, index) => (
-      <span key={index} className="text-yellow-500">
-        <Star />
-      </span>
-    ));
-    return <>{starArray}</>;
-  };
-
   const settings = {
     className: "center mx-auto flex ",
     dots: true,
@@ -56,63 +46,71 @@ const TestimonialComponent = () => {
     ],
   };
   return (
-    <div className="testimonial-class my-10 maxmd:my-10 px-5">
-      <SectionTextColorComponent
-        className="mb-10 text-center"
-        pretitle={"Que dicen nuestros clientes"}
-        title={"Testimonios"}
-        subtitle={
-          "Nos enorgullese saber que pudimos ayudar a cada uno nuestros clientes."
-        }
-        btnText={""}
-        btnUrl={""}
-      />
-      <Slider {...settings} className="">
-        {testimonials.map((testimonial, index) => {
-          return (
-            <div key={index} className="px-2">
-              <div className="p-5 flex flex-col relative top-[30.34px] drop-shadow-md rounded-lgi bg-nackground text-gray-500 w-[90%] maxmd:w-[100%] h-[380px] maxsm:max-h-[380px] text-dimgray-200">
-                <div className="rate flex-row">
-                  <div className="stars flex items-center gap-x-1">
-                    {starRating(testimonial.rating)}
-                    <span className="font-medium text-2xl">
-                      {testimonial.rating}
-                    </span>
-                  </div>
-                </div>
-                <div className="max-w-full">
-                  <p className="m-0 p-3 text-xs maxsm:text-xs leading-[118%] font-normal   flex">
-                    {testimonial.message}
+    <div className="mx-auto max-w-7xl px-4 sm:px-6">
+      {/* Header */}
+      <div className="text-center mb-10">
+        <span className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
+          Reseñas
+        </span>
+        <h2 className="mt-2 text-3xl font-bold text-white tracking-tight">
+          Lo que dicen nuestros clientes
+        </h2>
+        <p className="mt-2 text-sm text-zinc-400">
+          Nos enorgullece haber ayudado a cada uno de ellos a crecer su
+          colección.
+        </p>
+      </div>
+
+      <Slider {...settings}>
+        {testimonials.map((testimonial, index) => (
+          <div key={index} className="px-2 pb-8">
+            <div className="relative flex flex-col gap-4 p-6 rounded-2xl bg-zinc-900 border border-white/10 h-[320px] overflow-hidden">
+              {/* Quote mark */}
+              <span className="absolute top-3 right-4 text-7xl font-serif text-white/8 leading-none select-none">
+                ❞
+              </span>
+
+              {/* Stars */}
+              <div className="flex items-center gap-1">
+                {Array.from({ length: testimonial.rating }).map((_, i) => (
+                  <Star
+                    key={i}
+                    size={14}
+                    className="fill-yellow-400 text-yellow-400"
+                  />
+                ))}
+                <span className="ml-1 text-xs font-semibold text-zinc-300">
+                  {testimonial.rating}.0
+                </span>
+              </div>
+
+              {/* Message */}
+              <p className="text-xs text-zinc-400 leading-relaxed flex-1 line-clamp-6">
+                {testimonial.message}
+              </p>
+
+              {/* Author */}
+              <div className="flex items-center gap-3 pt-2 border-t border-white/10">
+                <Image
+                  width={36}
+                  height={36}
+                  quality={90}
+                  className="rounded-full w-9 h-9 object-cover ring-2 ring-white/10"
+                  alt="avatar"
+                  src={testimonial.image}
+                />
+                <div>
+                  <p className="text-xs font-semibold text-white">
+                    {testimonial.name}
+                  </p>
+                  <p className="text-[11px] text-zinc-500">
+                    {testimonial.position}
                   </p>
                 </div>
-
-                <div className="author flex flex-row pl-3 ">
-                  <Image
-                    width={60}
-                    height={60}
-                    quality={100}
-                    className="flex flex-row mr-4 rounded-full w-8 h-8"
-                    alt="avatar"
-                    src={testimonial.image}
-                  />
-                  <div className="flex flex-col">
-                    <div className="leading-[146%] text-[12px] font-medium  inline-block">
-                      {testimonial.position}
-                    </div>
-                    <div className="leading-[123%] maxsm:text-xs maxmd:text-xs font-medium text-foreground inline-block ">
-                      {testimonial.name}
-                    </div>
-                  </div>
-                </div>
-                <h2 className="m-0 absolute bottom-10 right-5 text-53xl leading-[68.5%] font-medium text-center inline-block w-[95.09px] h-[85.03px]">
-                  <span className="font-poppins text-9xl opacity-25 text-blueLight">
-                    ❞
-                  </span>
-                </h2>
               </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </Slider>
     </div>
   );

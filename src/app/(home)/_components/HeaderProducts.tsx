@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React from "react";
 import {
   Carousel,
   CarouselContent,
@@ -7,38 +7,34 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import Image from "next/image";
 import ProductCard from "../producto/_components/ProductCard";
 
 const HeaderProducts = ({ editorsProducts }: { editorsProducts: any }) => {
-  const cat_title = [
-    { id: 1, category: "Tarjetas Coleccionables" },
-    { id: 2, category: "Artículos Autografiados" },
-    { id: 3, category: "Sets de Batalla" },
-  ];
-
   return (
-    <div className="relative  h-full pb-20 pt-5">
-      <div className="w-full h-20 absolute z-0 -top-10 bg-gradient-to-t from-black via-black to-black/30 blur-sm" />
-      <div className="w-full h-20 absolute z-0 -top-5 bg-gradient-to-b from-black via-black to-black/30 blur-sm" />
-      <div className="">
-        <Image
-          src={"/covers/duela_bg.webp"}
-          alt="Invierte tu dinero en coleccionables"
-          fill
-          className="-z-[1] fixed w-full"
-        />
+    <div className="relative h-full pb-10 pt-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 mb-6 flex items-end justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">
+            Catálogo
+          </p>
+          <h3 className="text-3xl font-bold text-white tracking-tight">
+            Lo más nuevo
+          </h3>
+        </div>
+        <a
+          href="/tienda"
+          className="text-xs font-semibold text-primary hover:underline"
+        >
+          Ver todo →
+        </a>
       </div>
       <Carousel
-        className="w-full max-w-[1450px] mx-auto mt-10 px-5"
+        className="w-full max-w-7xl mx-auto px-4 sm:px-6"
         opts={{
-          align: "center",
+          align: "start",
           slidesToScroll: 3,
         }}
       >
-        <h3 className="ml-4 my-3 text-semibold text-4xl font-EB_Garamond text-white">
-          Lo mas nuevo
-        </h3>
         <CarouselContent className="-ml-1 ">
           {editorsProducts.slice(0, 20).map((product: any, index: any) => (
             <CarouselItem

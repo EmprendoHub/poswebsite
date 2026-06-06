@@ -66,10 +66,16 @@ export default function POSCart({
               <p className="text-xs font-medium leading-tight truncate">
                 {item.title}
               </p>
-
-              <p className="text-xs font-semibold text-primary mt-0.5">
-                ${(item.price * item.quantity).toFixed(2)}
-              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-xs font-semibold text-slate-300">
+                  ${item.price.toFixed(2)} x {item.quantity}
+                </p>
+                {item.quantity >= item.stock && (
+                  <span className="text-[10px] font-semibold text-amber-400 leading-none">
+                    máx. {item.stock}
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
               <button
@@ -83,7 +89,8 @@ export default function POSCart({
               </span>
               <button
                 onClick={() => onUpdateQty(item.variationId, 1)}
-                className="w-6 h-6 rounded-full bg-muted hover:bg-primary hover:text-primary-foreground flex items-center justify-center transition-colors"
+                disabled={item.quantity >= item.stock}
+                className="w-6 h-6 rounded-full bg-muted hover:bg-primary hover:text-primary-foreground flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <MdAdd size={12} />
               </button>

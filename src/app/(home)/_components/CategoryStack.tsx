@@ -5,14 +5,19 @@ import Link from "next/link";
 
 const CategoryStack = () => {
   return (
-    <div
-      className={`maxmd:w-full maxlg:w-[80%] w-[70%] h-auto relative flex flex-col justify-center items-center my-10 mx-auto overflow-x-hidden`}
-    >
-      <div className="w-full h-20 absolute z-0 -top-10 bg-gradient-to-t from-black via-black to-black/30 blur-sm" />
-      <div className="w-full h-20 absolute z-0 -top-5 bg-gradient-to-b from-black via-black to-black/30 blur-sm" />
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6">
+      {/* Section header */}
+      <div className="mb-6">
+        <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">
+          Universos
+        </p>
+        <h2 className="text-3xl font-bold text-white tracking-tight">
+          Explora por categoría
+        </h2>
+      </div>
 
       {/* Image Section 1 (Main) */}
-      <div className="flex px-2 gap-3 flex-col items-center justify-center w-full h-auto z-[1]">
+      <div className="flex px-0 gap-3 flex-col items-center justify-center w-full h-auto z-[1]">
         <motion.div
           initial={{ y: -50, opacity: 0 }}
           whileInView={{ y: 0, opacity: 1 }}

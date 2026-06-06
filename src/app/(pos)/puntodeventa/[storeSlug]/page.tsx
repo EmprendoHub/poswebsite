@@ -64,6 +64,8 @@ export default function POSSalesPage() {
     setCart((prev) => {
       const existing = prev.find((i) => i.variationId === item.variationId);
       if (existing) {
+        // Don't exceed available stock
+        if (existing.quantity >= item.stock) return prev;
         return prev.map((i) =>
           i.variationId === item.variationId
             ? { ...i, quantity: i.quantity + 1 }
@@ -77,11 +79,13 @@ export default function POSSalesPage() {
   function handleUpdateQty(variationId: string, delta: number) {
     setCart((prev) =>
       prev
-        .map((i) =>
-          i.variationId === variationId
-            ? { ...i, quantity: i.quantity + delta }
-            : i,
-        )
+        .map((i) => {
+          if (i.variationId !== variationId) return i;
+          const next = i.quantity + delta;
+          // Don't go above stock; don't go below 0 (filter removes it)
+          const clamped = Math.min(next, i.stock);
+          return { ...i, quantity: clamped };
+        })
         .filter((i) => i.quantity > 0),
     );
   }

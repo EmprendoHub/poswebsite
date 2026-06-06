@@ -10,15 +10,13 @@ const OPTIONS: EmblaOptionsType = { loop: true };
 
 const HomeHeader = () => {
   return (
-    <div className="relative w-full home-header h-fit  bg-gradient-to-b from-primary to-transparent">
+    <div className="relative w-full">
       <EmblaCarousel slides={SLIDER_IMAGES} options={OPTIONS} />
-      <div className="absolute -bottom-5 z-[5] flex justify-center items-start w-full ">
-        <div className="w-[97%] rounded-[3px] flex flex-row items-center justify-center text-[12px] bg-slate-100 text-black mx-auto mt-3 minmd:hidden ">
-          <span className="flex flex-row items-center gap-x-1 text-emerald-700 p-1">
-            <Truck size={16} /> Envíos gratis
-          </span>{" "}
-          en cientos de coleccionables
-        </div>
+      {/* Mobile free-shipping strip */}
+      <div className="minmd:hidden flex items-center justify-center gap-1.5 bg-zinc-950 border-t border-white/10 py-2 text-xs font-medium text-zinc-300">
+        <Truck size={14} className="text-emerald-400" />
+        <span className="text-emerald-400 font-semibold">Envíos gratis</span>
+        <span>en cientos de coleccionables</span>
       </div>
     </div>
   );

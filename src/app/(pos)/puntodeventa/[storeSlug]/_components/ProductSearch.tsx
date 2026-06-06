@@ -37,6 +37,7 @@ export interface CartItem {
   price: number;
   quantity: number;
   image: string;
+  stock: number;
 }
 
 export default function ProductSearch({
@@ -129,6 +130,7 @@ export default function ProductSearch({
     product: SearchResult,
     variation: SearchResult["variations"][0],
   ) => {
+    if (variation.stock <= 0) return; // never add out-of-stock
     const label = [variation.color, variation.size, variation.title]
       .filter(Boolean)
       .join(" / ");
@@ -140,6 +142,7 @@ export default function ProductSearch({
       price: variation.price,
       quantity: 1,
       image: variation.image ?? product.images?.[0]?.url ?? "",
+      stock: variation.stock,
     });
     setQuery("");
     setResults([]);
@@ -202,11 +205,13 @@ export default function ProductSearch({
           )}
           {results.map((product) => {
             const v = product.variations?.[0];
+            const outOfStock = (v?.stock ?? 0) <= 0;
             return (
               <button
                 key={product._id}
                 onClick={() => v && handleAdd(product, v)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left border-b border-muted last:border-0"
+                disabled={outOfStock}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left border-b border-muted last:border-0 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {product.images?.[0]?.url && (
                   <Image
@@ -221,8 +226,10 @@ export default function ProductSearch({
                   <p className="text-sm font-medium truncate">
                     {product.title}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Stock: {v?.stock ?? "N/A"}
+                  <p
+                    className={`text-xs ${outOfStock ? "text-red-500 font-semibold" : "text-muted-foreground"}`}
+                  >
+                    {outOfStock ? "Sin stock" : `Stock: ${v?.stock}`}
                   </p>
                 </div>
                 <span className="text-sm font-semibold text-primary ml-2">

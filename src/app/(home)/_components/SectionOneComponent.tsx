@@ -1,74 +1,87 @@
-import DivUpMotion from "@/components/images/DivUpMotion";
-import SectionLayoutComponet from "@/components/layouts/SectionLayoutComponet";
-import HeroColTextComponent from "@/components/texts/HeroColTextComponent";
+import Image from "next/image";
 import Link from "next/link";
 import React from "react";
 
-const serviciosMedicos = [
+const reasons = [
   {
-    title: "Gran Variedad de Coleccionables",
-    text: "Contamos con una gran variedad de coleccionables ubicas perfectas para expandir tu colección.",
-    imgUrl: "/contacto",
+    title: "Gran variedad",
+    text: "Contamos con un catálogo extenso de coleccionables seleccionados para todo tipo de coleccionista.",
     imgSrc: "/images/Supecollectibles_Unique_Cards.webp",
+    href: "/tienda",
   },
   {
-    title: "Garantía de Autenticidad",
+    title: "Garantía de autenticidad",
     text: "Cada artículo o tarjeta es verificado para garantizar que estás adquiriendo piezas genuinas.",
-    imgUrl: "/tienda",
     imgSrc: "/images/Supecollectibles_PSA_Certification.webp",
+    href: "/tienda",
   },
   {
-    title: "Compras Seguras y Fáciles",
-    text: "Proceso de compra es sencillo, seguro y rápido, adquiere lo que necesitas sin complicaciones.",
-    imgUrl: "/servicios",
+    title: "Compra segura y fácil",
+    text: "Proceso de compra sencillo, seguro y rápido. Adquiere lo que necesitas sin complicaciones.",
     imgSrc: "/images/card_security_PSA_3.webp",
+    href: "/tienda",
   },
 ];
 
 const SectionOneComponent = () => {
   return (
-    <>
-      <SectionLayoutComponet
-        className={
-          "bg-nackground maxmd:px-5 pb-24 mx-auto text-center  min-h-screen w-full "
-        }
-      >
-        <div className=" pt-40 w-[80%] maxsm:w-full mx-auto text-center pb-20">
-          <HeroColTextComponent
-            className={"text-center"}
-            pretitle={"Amplia Selección"}
-            title={"¿Por Qué  "}
-            word={"Elegirnos?"}
-            subtitle={
-              "Disponemos de un catálogo extenso con tarjetas y artículos coleccionables cuidadosamente seleccionados, asegurando calidad y autenticidad en cada producto."
-            }
-          />
-          <div className="flex flex-row maxmd:flex-col gap-6 maxmd:gap-24 justify-center items-center mt-10">
-            {serviciosMedicos?.map((servicio, index) => (
-              <DivUpMotion
-                key={index}
-                divIndex={index}
-                divClassName={`relative flex justify-center bg-gray-300 h-[350px] w-[500px] maxsm:w-full r`}
-                imgSrc={servicio?.imgSrc}
-                imgWidth={1000}
-                imgHeight={1000}
-                imgAlt="Super Collectibles Mx"
-                imgClassName="object-cover w-full h-full"
-                title={servicio?.title}
-                text={servicio?.text}
-                divDuration={1}
-              />
-            ))}
-          </div>
+    <div className="bg-background py-20 px-4 sm:px-6">
+      <div className="mx-auto max-w-7xl">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <span className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
+            Nuestra promesa
+          </span>
+          <h2 className="mt-2 text-3xl sm:text-4xl font-bold text-white tracking-tight">
+            ¿Por qué elegirnos?
+          </h2>
+          <p className="mt-3 max-w-xl mx-auto text-sm text-zinc-400 leading-relaxed">
+            Disponemos de un catálogo extenso con tarjetas y artículos
+            coleccionables cuidadosamente seleccionados, asegurando calidad y
+            autenticidad en cada producto.
+          </p>
         </div>
-        <Link
-          href={"/tienda"}
-          className="border-b bg-primary px-6 py-3 rounded-full text-white border-b-gray-400 mt-20 tracking-wide font-raleway uppercase"
-        >
-          Explorar La Tienda
-        </Link>
-      </SectionLayoutComponet>
-    </>
+
+        {/* Cards */}
+        <div className="grid grid-cols-3 maxmd:grid-cols-1 gap-6">
+          {reasons.map((item, index) => (
+            <Link
+              key={index}
+              href={item.href}
+              className="group relative overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 hover:border-primary/40 transition"
+            >
+              <div className="relative h-52 w-full">
+                <Image
+                  src={item.imgSrc}
+                  alt={item.title}
+                  fill
+                  className="object-cover transition group-hover:scale-105 duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/40 to-transparent" />
+              </div>
+              <div className="p-5">
+                <h3 className="font-bold text-white text-base mb-1">
+                  {item.title}
+                </h3>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  {item.text}
+                </p>
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {/* CTA */}
+        <div className="text-center mt-10">
+          <Link
+            href="/tienda"
+            className="inline-block rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground hover:opacity-90 transition"
+          >
+            Explorar la tienda
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 };
 

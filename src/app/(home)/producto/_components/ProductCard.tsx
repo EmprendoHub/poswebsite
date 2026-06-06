@@ -193,7 +193,7 @@ const ProductCard = ({ item, index }: { item: any; index: number }) => {
                   : variation?.stock <= 0
                     ? "bg-slate-300 grayscale-0 text-foreground border-slate-300"
                     : "text-white border-black bg-primary"
-              } border drop-shadow-md flex flex-row items-center justify-center px-6 py-4 gap-x-2 text-xs ease-in-out duration-300 w-full uppercase tracking-wider cursor-pointer transition-colors`}
+              } border drop-shadow-md flex flex-row items-center justify-center px-6 py-4 gap-x-2 text-xs ease-in-out duration-300 w-full uppercase tracking-wider cursor-pointer transition-colors rounded-xl`}
               onClick={handleClick}
             >
               <AnimatePresence mode="wait">

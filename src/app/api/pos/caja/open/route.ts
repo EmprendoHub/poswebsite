@@ -5,6 +5,7 @@ import {
   canUseStore,
   getStoreOrThrow,
   CashRegisterSession,
+  CashRegisterMovement,
 } from "@/lib/posCaja";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
@@ -67,6 +68,23 @@ export async function POST(req: Request) {
       notes: notes || "",
       lastCutAt: new Date(),
     });
+
+    // Register fondo inicial as a manual_in movement so it appears in the
+    // shift's "Entradas y Salidas" table and counts toward expectedCash.
+    if (opening > 0) {
+      await CashRegisterMovement.create({
+        session: newSession._id,
+        store: store._id,
+        type: "manual_in",
+        payMethod: "EFECTIVO",
+        cashAmount: opening,
+        cardAmount: 0,
+        totalAmount: opening,
+        createdBy: user._id,
+        createdByName: user?.name || "Cajero",
+        notes: "Fondo inicial de apertura",
+      });
+    }
 
     return NextResponse.json({ session: newSession }, { status: 201 });
   } catch (error: any) {
