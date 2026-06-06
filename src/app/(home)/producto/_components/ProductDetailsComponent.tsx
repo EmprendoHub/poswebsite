@@ -162,6 +162,14 @@ const ProductDetailsComponent = ({
   const zoomFactor = 3;
   const zoomSize = 200; // Diameter of the zoom circle
 
+  const filteredTrendingProducts = (trendingProducts ?? []).filter(
+    (p: any) =>
+      p?.availability?.online === true &&
+      (Number(p?.stock ?? 0) > 0 ||
+        (Array.isArray(p?.variations) &&
+          p.variations.some((v: any) => Number(v?.stock ?? 0) > 0))),
+  );
+
   return (
     <div className="container-class maxsm:py-8 ">
       <div className="flex flex-col items-center justify-between">
@@ -419,7 +427,7 @@ const ProductDetailsComponent = ({
               {"También te puede gustar"}
             </p>
             <div className="grid maxsm:grid-cols-2 maxmd:grid-cols-4 grid-cols-4 gap-4 mt-2">
-              {trendingProducts?.map((product: any, index: number) => (
+              {filteredTrendingProducts?.map((product: any, index: number) => (
                 <ProductCard key={product._id} item={product} index={index} />
               ))}
             </div>
