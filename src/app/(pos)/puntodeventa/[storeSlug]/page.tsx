@@ -5,12 +5,19 @@ import POSSidebar from "./_components/POSSidebar";
 import ProductSearch, { CartItem } from "./_components/ProductSearch";
 import POSCart from "./_components/POSCart";
 import CheckoutModal from "./_components/CheckoutModal";
-import { MdCheckCircle, MdWifiOff, MdSync, MdCloudDone } from "react-icons/md";
-import { useParams } from "next/navigation";
+import {
+  MdCheckCircle,
+  MdWifiOff,
+  MdSync,
+  MdCloudDone,
+  MdLock,
+} from "react-icons/md";
+import { useParams, useRouter } from "next/navigation";
 import { usePOSSync } from "@/hooks/usePOSSync";
 
 export default function POSSalesPage() {
   const params = useParams();
+  const router = useRouter();
   const storeSlug = params?.storeSlug as string;
   const { data: session } = useSession();
   const cashierName =
@@ -21,6 +28,8 @@ export default function POSSalesPage() {
   const [storeId, setStoreId] = useState<string | null>(null);
   const [storeName, setStoreName] = useState<string>("");
   const [storeReady, setStoreReady] = useState(false);
+  const [cajaChecked, setCajaChecked] = useState(false);
+  const [cajaOpen, setCajaOpen] = useState(false);
 
   useEffect(() => {
     if (!storeSlug) return;
@@ -36,6 +45,25 @@ export default function POSSalesPage() {
       })
       .catch(() => setStoreReady(true));
   }, [storeSlug]);
+
+  // ── Guard: redirect to /caja if no open session ──
+  useEffect(() => {
+    if (!storeId) return;
+    fetch(`/api/pos/caja/state?storeId=${storeId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.activeSession) {
+          setCajaOpen(true);
+        } else {
+          router.replace(`/puntodeventa/${storeSlug}/caja`);
+        }
+      })
+      .catch(() => {
+        // On network error let them through rather than blocking forever
+        setCajaOpen(true);
+      })
+      .finally(() => setCajaChecked(true));
+  }, [storeId, storeSlug, router]);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customerName, setCustomerName] = useState("Publico General");
@@ -100,6 +128,19 @@ export default function POSSalesPage() {
     setCart([]);
     setCustomerName("Publico General");
     setCustomerPhone("");
+  }
+
+  // While we haven't confirmed the caja is open, show a neutral loading screen
+  if (!cajaChecked) {
+    return (
+      <div className="flex h-screen bg-background">
+        <POSSidebar storeSlug={storeSlug} storeName={storeName} />
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 text-muted-foreground">
+          <MdLock size={40} className="opacity-30" />
+          <p className="text-sm">Verificando estado de caja…</p>
+        </div>
+      </div>
+    );
   }
 
   return (

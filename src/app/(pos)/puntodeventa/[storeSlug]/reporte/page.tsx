@@ -55,6 +55,17 @@ function ReprintModal({
   const iva = Math.round(((subtotal * 16) / 116) * 100) / 100;
   const totalItems = order.orderItems.reduce((s, i) => s + i.quantity, 0);
 
+  // Auto-send to printer as soon as the modal renders, then close on afterprint
+  useEffect(() => {
+    const t = setTimeout(() => window.print(), 150);
+    const close = () => onClose();
+    window.addEventListener("afterprint", close);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("afterprint", close);
+    };
+  }, []);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs flex flex-col">
@@ -68,7 +79,7 @@ function ReprintModal({
               onClick={() => window.print()}
               className="flex items-center gap-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg transition-colors"
             >
-              <MdPrint size={14} /> Imprimir
+              <MdPrint size={14} /> Reimprimir
             </button>
             <button
               onClick={onClose}

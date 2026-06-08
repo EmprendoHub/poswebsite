@@ -399,6 +399,18 @@ export default function CajaPage() {
     window.print();
   }
 
+  // Auto-send corte ticket to printer as soon as the overlay appears, then close on afterprint
+  useEffect(() => {
+    if (!showPrintTicket) return;
+    const t = setTimeout(() => window.print(), 150);
+    const close = () => setShowPrintTicket(false);
+    window.addEventListener("afterprint", close);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("afterprint", close);
+    };
+  }, [showPrintTicket]);
+
   const expectedCash = activeSession?.expectedCash ?? 0;
   const totalSales = activeSession
     ? activeSession.totals.cashSales +
@@ -426,7 +438,7 @@ export default function CajaPage() {
                 onClick={printTicket}
                 className="flex items-center gap-1 bg-primary text-white text-sm px-4 py-2 rounded-lg"
               >
-                <MdPrint size={16} /> Imprimir
+                <MdPrint size={16} /> Reimprimir
               </button>
               <button
                 onClick={() => setShowPrintTicket(false)}

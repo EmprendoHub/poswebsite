@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   MdClose,
   MdCheck,
@@ -376,6 +376,17 @@ function SaleReceipt({
           )
         : 0;
 
+  // Auto-send to printer as soon as the receipt renders, then close on afterprint
+  useEffect(() => {
+    const t = setTimeout(() => window.print(), 150);
+    const close = () => onDone();
+    window.addEventListener("afterprint", close);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("afterprint", close);
+    };
+  }, []);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs flex flex-col">
@@ -402,7 +413,7 @@ function SaleReceipt({
               onClick={() => window.print()}
               className="flex items-center gap-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg transition-colors"
             >
-              <MdPrint size={14} /> Imprimir
+              <MdPrint size={14} /> Reimprimir
             </button>
             <button
               onClick={onDone}
