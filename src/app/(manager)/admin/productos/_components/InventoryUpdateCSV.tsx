@@ -1,17 +1,19 @@
 "use client";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Papa from "papaparse";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import {
   FaCheckCircle,
-  FaTimesCircle,
   FaFileUpload,
   FaSearch,
   FaCloudUploadAlt,
-  FaTrash,
+  FaPlusCircle,
+  FaBan,
+  FaEdit,
 } from "react-icons/fa";
 import { FaArrowRightLong } from "react-icons/fa6";
+import { MdStorefront } from "react-icons/md";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface CsvRow {
@@ -30,6 +32,7 @@ interface MatchResult {
   rowIndex: number;
   codigo: string;
   producto: string;
+  departamento: string;
   matchedId: string | null;
   matchedTitle: string | null;
   matchMethod: "asin" | "name" | "none";
@@ -38,10 +41,21 @@ interface MatchResult {
   newStock: number;
   currentPrice: number | null;
   newPrice: number;
+  markedUpPrice: number;
+  newCost: number;
+  action: "update" | "create";
   updated?: boolean;
+  created?: boolean;
+  createError?: string | null;
 }
 
-// ── Column aliases: maps possible header spellings → canonical key ─────────
+interface StoreOption {
+  _id: string;
+  name: string;
+  slug: string;
+}
+
+// ── Column aliases ─────────────────────────────────────────────────────────────
 const COL_MAP: Record<string, keyof CsvRow> = {
   código: "codigo",
   codigo: "codigo",
@@ -79,11 +93,18 @@ function normalizeKey(raw: string): keyof CsvRow | null {
   return COL_MAP[raw.trim().toLowerCase()] ?? null;
 }
 
-// ── Component ────────────────────────────────────────────────────────────────
+// ── Component ──────────────────────────────────────────────────────────────────
 const InventoryUpdateCSV = () => {
+  // Branch selector
+  const [stores, setStores] = useState<StoreOption[]>([]);
+  const [storeId, setStoreId] = useState<string>("");
+
+  // CSV
   const [fileName, setFileName] = useState<string | null>(null);
   const [rows, setRows] = useState<CsvRow[]>([]);
   const [parseError, setParseError] = useState<string | null>(null);
+
+  // Preview / apply
   const [previewResults, setPreviewResults] = useState<MatchResult[] | null>(
     null,
   );
@@ -92,18 +113,47 @@ const InventoryUpdateCSV = () => {
   const [appliedResults, setAppliedResults] = useState<MatchResult[] | null>(
     null,
   );
+  const [appliedCounts, setAppliedCounts] = useState<{
+    updated: number;
+    created: number;
+  } | null>(null);
 
-  // Filter controls
-  const [filterMatch, setFilterMatch] = useState<
-    "all" | "matched" | "unmatched"
+  // Per-row action overrides: "update" | "create" | "skip"
+  const [rowActions, setRowActions] = useState<
+    Record<number, "update" | "create" | "skip">
+  >({});
+
+  // Filters
+  const [filterAction, setFilterAction] = useState<
+    "all" | "update" | "create" | "skip"
   >("all");
   const [searchText, setSearchText] = useState("");
 
-  // ── Remove a single preview row ────────────────────────────────────────────
-  const removePreviewRow = (rowIndex: number) => {
-    setPreviewResults((prev) =>
-      prev ? prev.filter((r) => r.rowIndex !== rowIndex) : null,
-    );
+  // ── Load stores ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    fetch("/api/stores")
+      .then((r) => r.json())
+      .then((data: StoreOption[]) => {
+        if (!Array.isArray(data)) return;
+        setStores(data);
+        if (data.length === 1) setStoreId(data[0]._id);
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Effective action for a row ─────────────────────────────────────────────
+  const effectiveAction = (r: MatchResult): "update" | "create" | "skip" =>
+    rowActions[r.rowIndex] ?? r.action;
+
+  const toggleAction = (
+    rowIndex: number,
+    current: "update" | "create" | "skip",
+    defaultAction: "update" | "create",
+  ) => {
+    setRowActions((prev) => ({
+      ...prev,
+      [rowIndex]: current === "skip" ? defaultAction : "skip",
+    }));
   };
 
   // ── CSV parse ──────────────────────────────────────────────────────────────
@@ -111,6 +161,8 @@ const InventoryUpdateCSV = () => {
     setParseError(null);
     setPreviewResults(null);
     setAppliedResults(null);
+    setAppliedCounts(null);
+    setRowActions({});
     setFileName(file.name);
 
     Papa.parse(file, {
@@ -123,12 +175,6 @@ const InventoryUpdateCSV = () => {
           setParseError("El archivo está vacío o no tiene filas de datos.");
           return;
         }
-
-        // Debug: log the first raw row so we can verify column names
-        console.log("[CSV] Raw headers found:", Object.keys(raw[0] ?? {}));
-        console.log("[CSV] First data row:", raw[0]);
-        console.log("[CSV] Total rows:", raw.length);
-
         const mapped: CsvRow[] = raw.map((r) => {
           const row: Partial<CsvRow> = {
             codigo: "",
@@ -147,14 +193,10 @@ const InventoryUpdateCSV = () => {
           }
           return row as CsvRow;
         });
-
-        console.log("[CSV] First mapped row:", mapped[0]);
         setRows(mapped);
         toast(`${mapped.length} filas cargadas correctamente`);
       },
-      error: (err) => {
-        setParseError(`Error al leer el archivo: ${err.message}`);
-      },
+      error: (err) => setParseError(`Error al leer el archivo: ${err.message}`),
     });
   }, []);
 
@@ -176,11 +218,17 @@ const InventoryUpdateCSV = () => {
     if (!rows.length) return;
     setLoadingPreview(true);
     setAppliedResults(null);
+    setAppliedCounts(null);
+    setRowActions({});
     try {
       const res = await fetch("/api/products/inventory-update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows, preview: true }),
+        body: JSON.stringify({
+          rows,
+          preview: true,
+          storeId: storeId || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -198,17 +246,28 @@ const InventoryUpdateCSV = () => {
   // ── Apply ──────────────────────────────────────────────────────────────────
   const applyUpdates = async () => {
     if (!rows.length || !previewResults) return;
+    if (!storeId) {
+      toast("Selecciona una sucursal antes de aplicar");
+      return;
+    }
     setApplying(true);
 
-    // Only apply rows the user hasn't manually removed
-    const activeIndices = new Set(previewResults.map((r) => r.rowIndex));
-    const filteredRows = rows.filter((_, i) => activeIndices.has(i));
+    // Merge default actions with user overrides
+    const finalActions: Record<string, "update" | "create" | "skip"> = {};
+    for (const r of previewResults) {
+      finalActions[String(r.rowIndex)] = rowActions[r.rowIndex] ?? r.action;
+    }
 
     try {
       const res = await fetch("/api/products/inventory-update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows: filteredRows, preview: false }),
+        body: JSON.stringify({
+          rows,
+          preview: false,
+          storeId,
+          rowActions: finalActions,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -216,8 +275,14 @@ const InventoryUpdateCSV = () => {
         return;
       }
       setAppliedResults(data.results);
+      setAppliedCounts({
+        updated: data.updatedCount,
+        created: data.createdCount,
+      });
       setPreviewResults(null);
-      toast(`✅ ${data.updatedCount} producto(s) actualizados`);
+      toast(
+        `✅ ${data.updatedCount} actualizados · ${data.createdCount} creados`,
+      );
     } catch {
       toast("Error de red al aplicar cambios");
     } finally {
@@ -225,26 +290,28 @@ const InventoryUpdateCSV = () => {
     }
   };
 
-  // ── Derived display list ──────────────────────────────────────────────────
+  // ── Derived stats ──────────────────────────────────────────────────────────
   const displayResults = appliedResults ?? previewResults;
+  const isApplied = Boolean(appliedResults);
+
+  const updateCount =
+    displayResults?.filter((r) => effectiveAction(r) === "update").length ?? 0;
+  const createCount =
+    displayResults?.filter((r) => effectiveAction(r) === "create").length ?? 0;
+  const skipCount =
+    displayResults?.filter((r) => effectiveAction(r) === "skip").length ?? 0;
+  const actionableCount = updateCount + createCount;
+
   const filtered = displayResults?.filter((r) => {
-    const matchOk =
-      filterMatch === "all" ||
-      (filterMatch === "matched" && r.matchedId) ||
-      (filterMatch === "unmatched" && !r.matchedId);
+    const act = effectiveAction(r);
+    const actionOk = filterAction === "all" || filterAction === act;
     const textOk =
       !searchText ||
       r.producto.toLowerCase().includes(searchText.toLowerCase()) ||
       r.codigo.toLowerCase().includes(searchText.toLowerCase()) ||
       (r.matchedTitle ?? "").toLowerCase().includes(searchText.toLowerCase());
-    return matchOk && textOk;
+    return actionOk && textOk;
   });
-
-  const matchedCount = displayResults?.filter((r) => r.matchedId).length ?? 0;
-  const unmatchedCount =
-    displayResults?.filter((r) => !r.matchedId).length ?? 0;
-
-  const isApplied = Boolean(appliedResults);
 
   return (
     <div className="p-5 maxsm:p-2 max-w-7xl mx-auto">
@@ -258,6 +325,33 @@ const InventoryUpdateCSV = () => {
           Inv. Mínimo · Inv. Máximo · Departamento
         </code>
       </p>
+
+      {/* ── Branch selector ───────────────────────────────────────────────── */}
+      <div className="flex items-center gap-3 mb-5 p-4 rounded-xl border bg-muted/30">
+        <MdStorefront size={22} className="text-primary flex-shrink-0" />
+        <div className="flex-1">
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1">
+            Sucursal destino
+          </label>
+          <select
+            value={storeId}
+            onChange={(e) => setStoreId(e.target.value)}
+            className="w-full max-w-xs bg-background border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="">— Seleccionar sucursal —</option>
+            {stores.map((s) => (
+              <option key={s._id} value={s._id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {!storeId && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 self-end pb-0.5">
+            Requerido para aplicar cambios
+          </p>
+        )}
+      </div>
 
       {/* ── Drop zone ───────────────────────────────────────────────────── */}
       <div
@@ -308,11 +402,19 @@ const InventoryUpdateCSV = () => {
           {previewResults && (
             <button
               onClick={applyUpdates}
-              disabled={applying || matchedCount === 0}
+              disabled={applying || actionableCount === 0 || !storeId}
+              title={!storeId ? "Selecciona una sucursal primero" : undefined}
               className="flex items-center gap-2 px-5 py-2 bg-green-700 hover:bg-green-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors"
             >
               <FaCloudUploadAlt />
-              {applying ? "Aplicando..." : `Aplicar ${matchedCount} cambio(s)`}
+              {applying
+                ? "Aplicando..."
+                : [
+                    updateCount > 0 ? `${updateCount} actualizar` : "",
+                    createCount > 0 ? `${createCount} crear` : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" + ")}
             </button>
           )}
         </div>
@@ -323,43 +425,70 @@ const InventoryUpdateCSV = () => {
         <>
           {/* Summary bar */}
           <div className="flex flex-wrap items-center gap-4 mb-4">
-            <div className="flex items-center gap-2 text-sm">
-              <FaCheckCircle className="text-green-600" />
-              <span>
-                <strong>{matchedCount}</strong> coincidencias
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <FaTimesCircle className="text-red-500" />
-              <span>
-                <strong>{unmatchedCount}</strong> sin coincidencia
-              </span>
-            </div>
-            {isApplied && (
-              <span className="ml-auto text-green-700 font-semibold text-sm">
-                ✅ Cambios aplicados
-              </span>
+            {isApplied && appliedCounts ? (
+              <>
+                <div className="flex items-center gap-2 text-sm">
+                  <FaEdit className="text-blue-500" />
+                  <span>
+                    <strong>{appliedCounts.updated}</strong> actualizados
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <FaPlusCircle className="text-green-600" />
+                  <span>
+                    <strong>{appliedCounts.created}</strong> creados
+                  </span>
+                </div>
+                <span className="ml-auto text-green-700 font-semibold text-sm">
+                  ✅ Cambios aplicados
+                </span>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 text-sm">
+                  <FaEdit className="text-blue-500" />
+                  <span>
+                    <strong>{updateCount}</strong> a actualizar
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <FaPlusCircle className="text-green-600" />
+                  <span>
+                    <strong>{createCount}</strong> a crear
+                  </span>
+                </div>
+                {skipCount > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <FaBan />
+                    <span>
+                      <strong>{skipCount}</strong> omitidos
+                    </span>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
           {/* Filters */}
           <div className="flex flex-wrap gap-3 mb-3">
             <div className="flex rounded-lg overflow-hidden border text-sm">
-              {(["all", "matched", "unmatched"] as const).map((v) => (
+              {(["all", "update", "create", "skip"] as const).map((v) => (
                 <button
                   key={v}
-                  onClick={() => setFilterMatch(v)}
+                  onClick={() => setFilterAction(v)}
                   className={`px-3 py-1.5 transition-colors ${
-                    filterMatch === v
+                    filterAction === v
                       ? "bg-foreground text-background"
                       : "hover:bg-muted"
                   }`}
                 >
                   {v === "all"
                     ? "Todos"
-                    : v === "matched"
-                      ? "Coincidentes"
-                      : "Sin coincidencia"}
+                    : v === "update"
+                      ? "Actualizar"
+                      : v === "create"
+                        ? "Crear"
+                        : "Omitir"}
                 </button>
               ))}
             </div>
@@ -381,47 +510,89 @@ const InventoryUpdateCSV = () => {
             <table className="w-full text-sm text-left">
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr>
-                  <th className="px-3 py-2">Estado</th>
+                  <th className="px-3 py-2">Acción</th>
                   <th className="px-3 py-2">Código CSV</th>
                   <th className="px-3 py-2">Producto CSV</th>
-                  <th className="px-3 py-2">Producto coincidente</th>
+                  <th className="px-3 py-2">Coincidencia / Nuevo</th>
                   <th className="px-3 py-2">Método</th>
                   <th className="px-3 py-2 text-center">Stock actual</th>
                   <th className="px-3 py-2 text-center">Stock nuevo</th>
-                  {!isApplied && (
-                    <th className="px-3 py-2 text-center">Quitar</th>
-                  )}
+                  <th className="px-3 py-2 text-center">P. Venta</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {filtered?.map((r, i) => {
+                {filtered?.map((r) => {
+                  const act = effectiveAction(r);
+                  const isSkipped = act === "skip";
                   const stockChanged = r.currentStock !== r.newStock;
+                  const priceChanged =
+                    r.currentPrice !== null &&
+                    r.newPrice > 0 &&
+                    r.currentPrice !== r.newPrice;
 
                   return (
                     <tr
-                      key={i}
+                      key={r.rowIndex}
                       className={`${
-                        !r.matchedId
-                          ? "bg-red-50 dark:bg-red-950/20"
-                          : isApplied && r.updated
+                        isSkipped
+                          ? "opacity-40"
+                          : isApplied && r.created
                             ? "bg-green-50 dark:bg-green-950/20"
-                            : "bg-background"
+                            : isApplied && r.updated
+                              ? "bg-blue-50 dark:bg-blue-950/20"
+                              : act === "create"
+                                ? "bg-emerald-50/40 dark:bg-emerald-950/10"
+                                : "bg-background"
                       }`}
                     >
-                      {/* Status */}
+                      {/* Acción toggle */}
                       <td className="px-3 py-2">
-                        {!r.matchedId ? (
-                          <span className="flex items-center gap-1 text-red-500 font-medium text-xs">
-                            <FaTimesCircle /> Sin match
-                          </span>
-                        ) : isApplied && r.updated ? (
-                          <span className="flex items-center gap-1 text-green-600 font-medium text-xs">
-                            <FaCheckCircle /> Actualizado
-                          </span>
+                        {isApplied ? (
+                          r.created ? (
+                            <span className="flex items-center gap-1 text-green-600 text-xs font-semibold">
+                              <FaPlusCircle /> Creado
+                            </span>
+                          ) : r.updated ? (
+                            <span className="flex items-center gap-1 text-blue-600 text-xs font-semibold">
+                              <FaCheckCircle /> Actualizado
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-muted-foreground text-xs">
+                              <FaBan /> Omitido
+                            </span>
+                          )
                         ) : (
-                          <span className="flex items-center gap-1 text-blue-600 font-medium text-xs">
-                            <FaCheckCircle /> Listo
-                          </span>
+                          <button
+                            onClick={() =>
+                              toggleAction(r.rowIndex, act, r.action)
+                            }
+                            title={
+                              isSkipped
+                                ? "Clic para incluir"
+                                : "Clic para omitir"
+                            }
+                            className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border transition-colors ${
+                              act === "update"
+                                ? "border-blue-300 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                : act === "create"
+                                  ? "border-green-300 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
+                                  : "border-gray-300 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+                            }`}
+                          >
+                            {act === "update" ? (
+                              <>
+                                <FaEdit size={10} /> Actualizar
+                              </>
+                            ) : act === "create" ? (
+                              <>
+                                <FaPlusCircle size={10} /> Crear
+                              </>
+                            ) : (
+                              <>
+                                <FaBan size={10} /> Omitir
+                              </>
+                            )}
+                          </button>
                         )}
                       </td>
 
@@ -432,13 +603,13 @@ const InventoryUpdateCSV = () => {
 
                       {/* Producto CSV */}
                       <td
-                        className="px-3 py-2 max-w-[180px] truncate"
+                        className="px-3 py-2 max-w-[160px] truncate"
                         title={r.producto}
                       >
                         {r.producto}
                       </td>
 
-                      {/* Matched product */}
+                      {/* Coincidencia / Nuevo */}
                       <td className="px-3 py-2 max-w-[200px]">
                         {r.matchedTitle ? (
                           <span
@@ -447,6 +618,10 @@ const InventoryUpdateCSV = () => {
                           >
                             {r.matchedTitle}
                           </span>
+                        ) : act === "create" ? (
+                          <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                            + Nuevo · {r.departamento || "Sin categoría"}
+                          </span>
                         ) : (
                           <span className="text-muted-foreground italic text-xs">
                             No encontrado
@@ -454,7 +629,7 @@ const InventoryUpdateCSV = () => {
                         )}
                       </td>
 
-                      {/* Match method */}
+                      {/* Método */}
                       <td className="px-3 py-2">
                         {r.matchMethod === "asin" && (
                           <span className="bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs rounded px-1.5 py-0.5">
@@ -469,57 +644,81 @@ const InventoryUpdateCSV = () => {
                             Nombre {Math.round(r.similarity * 100)}%
                           </span>
                         )}
-                        {r.matchMethod === "none" && (
+                        {r.matchMethod === "none" && r.matchedId === null && (
                           <span className="text-muted-foreground text-xs">
                             —
                           </span>
                         )}
                       </td>
 
-                      {/* Stock */}
+                      {/* Stock actual */}
                       <td className="px-3 py-2 text-center text-muted-foreground">
                         {r.currentStock ?? "—"}
                       </td>
+
+                      {/* Stock nuevo */}
                       <td className="px-3 py-2 text-center">
-                        {r.matchedId ? (
+                        <span
+                          className={`flex items-center justify-center gap-1 font-semibold ${
+                            stockChanged && !isSkipped
+                              ? "text-blue-600"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {stockChanged && !isSkipped && (
+                            <FaArrowRightLong className="text-[10px]" />
+                          )}
+                          {r.newStock}
+                        </span>
+                      </td>
+
+                      {/* P. Venta */}
+                      <td className="px-3 py-2 text-center">
+                        {act === "create" && !isApplied ? (
+                          <div className="flex flex-col items-center gap-0.5">
+                            <span className="text-xs font-semibold text-emerald-600">
+                              {r.markedUpPrice > 0
+                                ? `$${r.markedUpPrice.toFixed(2)}`
+                                : "—"}
+                            </span>
+                            {r.newPrice > 0 && (
+                              <span className="text-[10px] text-zinc-400 line-through">
+                                ${r.newPrice.toFixed(2)}
+                              </span>
+                            )}
+                            {r.newPrice > 0 && (
+                              <span className="text-[9px] font-semibold text-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 rounded px-1">
+                                +10%
+                              </span>
+                            )}
+                          </div>
+                        ) : (
                           <span
-                            className={`flex items-center justify-center gap-1 font-semibold ${
-                              stockChanged
-                                ? "text-blue-600"
+                            className={`text-xs font-semibold ${
+                              priceChanged && !isSkipped
+                                ? "text-amber-600"
                                 : "text-muted-foreground"
                             }`}
                           >
-                            {stockChanged && (
-                              <FaArrowRightLong className="text-[10px]" />
-                            )}
-                            {r.newStock}
+                            {r.newPrice > 0 ? `$${r.newPrice.toFixed(2)}` : "—"}
                           </span>
-                        ) : (
-                          <span className="text-muted-foreground">
-                            {r.newStock}
+                        )}
+                        {r.createError && (
+                          <span
+                            className="block text-[10px] text-red-500 mt-0.5 max-w-[100px] truncate"
+                            title={r.createError}
+                          >
+                            ⚠ {r.createError}
                           </span>
                         )}
                       </td>
-
-                      {/* Remove row (preview only) */}
-                      {!isApplied && (
-                        <td className="px-3 py-2 text-center">
-                          <button
-                            onClick={() => removePreviewRow(r.rowIndex)}
-                            title="Quitar esta coincidencia"
-                            className="text-red-400 hover:text-red-600 transition-colors"
-                          >
-                            <FaTrash className="text-xs" />
-                          </button>
-                        </td>
-                      )}
                     </tr>
                   );
                 })}
                 {filtered?.length === 0 && (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={8}
                       className="text-center py-8 text-muted-foreground text-sm"
                     >
                       Sin resultados para los filtros actuales
@@ -530,18 +729,24 @@ const InventoryUpdateCSV = () => {
             </table>
           </div>
 
-          {/* Apply button after preview (duplicate, sticky) */}
-          {previewResults && !isApplied && matchedCount > 0 && (
+          {/* Sticky apply button */}
+          {previewResults && !isApplied && actionableCount > 0 && (
             <div className="mt-4 flex justify-end">
               <button
                 onClick={applyUpdates}
-                disabled={applying}
+                disabled={applying || !storeId}
+                title={!storeId ? "Selecciona una sucursal primero" : undefined}
                 className="flex items-center gap-2 px-6 py-2.5 bg-green-700 hover:bg-green-800 disabled:opacity-50 text-white rounded-lg text-sm font-bold transition-colors shadow"
               >
                 <FaCloudUploadAlt />
                 {applying
                   ? "Aplicando..."
-                  : `Confirmar y actualizar ${matchedCount} producto(s)`}
+                  : `Confirmar: ${[
+                      updateCount > 0 ? `${updateCount} actualizar` : "",
+                      createCount > 0 ? `${createCount} crear` : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" + ")}`}
               </button>
             </div>
           )}
@@ -555,6 +760,8 @@ const InventoryUpdateCSV = () => {
                   setFileName(null);
                   setAppliedResults(null);
                   setPreviewResults(null);
+                  setAppliedCounts(null);
+                  setRowActions({});
                 }}
                 className="px-5 py-2 border rounded-lg text-sm hover:bg-muted/20 transition-colors"
               >
