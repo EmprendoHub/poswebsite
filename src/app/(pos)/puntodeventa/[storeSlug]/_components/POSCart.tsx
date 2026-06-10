@@ -25,10 +25,10 @@ export default function POSCart({
   onCustomerPhoneChange,
   disabled,
 }: POSCartProps) {
-  const POS_DISCOUNT = 0.1;
+  const POS_DISCOUNT_DIVISOR = 1.1;
   const rawSubtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const discount = Math.round(rawSubtotal * POS_DISCOUNT * 100) / 100;
-  const subtotal = Math.round((rawSubtotal - discount) * 100) / 100;
+  const subtotal = Math.round((rawSubtotal / POS_DISCOUNT_DIVISOR) * 100) / 100;
+  const discount = Math.round((rawSubtotal - subtotal) * 100) / 100;
   const iva = Math.round(((subtotal * 16) / 116) * 100) / 100;
 
   return (

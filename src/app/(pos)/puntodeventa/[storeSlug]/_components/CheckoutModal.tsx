@@ -57,10 +57,10 @@ export default function CheckoutModal({
   onClose,
   onSuccess,
 }: CheckoutModalProps) {
-  const POS_DISCOUNT = 0.1;
+  const POS_DISCOUNT_DIVISOR = 1.1;
   const rawSubtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const discount = Math.round(rawSubtotal * POS_DISCOUNT * 100) / 100;
-  const subtotal = Math.round((rawSubtotal - discount) * 100) / 100;
+  const subtotal = Math.round((rawSubtotal / POS_DISCOUNT_DIVISOR) * 100) / 100;
+  const discount = Math.round((rawSubtotal - subtotal) * 100) / 100;
   const [payMethod, setPayMethod] = useState<PayMethod>("EFECTIVO");
   const [cashReceived, setCashReceived] = useState("");
   const [transactionRef, setTransactionRef] = useState("");
@@ -85,7 +85,7 @@ export default function CheckoutModal({
         variation: i.variationId,
         name: i.title,
         quantity: i.quantity,
-        price: Math.round(i.price * (1 - POS_DISCOUNT) * 100) / 100,
+        price: Math.round((i.price / POS_DISCOUNT_DIVISOR) * 100) / 100,
         image: i.image,
       }));
 
