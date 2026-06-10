@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse, NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import path from "path";

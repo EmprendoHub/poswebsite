@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import Affiliate from "@/backend/models/Affiliate";
 import Order from "@/backend/models/Order";
 import APIOrderFilters from "@/lib/APIOrderFilters";

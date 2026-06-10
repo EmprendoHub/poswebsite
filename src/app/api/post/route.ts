@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import Post from "@/backend/models/Post";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";

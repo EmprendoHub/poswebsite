@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { sendOrderConfirmationEmails } from "@/backend/helpers/emailService";
 import Order from "@/backend/models/Order";
 import dbConnect from "@/lib/db";

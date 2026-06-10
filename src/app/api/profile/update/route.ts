@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 // Import necessary modules
 import User from "@/backend/models/User";
 import dbConnect from "@/lib/db";

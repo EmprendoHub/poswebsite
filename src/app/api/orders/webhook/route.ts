@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { cstDateTime } from "@/backend/helpers";
 import { sendOrderConfirmationEmails } from "@/backend/helpers/emailService";
 import Address from "@/backend/models/Address";

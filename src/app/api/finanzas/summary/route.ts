@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { options } from "@/app/api/auth/[...nextauth]/options";
 import Expense from "@/backend/models/Expense";
 import PayrollEntry from "@/backend/models/PayrollEntry";

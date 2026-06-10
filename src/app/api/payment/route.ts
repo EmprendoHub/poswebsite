@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { newCSTDate } from "@/backend/helpers";
 import Customer from "@/backend/models/Customer";
 import Order from "@/backend/models/Order";

@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import Order from "@/backend/models/Order";
 import APIReportsFilters from "@/lib/APIReportsFilters";
 import dbConnect from "@/lib/db";

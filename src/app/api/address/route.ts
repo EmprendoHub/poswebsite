@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import dbConnect from "@/lib/db";
 import Address from "@/backend/models/Address";
 import { getToken } from "next-auth/jwt";

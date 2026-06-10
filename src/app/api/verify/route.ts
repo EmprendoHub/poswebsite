@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import Subscriber from "@/backend/models/Subscriber";
 import User from "@/backend/models/User";
 import { NextResponse } from "next/server";

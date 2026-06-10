@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { getTotalFromItems, newCSTDate } from "@/backend/helpers";
 import Address from "@/backend/models/Address";
 import Order from "@/backend/models/Order";

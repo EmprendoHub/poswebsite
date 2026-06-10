@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import ReferralEvent from "@/backend/models/ReferralEvent";
 import dbConnect from "@/lib/db";
 import { getToken } from "next-auth/jwt";

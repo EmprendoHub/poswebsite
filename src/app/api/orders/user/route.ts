@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import Address from "@/backend/models/Address";
 import Order from "@/backend/models/Order";
 import User from "@/backend/models/User";

@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import Commission from "@/backend/models/Commission";
 import dbConnect from "@/lib/db";
 import { getToken } from "next-auth/jwt";

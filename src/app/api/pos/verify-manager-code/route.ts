@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { options } from "@/app/api/auth/[...nextauth]/options";
 import User from "@/backend/models/User";
 import dbConnect from "@/lib/db";

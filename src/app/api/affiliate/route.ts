@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import Affiliate from "@/backend/models/Affiliate";
 import dbConnect from "@/lib/db";
 import { getToken } from "next-auth/jwt";

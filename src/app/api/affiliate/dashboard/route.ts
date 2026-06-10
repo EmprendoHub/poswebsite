@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import Affiliate from "@/backend/models/Affiliate";
 import Commission from "@/backend/models/Commission";
 import ReferralEvent from "@/backend/models/ReferralEvent";

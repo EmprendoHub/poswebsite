@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { options } from "@/app/api/auth/[...nextauth]/options";
 import { newCSTDate } from "@/backend/helpers";
 import Order from "@/backend/models/Order";

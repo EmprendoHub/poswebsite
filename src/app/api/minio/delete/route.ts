@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { mc } from "@/lib/minio";
 import { getToken } from "next-auth/jwt";

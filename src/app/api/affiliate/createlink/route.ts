@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { cstDateTime } from "@/backend/helpers";
 import Affiliate from "@/backend/models/Affiliate";
 import ReferralLink from "@/backend/models/ReferralLink";
