@@ -32,10 +32,10 @@ export default function POSCart({
   const iva = Math.round(((subtotal * 16) / 116) * 100) / 100;
 
   return (
-    <div className="flex flex-col h-full bg-card border border-muted rounded-xl overflow-hidden">
+    <div className="flex flex-col h-full bg-gradient-to-br from-slate-700 to-slate-900 border border-muted rounded-xl overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 border-b border-muted flex items-center gap-2">
-        <MdReceiptLong size={20} className="text-primary" />
+        <MdReceiptLong size={20} className="text-emerald-500" />
         <h2 className="font-semibold text-sm">Carrito de Venta</h2>
         <span className="ml-auto text-xs  bg-muted px-2 py-0.5 rounded-full text-black">
           {items.length} art.
@@ -117,7 +117,7 @@ export default function POSCart({
           </span>
         </div>
         <div className="flex justify-between text-xs mb-1 text-green-500">
-          <span className="font-semibold">Desc. POS (10%)</span>
+          <span className="font-semibold">Desc.</span>
           <span className="font-semibold">- ${discount.toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-sm mb-1">

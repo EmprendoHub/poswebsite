@@ -212,7 +212,7 @@ export default function POSSalesPage() {
         {/* ── Main content row ──────────────────────────────────────────── */}
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           {/* Left: product search area */}
-          <div className="flex-1 flex flex-col p-4 overflow-y-auto">
+          <div className="flex-1 flex flex-col p-4 overflow-y-auto bg-gradient-to-br from-slate-700 to-slate-900 rounded-lg">
             <div className="mb-4">
               <h1 className="text-lg font-bold">{storeName || storeSlug}</h1>
               <p className="text-xs text-muted-foreground">Nueva venta</p>

@@ -420,7 +420,7 @@ export default function CajaPage() {
     : 0;
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-gradient-to-br from-slate-800 to-slate-900">
       <POSSidebar storeSlug={storeSlug} storeName={storeName} />
 
       {/* ── Print ticket overlay (only shown on screen before printing) ── */}
@@ -560,7 +560,7 @@ export default function CajaPage() {
                 {
                   label: "Ventas Totales",
                   value: fmt(totalSales),
-                  color: "text-primary",
+                  color: "text-red-400",
                 },
                 {
                   label: "Efectivo en Caja",

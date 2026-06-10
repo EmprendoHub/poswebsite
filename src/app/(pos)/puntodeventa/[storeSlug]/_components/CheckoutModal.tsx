@@ -207,7 +207,7 @@ export default function CheckoutModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="bg-background rounded-2xl shadow-2xl w-full max-w-md">
+      <div className="bg-gradient-to-tr from-slate-700 to-slate-900 rounded-2xl shadow-2xl w-full max-w-md">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-muted">
           <h2 className="font-bold text-lg">Cobrar Venta</h2>
@@ -236,21 +236,21 @@ export default function CheckoutModal({
 
         <div className="px-6 py-5 flex flex-col gap-5">
           {/* Summary */}
-          <div className="bg-muted rounded-xl px-4 py-3 flex flex-col gap-1">
+          <div className="bg-gradient-to-tr from-slate-600 to-slate-800 rounded-xl px-4 py-3 flex flex-col gap-1">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-slate-400">
                 {items.length} artículo(s)
                 {customerName ? ` — ${customerName}` : ""}
               </span>
-              <span className="text-sm text-muted-foreground line-through">
+              <span className="text-sm text-slate-400 line-through">
                 ${rawSubtotal.toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-xs text-green-500 font-semibold">
-                Desc. POS (10%)
+              <span className="text-xs text-emerald-500 font-semibold">
+                Desc. POS
               </span>
-              <span className="text-xs text-green-500 font-semibold">
+              <span className="text-xs text-emerald-500 font-semibold">
                 - ${discount.toFixed(2)}
               </span>
             </div>
@@ -272,7 +272,7 @@ export default function CheckoutModal({
                   onClick={() => setPayMethod(m)}
                   className={`rounded-lg py-2.5 text-xs font-semibold flex flex-col items-center gap-1 border transition-colors ${
                     payMethod === m
-                      ? "border-primary bg-primary/10 text-primary"
+                      ? "border-emerald-600 bg-primary/10 text-emerald-600"
                       : "border-muted text-muted-foreground hover:border-foreground"
                   }`}
                 >
@@ -295,7 +295,7 @@ export default function CheckoutModal({
                 placeholder="Efectivo recibido"
                 value={cashReceived}
                 onChange={(e) => setCashReceived(e.target.value)}
-                className="bg-muted rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-slate-200"
+                className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-slate-500 text-slate-700 font-bold"
               />
               {Number(cashReceived) > 0 && (
                 <div className="flex justify-between text-sm px-1">
@@ -314,7 +314,7 @@ export default function CheckoutModal({
               placeholder="Referencia / Nº de transacción"
               value={transactionRef}
               onChange={(e) => setTransactionRef(e.target.value)}
-              className="bg-muted rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-slate-200"
+              className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-slate-500 text-slate-700 font-bold"
             />
           )}
 
@@ -325,14 +325,14 @@ export default function CheckoutModal({
                 placeholder="Efectivo"
                 value={cashPart}
                 onChange={(e) => setCashPart(e.target.value)}
-                className="bg-muted rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-slate-200"
+                className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-slate-500 text-slate-700 font-bold"
               />
               <input
                 type="number"
                 placeholder="Referencia"
                 value={cardPart}
                 onChange={(e) => setCardPart(e.target.value)}
-                className="bg-muted rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-slate-200"
+                className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-slate-500 text-slate-700 font-bold"
               />
             </div>
           )}

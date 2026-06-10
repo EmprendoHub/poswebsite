@@ -457,13 +457,6 @@ function createEnviaService(): EnviaService {
     );
   }
 
-  console.log("🚚 Envía.com service initialized:", {
-    baseUrl: config.baseUrl,
-    environment: config.environment,
-    hasToken: !!config.apiToken,
-    mode: isLocalhost ? "TEST MODE" : "PRODUCTION MODE",
-  });
-
   return new EnviaService(config);
 }
 
