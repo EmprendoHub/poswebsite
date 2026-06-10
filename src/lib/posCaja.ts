@@ -3,7 +3,13 @@ import CashRegisterMovement from "@/backend/models/CashRegisterMovement";
 import CashRegisterSession from "@/backend/models/CashRegisterSession";
 import Store from "@/backend/models/Store";
 
-export const POS_ALLOWED_ROLES = ["manager", "sucursal", "pos"];
+export const POS_ALLOWED_ROLES = [
+  "manager",
+  "sucursal",
+  "pos",
+  "admin",
+  "super_admin",
+];
 
 export function canUseStore(
   role: string,

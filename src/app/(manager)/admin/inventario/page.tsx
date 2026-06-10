@@ -76,6 +76,7 @@ export default function InventarioPage() {
   const [pendingCount, setPendingCount] = useState<number | "">(1);
 
   const scanInputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Load stores on mount ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -160,8 +161,25 @@ export default function InventarioPage() {
     [selectedStore],
   );
 
+  // Debounced auto-search: fires 400 ms after user stops typing (min 3 chars)
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (scanQuery.trim().length < 3) {
+      setLookupResult(null);
+      setLookupError("");
+      return;
+    }
+    debounceRef.current = setTimeout(() => {
+      handleLookup(scanQuery);
+    }, 400);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [scanQuery, handleLookup]);
+
   const handleScanKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
       handleLookup(scanQuery);
     }
   };

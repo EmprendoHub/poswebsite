@@ -9,7 +9,7 @@ import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
-const ALLOWED_ROLES = ["manager", "sucursal", "pos"];
+const ALLOWED_ROLES = ["manager", "sucursal", "pos", "admin", "super_admin"];
 
 /**
  * POST /api/pos/checkout

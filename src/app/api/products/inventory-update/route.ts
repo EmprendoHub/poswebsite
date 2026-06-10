@@ -73,19 +73,6 @@ function parseCsvNumber(raw: string | undefined): number {
   return isFinite(n) ? Math.round(n * 100) / 100 : 0;
 }
 
-function wordSimilarity(a: string, b: string): number {
-  const words = (s: string) =>
-    s
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, "")
-      .split(/\s+/)
-      .filter(Boolean);
-  const aw = words(a);
-  const bw = new Set(words(b));
-  if (aw.length === 0) return 0;
-  return aw.filter((w) => bw.has(w)).length / aw.length;
-}
-
 function toSlug(title: string): string {
   return title
     .toLowerCase()
@@ -180,7 +167,7 @@ export async function POST(req: Request) {
       let matchMethod: "asin" | "name" | "none" = "none";
       let similarity = 0;
 
-      // 1. Try exact ASIN match
+      // 1. Exact ASIN match (priority)
       if (codigoClean) {
         matched = (allProducts as any[]).find(
           (p) => p.ASIN?.toUpperCase() === codigoClean,
@@ -191,21 +178,16 @@ export async function POST(req: Request) {
         }
       }
 
-      // 2. Fallback: name similarity (threshold ≥ 0.95)
+      // 2. Fallback: exact (case-insensitive) title match only
       if (!matched && row.producto?.trim()) {
-        let best = 0;
-        let bestProduct: any = null;
-        for (const p of allProducts as any[]) {
-          const sim = wordSimilarity(row.producto, p.title ?? "");
-          if (sim > best) {
-            best = sim;
-            bestProduct = p;
-          }
-        }
-        if (best >= 0.95) {
-          matched = bestProduct;
+        const needle = row.producto.trim().toLowerCase();
+        const exact = (allProducts as any[]).find(
+          (p) => (p.title ?? "").toLowerCase() === needle,
+        );
+        if (exact) {
+          matched = exact;
           matchMethod = "name";
-          similarity = best;
+          similarity = 1;
         }
       }
 

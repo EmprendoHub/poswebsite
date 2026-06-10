@@ -28,6 +28,8 @@ interface CheckoutModalProps {
 interface ReceiptData {
   orderId: string;
   items: CartItem[];
+  rawSubtotal: number;
+  discount: number;
   subtotal: number;
   iva: number;
   payMethod: PayMethod;
@@ -55,7 +57,10 @@ export default function CheckoutModal({
   onClose,
   onSuccess,
 }: CheckoutModalProps) {
-  const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const POS_DISCOUNT = 0.1;
+  const rawSubtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const discount = Math.round(rawSubtotal * POS_DISCOUNT * 100) / 100;
+  const subtotal = Math.round((rawSubtotal - discount) * 100) / 100;
   const [payMethod, setPayMethod] = useState<PayMethod>("EFECTIVO");
   const [cashReceived, setCashReceived] = useState("");
   const [transactionRef, setTransactionRef] = useState("");
@@ -80,7 +85,7 @@ export default function CheckoutModal({
         variation: i.variationId,
         name: i.title,
         quantity: i.quantity,
-        price: i.price,
+        price: Math.round(i.price * (1 - POS_DISCOUNT) * 100) / 100,
         image: i.image,
       }));
 
@@ -123,6 +128,8 @@ export default function CheckoutModal({
         setReceipt({
           orderId: `LOCAL-${time}`,
           items,
+          rawSubtotal,
+          discount,
           subtotal,
           iva,
           payMethod,
@@ -164,6 +171,8 @@ export default function CheckoutModal({
       setReceipt({
         orderId: data.orderId,
         items,
+        rawSubtotal,
+        discount,
         subtotal,
         iva,
         payMethod,
@@ -227,12 +236,28 @@ export default function CheckoutModal({
 
         <div className="px-6 py-5 flex flex-col gap-5">
           {/* Summary */}
-          <div className="bg-muted rounded-xl px-4 py-3 flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">
-              {items.length} artículo(s)
-              {customerName ? ` — ${customerName}` : ""}
-            </span>
-            <span className="font-bold text-xl">${subtotal.toFixed(2)}</span>
+          <div className="bg-muted rounded-xl px-4 py-3 flex flex-col gap-1">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">
+                {items.length} artículo(s)
+                {customerName ? ` — ${customerName}` : ""}
+              </span>
+              <span className="text-sm text-muted-foreground line-through">
+                ${rawSubtotal.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-green-500 font-semibold">
+                Desc. POS (10%)
+              </span>
+              <span className="text-xs text-green-500 font-semibold">
+                - ${discount.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center border-t border-muted-foreground/20 pt-1">
+              <span className="text-sm font-semibold">Total</span>
+              <span className="font-bold text-xl">${subtotal.toFixed(2)}</span>
+            </div>
           </div>
 
           {/* Payment method */}
@@ -524,8 +549,29 @@ function SaleReceipt({
             style={{
               display: "flex",
               justifyContent: "space-between",
+              fontSize: "9px",
+            }}
+          >
+            <span>SUBTOTAL:</span>
+            <span>{fmt(receipt.rawSubtotal)}</span>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontSize: "9px",
+            }}
+          >
+            <span>DESCUENTO POS (10%):</span>
+            <span>- {fmt(receipt.discount)}</span>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
               fontWeight: "bold",
               fontSize: "12px",
+              marginTop: "2px",
             }}
           >
             <span>TOTAL:</span>

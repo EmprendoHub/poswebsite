@@ -6,7 +6,15 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 
-const ALLOWED_ROLES = ["manager", "sucursal", "pos", "organizer"];
+const ALLOWED_ROLES = [
+  "manager",
+  "sucursal",
+  "pos",
+  "organizer",
+  "admin",
+  "super_admin",
+  "instagram",
+];
 
 // GET /api/pos/search?q=xxx&storeId=xxx&limit=8
 // Searches active products by title, ASIN, category OR exact _id.

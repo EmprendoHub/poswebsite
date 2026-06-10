@@ -4,8 +4,15 @@ import StoreInventory from "@/backend/models/StoreInventory";
 import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 
-const ALLOWED_ROLES = ["manager", "director", "super_admin"];
+const ALLOWED_ROLES = [
+  "manager",
+  "director",
+  "super_admin",
+  "admin",
+  "sucursal",
+];
 
 /**
  * GET /api/admin/inventory-check/lookup?storeId=&query=
@@ -31,30 +38,49 @@ export async function GET(req: Request) {
     );
   }
 
-  // Try to find by variation.productId (SKU/barcode) first, then by variation._id
+  // 1. variation.productId (SKU / barcode) — safe for any string
   let product: any = await Product.findOne({
     "variations.productId": query,
     active: true,
   })
-    .select("_id title images variations")
+    .select("_id title images variations ASIN")
     .lean();
 
   let variation: any = product?.variations?.find(
     (v: any) => v.productId === query,
   );
 
-  if (!variation) {
-    // Try by variation _id
+  // 2. variation._id — only attempt when query is a valid ObjectId
+  if (!variation && mongoose.isValidObjectId(query)) {
     product = await Product.findOne({
-      "variations._id": query,
+      "variations._id": new mongoose.Types.ObjectId(query),
       active: true,
     })
-      .select("_id title images variations")
+      .select("_id title images variations ASIN")
       .lean();
-
     variation = product?.variations?.find(
       (v: any) => v._id?.toString() === query,
     );
+  }
+
+  // 3. ASIN match — barcodes from scanners often equal the ASIN
+  if (!variation) {
+    product = await Product.findOne({ ASIN: query, active: true })
+      .select("_id title images variations ASIN")
+      .lean();
+    variation = product?.variations?.[0] ?? null;
+  }
+
+  // 4. Case-insensitive exact title match
+  if (!variation) {
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    product = await Product.findOne({
+      title: { $regex: `^${escaped}$`, $options: "i" },
+      active: true,
+    })
+      .select("_id title images variations ASIN")
+      .lean();
+    variation = product?.variations?.[0] ?? null;
   }
 
   if (!product || !variation) {
@@ -84,7 +110,7 @@ export async function GET(req: Request) {
       [variation.color, variation.size].filter(Boolean).join(" / ") ||
       variation.title ||
       "",
-    sku: variation.productId || "",
+    sku: variation.productId || product.ASIN || "",
     image: variation.image || product.images?.[0]?.url || "",
     systemCount,
   });

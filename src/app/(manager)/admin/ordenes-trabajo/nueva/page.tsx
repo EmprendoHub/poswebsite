@@ -266,16 +266,13 @@ export default function NuevaOrdenTrabajoPage() {
         </label>
         <div className="relative">
           <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
-            <MdSearch
-              size={18}
-              className="text-muted-foreground flex-shrink-0"
-            />
+            <MdSearch size={18} className="text-slate-300 flex-shrink-0" />
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar por nombre, ID, marca..."
-              className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+              className="flex-1 bg-transparent outline-none text-sm placeholder:text-slate-300"
             />
             {query && (
               <button

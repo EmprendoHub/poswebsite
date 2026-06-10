@@ -25,7 +25,10 @@ export default function POSCart({
   onCustomerPhoneChange,
   disabled,
 }: POSCartProps) {
-  const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const POS_DISCOUNT = 0.1;
+  const rawSubtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const discount = Math.round(rawSubtotal * POS_DISCOUNT * 100) / 100;
+  const subtotal = Math.round((rawSubtotal - discount) * 100) / 100;
   const iva = Math.round(((subtotal * 16) / 116) * 100) / 100;
 
   return (
@@ -107,8 +110,18 @@ export default function POSCart({
 
       {/* Footer */}
       <div className="px-4 py-4 border-t border-muted">
+        <div className="flex justify-between text-xs mb-1">
+          <span className="text-muted-foreground">Subtotal</span>
+          <span className="text-muted-foreground">
+            ${rawSubtotal.toFixed(2)}
+          </span>
+        </div>
+        <div className="flex justify-between text-xs mb-1 text-green-500">
+          <span className="font-semibold">Desc. POS (10%)</span>
+          <span className="font-semibold">- ${discount.toFixed(2)}</span>
+        </div>
         <div className="flex justify-between text-sm mb-1">
-          <span className="text-muted-foreground">Total</span>
+          <span className="font-semibold">Total</span>
           <span className="font-bold text-lg">${subtotal.toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-xs mb-4">
