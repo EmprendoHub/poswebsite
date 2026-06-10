@@ -3,8 +3,75 @@ import Product from "@/backend/models/Product";
 import StoreInventory from "@/backend/models/StoreInventory";
 import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
+
+/**
+ * Parse a price/number string from a CSV cell robustly.
+ *
+ * Handles all common formats:
+ *   "45.00"       → 45.00   (US decimal)
+ *   "2,000.00"    → 2000.00 (US/MX thousands + decimal)
+ *   "$2,000.00"   → 2000.00 (US with currency symbol)
+ *   "2,000"       → 2000    (US thousands, no decimals)
+ *   "45,00"       → 45.00   (EU decimal comma)
+ *   "1.234,56"    → 1234.56 (EU thousands dot + decimal comma)
+ *   "2.000"       → 2000    (EU thousands dot, no decimals)
+ *   "1,234,567"   → 1234567 (multiple comma thousands)
+ *   "1.234.567"   → 1234567 (multiple dot thousands)
+ *
+ * Rule: when both separators are present, the LAST one is the decimal separator.
+ * When only one separator is present, 3 digits after it = thousands, ≤2 = decimal.
+ */
+function parseCsvNumber(raw: string | undefined): number {
+  if (!raw) return 0;
+  // Strip currency symbols, spaces, and non-breaking spaces
+  let s = raw.trim().replace(/[$\s\u00A0]/g, "");
+  if (!s) return 0;
+
+  const lastComma = s.lastIndexOf(",");
+  const lastDot = s.lastIndexOf(".");
+  const commaCount = (s.match(/,/g) || []).length;
+  const dotCount = (s.match(/\./g) || []).length;
+
+  if (commaCount === 0 && dotCount === 0) {
+    // Pure integer: "1234" — leave as-is
+  } else if (commaCount === 0 && dotCount === 1) {
+    // Single dot: decimal "45.00" or EU thousands "2.000"
+    if (s.slice(lastDot + 1).length === 3) {
+      // EU thousands: "2.000" → 2000
+      s = s.replace(".", "");
+    }
+    // else standard decimal "45.00" — leave as-is
+  } else if (commaCount === 1 && dotCount === 0) {
+    // Single comma: EU decimal "45,00" or US thousands "2,000"
+    if (s.slice(lastComma + 1).length === 3) {
+      // US/MX thousands: "2,000" → 2000
+      s = s.replace(",", "");
+    } else {
+      // EU decimal: "45,00" → 45.00
+      s = s.replace(",", ".");
+    }
+  } else if (commaCount >= 1 && dotCount >= 1) {
+    // Both present — last separator is the decimal
+    if (lastDot > lastComma) {
+      // Dot is decimal, commas are thousands: "2,000.00" / "1,234.56"
+      s = s.replace(/,/g, "");
+    } else {
+      // Comma is decimal, dots are thousands: "1.234,56" / "2.000,00"
+      s = s.replace(/\./g, "").replace(",", ".");
+    }
+  } else if (commaCount > 1) {
+    // Multiple commas, no dots: "1,234,567" — all thousands
+    s = s.replace(/,/g, "");
+  } else {
+    // Multiple dots, no commas: "1.234.567" — all thousands
+    s = s.replace(/\./g, "");
+  }
+
+  const n = parseFloat(s);
+  return isFinite(n) ? Math.round(n * 100) / 100 : 0;
+}
 
 function wordSimilarity(a: string, b: string): number {
   const words = (s: string) =>
@@ -104,9 +171,9 @@ export async function POST(req: Request) {
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      const newStock = parseInt(row.existencia, 10) || 0;
-      const newPrice = parseFloat(row.p_venta) || 0;
-      const newCost = parseFloat(row.p_costo) || 0;
+      const newStock = Math.floor(parseCsvNumber(row.existencia));
+      const newPrice = parseCsvNumber(row.p_venta);
+      const newCost = parseCsvNumber(row.p_costo);
       const codigoClean = row.codigo?.trim().toUpperCase();
 
       let matched: any = null;
@@ -276,31 +343,54 @@ export async function POST(req: Request) {
           // NextAuth exposes `id`, Mongoose documents use `_id`
           const userId = user._id ?? user.id;
           const salePrice = r.markedUpPrice || r.newPrice || 0;
+          const DEFAULT_IMAGE =
+            "https://minio.salvawebpro.com:9000/supercollectibles/Product-inside.png";
+          const category = r.departamento || "General";
 
           const newProduct = await Product.create({
+            type: "variation",
             title,
             slug,
+            description: title,
             ASIN: r.newAsin || undefined,
-            price: salePrice, // marked-up sale price (+10%)
+            brand: "",
+            category,
+            gender: category,
+            price: salePrice,
             currentPrice: salePrice,
-            originalPrice: r.newPrice || 0, // original CSV price kept for reference
+            originalPrice: r.newPrice || 0,
             cost: r.newCost || 0,
             stock: r.newStock,
-            category: r.departamento || "General",
-            gender: r.departamento || "Otro",
-            availability: { branch: true, online: false, instagram: false },
+            isOutOfStock: r.newStock === 0,
+            rating: 0,
             active: true,
-            published: false, // draft — requires manual review before going live
-            user: userId,
+            published: true,
+            featured: false,
+            quantity: 1,
+            weight: 0.5,
+            dimensions: { length: 15, width: 15, height: 10 },
+            availability: { online: false, stock: r.newStock },
+            images: [{ url: DEFAULT_IMAGE }],
             variations: [
               {
-                title: "Default",
                 stock: r.newStock,
-                price: salePrice,
+                color: "",
+                colorHex: "",
+                colorHexTwo: "",
+                colorHexThree: "",
+                size: category,
                 cost: r.newCost || 0,
-                quantity: r.newStock,
+                price: salePrice,
+                image: DEFAULT_IMAGE,
+                quantity: 1,
               },
             ],
+            colors: [{ value: "", label: "" }],
+            sizes: [],
+            tags: [],
+            details: [],
+            default: [],
+            user: userId,
           });
 
           const varId = (newProduct as any).variations?.[0]?._id?.toString();
@@ -332,7 +422,7 @@ export async function POST(req: Request) {
     }
 
     // Flush Next.js page cache so newly created / updated products are visible
-    revalidatePath("/tienda");
+    revalidateTag("tienda-products");
     revalidatePath("/admin/productos");
     revalidatePath("/producto/[slug]", "page");
 

@@ -67,7 +67,7 @@ const getStoreData = unstable_cache(
     };
   },
   ["tienda-store-data"],
-  { revalidate: 300 }, // 5 minutes
+  { revalidate: 300, tags: ["tienda-products"] }, // 5 minutes
 );
 
 export default async function TiendaPage({
