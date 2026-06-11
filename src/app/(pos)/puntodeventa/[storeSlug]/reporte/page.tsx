@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import POSSidebar from "../_components/POSSidebar";
 import FormattedPrice from "@/backend/helpers/FormattedPrice";
-import { MdPrint, MdClose } from "react-icons/md";
+import { MdPrint, MdClose, MdCancel, MdShield } from "react-icons/md";
 
 interface OrderItem {
   name: string;
@@ -14,12 +14,108 @@ interface DayOrder {
   _id: string;
   orderId: number;
   customerName: string;
+  paymentMethod: string;
   phone: string;
   orderStatus: string;
   paymentInfo: { amountPaid: number; status: string; id?: string };
   orderItems: OrderItem[];
   createdAt: string;
   branch: string;
+}
+
+/* ─── Manager code verification modal ───────────────────────────── */
+function ManagerCodeModal({
+  onAuthorized,
+  onClose,
+}: {
+  onAuthorized: (employee: { _id: string; name: string; role: string }) => void;
+  onClose: () => void;
+}) {
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleVerify() {
+    if (code.length !== 6) {
+      setError("El código debe tener 6 dígitos.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/pos/verify-manager-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        onAuthorized(data.employee);
+      } else {
+        setError("Código incorrecto. Intenta de nuevo.");
+        setCode("");
+      }
+    } catch {
+      setError("Error de red. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+      <div className="bg-background rounded-2xl shadow-2xl w-full max-w-xs">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-muted">
+          <h2 className="font-bold text-base flex items-center gap-2">
+            <MdShield size={18} className="text-primary" />
+            Autorización requerida
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground text-lg"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="px-6 py-5">
+          <p className="text-xs text-muted-foreground mb-4">
+            Ingresa el código de manager para autorizar la{" "}
+            <span className="font-semibold text-red-600">
+              cancelación de la orden
+            </span>
+            .
+          </p>
+          <input
+            type="password"
+            value={code}
+            onChange={(e) => {
+              setCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+              setError("");
+            }}
+            onKeyDown={(e) => e.key === "Enter" && handleVerify()}
+            inputMode="numeric"
+            maxLength={6}
+            autoFocus
+            placeholder="••••••"
+            className="w-full border border-border rounded-lg px-3 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-primary tracking-widest text-center text-lg mb-1"
+          />
+          <p className="text-xs text-muted-foreground text-center mb-3">
+            {code.length}/6 dígitos
+          </p>
+          {error && (
+            <p className="text-xs text-red-500 mb-3 text-center">{error}</p>
+          )}
+          <button
+            onClick={handleVerify}
+            disabled={loading || code.length !== 6}
+            className="w-full bg-red-600 text-white rounded-xl py-3 font-bold text-sm disabled:opacity-50"
+          >
+            {loading ? "Verificando..." : "Autorizar cancelación"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ─── Reprint ticket ─────────────────────────────────────────────── */
@@ -280,6 +376,11 @@ export default function POSReportPage() {
   );
   const printRef = useRef<HTMLDivElement>(null);
   const [reprintOrder, setReprintOrder] = useState<DayOrder | null>(null);
+  const [cancelOrder, setCancelOrder] = useState<DayOrder | null>(null);
+  const [showManagerCodeForCancel, setShowManagerCodeForCancel] =
+    useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelError, setCancelError] = useState("");
 
   useEffect(() => {
     fetch("/api/stores")
@@ -313,6 +414,41 @@ export default function POSReportPage() {
     (s, o) => s + o.orderItems.reduce((ss, i) => ss + i.quantity, 0),
     0,
   );
+
+  async function handleCancelOrder(employee: {
+    _id: string;
+    name: string;
+    role: string;
+  }) {
+    if (!cancelOrder) return;
+    setCancelLoading(true);
+    setCancelError("");
+    try {
+      const res = await fetch("/api/pos/cancel-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: cancelOrder._id,
+          authorizedById: employee._id,
+          authorizedByName: employee.name,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Error al cancelar");
+      // Optimistically update list
+      setOrders((prev) =>
+        prev.map((o) =>
+          o._id === cancelOrder._id ? { ...o, orderStatus: "Cancelado" } : o,
+        ),
+      );
+      setCancelOrder(null);
+      setShowManagerCodeForCancel(false);
+    } catch (e: any) {
+      setCancelError(e.message);
+    } finally {
+      setCancelLoading(false);
+    }
+  }
 
   return (
     <>
@@ -393,6 +529,7 @@ export default function POSReportPage() {
                     <tr>
                       <th className="px-4 py-3 text-left">No.</th>
                       <th className="px-4 py-3 text-left">Cliente</th>
+                      <th className="px-4 py-3 text-left">Metodo</th>
                       <th className="px-4 py-3 text-center">Art.</th>
                       <th className="px-4 py-3 text-right">Recibido</th>
                       <th className="px-4 py-3 text-left">Estado</th>
@@ -410,11 +547,11 @@ export default function POSReportPage() {
                           <p className="font-medium text-xs">
                             {order.customerName || "—"}
                           </p>
-                          {order.phone && (
-                            <p className="text-xs text-muted-foreground">
-                              {order.phone}
-                            </p>
-                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-xs">
+                            {order.paymentMethod || "—"}
+                          </p>
                         </td>
                         <td className="px-4 py-3 text-center">
                           {order.orderItems?.reduce(
@@ -449,13 +586,28 @@ export default function POSReportPage() {
                           )}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <button
-                            onClick={() => setReprintOrder(order)}
-                            title="Reimprimir ticket"
-                            className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                          >
-                            <MdPrint size={16} />
-                          </button>
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => setReprintOrder(order)}
+                              title="Reimprimir ticket"
+                              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                            >
+                              <MdPrint size={16} />
+                            </button>
+                            {order.orderStatus !== "Cancelado" && (
+                              <button
+                                onClick={() => {
+                                  setCancelOrder(order);
+                                  setCancelError("");
+                                  setShowManagerCodeForCancel(true);
+                                }}
+                                title="Cancelar orden"
+                                className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors text-muted-foreground hover:text-red-600"
+                              >
+                                <MdCancel size={16} />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -487,6 +639,40 @@ export default function POSReportPage() {
           storeName={storeName}
           onClose={() => setReprintOrder(null)}
         />
+      )}
+
+      {/* Step 1: manager code gate */}
+      {showManagerCodeForCancel && cancelOrder && (
+        <ManagerCodeModal
+          onAuthorized={(employee) => {
+            setShowManagerCodeForCancel(false);
+            handleCancelOrder(employee);
+          }}
+          onClose={() => {
+            setShowManagerCodeForCancel(false);
+            setCancelOrder(null);
+          }}
+        />
+      )}
+
+      {/* Cancel in-progress / error feedback */}
+      {cancelLoading && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+          <div className="bg-background rounded-xl px-8 py-6 text-sm font-semibold animate-pulse">
+            Cancelando orden…
+          </div>
+        </div>
+      )}
+      {cancelError && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-red-600 text-white text-sm px-5 py-3 rounded-xl shadow-lg flex items-center gap-3">
+          {cancelError}
+          <button
+            onClick={() => setCancelError("")}
+            className="ml-2 text-white/80 hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
       )}
     </>
   );
