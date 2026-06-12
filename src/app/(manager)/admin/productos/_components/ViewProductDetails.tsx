@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import "./productstyles.css";
 import { IoMdCart } from "react-icons/io";
+import { MdStorefront } from "react-icons/md";
 import FormattedPrice from "@/backend/helpers/FormattedPrice";
 import { motion } from "framer-motion";
 import { calculatePercentage } from "@/backend/helpers";
@@ -20,7 +21,7 @@ const ViewProductDetails = ({
   }));
   const initialSizes = product?.variations
     .filter(
-      (variation: any) => variation.color === product?.variations[0].color
+      (variation: any) => variation.color === product?.variations[0].color,
     )
     .map((variation: any) => variation.size);
   const [images, setImages] = useState(product?.images);
@@ -45,6 +46,31 @@ const ViewProductDetails = ({
     width: 0,
     height: 0,
   });
+
+  // Per-branch stock for this product (fetched from StoreInventory)
+  const [branchStock, setBranchStock] = useState<
+    { storeName: string; variationId: string; quantity: number }[]
+  >([]);
+  const [stockLoading, setStockLoading] = useState(false);
+
+  useEffect(() => {
+    if (!product?._id) return;
+    setStockLoading(true);
+    fetch(`/api/store-inventory?productId=${product._id}`)
+      .then((r) => r.json())
+      .then((data: any[]) => {
+        if (!Array.isArray(data)) return;
+        setBranchStock(
+          data.map((rec: any) => ({
+            storeName: rec.store?.name ?? "—",
+            variationId: rec.variationId ?? "",
+            quantity: rec.quantity ?? 0,
+          })),
+        );
+      })
+      .catch(() => {})
+      .finally(() => setStockLoading(false));
+  }, [product?._id]);
 
   const clickImage = (imageUrl: any) => {
     setMainImage(imageUrl);
@@ -174,7 +200,7 @@ const ViewProductDetails = ({
                         <p>
                           {calculatePercentage(
                             variation.price,
-                            product?.sale_price
+                            product?.sale_price,
                           )}
                           % menos
                         </p>
@@ -210,11 +236,89 @@ const ViewProductDetails = ({
                   {product?.description ? product?.description : ""}
                 </motion.div>
                 <span className="text-xs">
-                  Existencias:{" "}
-                  <span className=" font-bodyFont">
-                    <strong>{variation.stock}</strong>
+                  Existencias (total):{" "}
+                  <span className="font-bodyFont">
+                    <strong
+                      className={
+                        variation.stock <= 0 ? "text-red-500" : "text-green-600"
+                      }
+                    >
+                      {variation.stock <= 0 ? "Sin stock" : variation.stock}
+                    </strong>
                   </span>
                 </span>
+
+                {/* Per-branch stock breakdown */}
+                <div className="w-full">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                    <MdStorefront size={13} />
+                    <span className="font-semibold uppercase tracking-wide">
+                      Stock por sucursal
+                    </span>
+                    {stockLoading && (
+                      <span className="animate-pulse">(cargando…)</span>
+                    )}
+                  </div>
+                  {branchStock.length > 0 ? (
+                    <div className="border border-muted rounded-lg overflow-hidden text-xs">
+                      <table className="w-full">
+                        <thead className="bg-muted text-muted-foreground">
+                          <tr>
+                            <th className="px-2 py-1 text-left font-medium">
+                              Sucursal
+                            </th>
+                            <th className="px-2 py-1 text-left font-medium">
+                              Variación
+                            </th>
+                            <th className="px-2 py-1 text-center font-medium">
+                              Stock
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-muted">
+                          {branchStock.map((r, i) => {
+                            const v = product.variations.find(
+                              (vr: any) => vr._id?.toString() === r.variationId,
+                            );
+                            const label =
+                              v?.size || v?.color || r.variationId.slice(-6);
+                            return (
+                              <tr
+                                key={i}
+                                className={`${
+                                  r.quantity <= 0
+                                    ? "opacity-50"
+                                    : "bg-background"
+                                }`}
+                              >
+                                <td className="px-2 py-1">{r.storeName}</td>
+                                <td className="px-2 py-1 text-muted-foreground">
+                                  {label}
+                                </td>
+                                <td
+                                  className={`px-2 py-1 text-center font-bold ${
+                                    r.quantity <= 0
+                                      ? "text-red-500"
+                                      : "text-green-600"
+                                  }`}
+                                >
+                                  {r.quantity}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    !stockLoading && (
+                      <p className="text-xs text-muted-foreground italic">
+                        Sin registros en StoreInventory — el stock se muestra
+                        desde el producto.
+                      </p>
+                    )
+                  )}
+                </div>
                 {variation?.stock <= 0 ? (
                   ""
                 ) : (

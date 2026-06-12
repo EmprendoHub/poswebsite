@@ -1,9 +1,9 @@
-import { getOneProduct, getOneProductWithTrending } from "@/app/_actions";
+import { getOneProduct, getOneProductAdmin } from "@/app/_actions";
 import ViewProductDetails from "../../_components/ViewProductDetails";
 
 export async function generateMetadata(
   { params }: { params: any },
-  parent: any
+  parent: any,
 ) {
   // fetch data
   const data = await getOneProduct(params.slug, false);
@@ -21,15 +21,11 @@ export async function generateMetadata(
 }
 
 const AdminViewProduct = async ({ params }: { params: any }) => {
-  const data: any = await getOneProductWithTrending(params.slug, "");
+  const data: any = await getOneProductAdmin(params.slug);
   const product = JSON.parse(data.product);
-  const trendingProducts = JSON.parse(data?.trendingProducts);
   return (
     <>
-      <ViewProductDetails
-        product={product}
-        trendingProducts={trendingProducts}
-      />
+      <ViewProductDetails product={product} trendingProducts={[]} />
     </>
   );
 };

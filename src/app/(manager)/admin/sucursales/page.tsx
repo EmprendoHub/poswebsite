@@ -6,7 +6,9 @@ import {
   MdToggleOn,
   MdToggleOff,
   MdStorefront,
+  MdWarehouse,
 } from "react-icons/md";
+import Link from "next/link";
 import StoreFormModal from "./_components/StoreFormModal";
 
 interface Store {
@@ -69,15 +71,23 @@ export default function StoresAdminPage() {
             Gestiona las tiendas físicas y canales de venta del negocio.
           </p>
         </div>
-        <button
-          onClick={() => {
-            setEditingStore(null);
-            setShowForm(true);
-          }}
-          className="flex items-center gap-2 bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-semibold hover:opacity-90 transition-opacity"
-        >
-          <MdAdd size={18} /> Nueva Sucursal
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/sucursales/migrar-inventario"
+            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
+          >
+            <MdWarehouse size={18} /> Migrar Inventario
+          </Link>
+          <button
+            onClick={() => {
+              setEditingStore(null);
+              setShowForm(true);
+            }}
+            className="flex items-center gap-2 bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-semibold hover:opacity-90 transition-opacity"
+          >
+            <MdAdd size={18} /> Nueva Sucursal
+          </button>
+        </div>
       </div>
 
       {loading && (

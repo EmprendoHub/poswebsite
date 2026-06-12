@@ -6,10 +6,11 @@ import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
-const ALLOWED_ROLES = ["manager", "sucursal", "pos"];
+const ALLOWED_ROLES = ["manager", "super_admin", "sucursal", "pos"];
 
 // GET /api/store-inventory?storeId=xxx  — get inventory for a store
 // GET /api/store-inventory?storeId=xxx&lowStock=true  — only low-stock items
+// GET /api/store-inventory?productId=xxx  — get all branch stock for a product
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(options);
@@ -20,10 +21,12 @@ export async function GET(req: Request) {
     await dbConnect();
     const url = new URL(req.url);
     const storeId = url.searchParams.get("storeId");
+    const productId = url.searchParams.get("productId");
     const lowStock = url.searchParams.get("lowStock") === "true";
 
     const query: any = {};
     if (storeId) query.store = storeId;
+    if (productId) query.product = productId;
     if (lowStock) {
       // Items where quantity <= minStock
       query.$expr = { $lte: ["$quantity", "$minStock"] };

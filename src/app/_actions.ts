@@ -2443,10 +2443,37 @@ export async function getOneProductWithTrending(slug: string, id: string) {
       .sort({ createdAt: -1 })
       .limit(4);
 
+    // ── Merge real-time StoreInventory stock into each variation ─────────────
+    const inventoryRecords = await StoreInventory.find(
+      { product: product._id },
+      { variationId: 1, quantity: 1 },
+    ).lean();
+
+    const stockMap = new Map<string, number>();
+    for (const rec of inventoryRecords as any[]) {
+      stockMap.set(
+        rec.variationId,
+        (stockMap.get(rec.variationId) ?? 0) + (rec.quantity ?? 0),
+      );
+    }
+
+    const p: any = product.toObject ? product.toObject() : { ...product };
+    if (stockMap.size > 0) {
+      p.variations = p.variations?.map((v: any) => ({
+        ...v,
+        stock: stockMap.has(v._id?.toString())
+          ? stockMap.get(v._id.toString())
+          : v.stock,
+      }));
+      p.stock = p.variations?.reduce(
+        (sum: number, v: any) => sum + (Number(v.stock) || 0),
+        0,
+      );
+    }
+
     // Apply 10% online markup before sending to client
-    if (product?.availability?.online) {
+    if (p.availability?.online) {
       const ONLINE_MARKUP = 1.1;
-      const p = product.toObject ? product.toObject() : { ...product };
       p.price = p.price
         ? Math.round(p.price * ONLINE_MARKUP * 100) / 100
         : p.price;
@@ -2456,13 +2483,55 @@ export async function getOneProductWithTrending(slug: string, id: string) {
           ? Math.round(v.price * ONLINE_MARKUP * 100) / 100
           : v.price,
       }));
-      product = JSON.stringify(p);
-    } else {
-      product = JSON.stringify(product);
     }
 
     trendingProducts = JSON.stringify(trendingProducts);
-    return { product: product, trendingProducts: trendingProducts };
+    return { product: JSON.stringify(p), trendingProducts };
+  } catch (error: any) {
+    console.log(error);
+    throw Error(error);
+  }
+}
+
+/**
+ * Admin-only version: returns the product with real-time StoreInventory stock
+ * merged into each variation, but WITHOUT any price markup.
+ * Used by the admin product view page so managers see raw prices.
+ */
+export async function getOneProductAdmin(slug: string) {
+  try {
+    await dbConnect();
+    const product = await Product.findOne({ slug });
+    if (!product) throw new Error("Producto no encontrado");
+
+    const inventoryRecords = await StoreInventory.find(
+      { product: product._id },
+      { variationId: 1, quantity: 1 },
+    ).lean();
+
+    const stockMap = new Map<string, number>();
+    for (const rec of inventoryRecords as any[]) {
+      stockMap.set(
+        rec.variationId,
+        (stockMap.get(rec.variationId) ?? 0) + (rec.quantity ?? 0),
+      );
+    }
+
+    const p: any = product.toObject ? product.toObject() : { ...product };
+    if (stockMap.size > 0) {
+      p.variations = p.variations?.map((v: any) => ({
+        ...v,
+        stock: stockMap.has(v._id?.toString())
+          ? stockMap.get(v._id.toString())
+          : v.stock,
+      }));
+      p.stock = p.variations?.reduce(
+        (sum: number, v: any) => sum + (Number(v.stock) || 0),
+        0,
+      );
+    }
+
+    return { product: JSON.stringify(p) };
   } catch (error: any) {
     console.log(error);
     throw Error(error);
