@@ -533,19 +533,19 @@ const AdminOneOrder = ({
             <tbody>
               <tr className="bg-background flex flex-row maxsm:flex-col">
                 <td className="w-1/3 maxsm:w-full px-6 py-2">
-                  {order?.shippingInfo.street || deliveryAddress?.street}{" "}
+                  {order?.shippingInfo?.street || deliveryAddress?.street}{" "}
                 </td>
                 <td className="w-1/6 maxsm:w-full px-6 py-2">
-                  {order?.shippingInfo.city || deliveryAddress?.city}
+                  {order?.shippingInfo?.city || deliveryAddress?.city}
                 </td>
                 <td className="w-1/6 maxsm:w-full px-6 py-2">
-                  {order?.shippingInfo.province || deliveryAddress?.province}
+                  {order?.shippingInfo?.province || deliveryAddress?.province}
                 </td>
                 <td className="w-1/6 maxsm:w-full px-6 py-2">
-                  {order?.shippingInfo.zip_code || deliveryAddress?.zip_code}
+                  {order?.shippingInfo?.zip_code || deliveryAddress?.zip_code}
                 </td>
                 <td className="w-1/6 maxsm:w-full px-6 py-2">
-                  {order?.shippingInfo.phone || deliveryAddress?.phone}
+                  {order?.shippingInfo?.phone || deliveryAddress?.phone}
                 </td>
               </tr>
             </tbody>

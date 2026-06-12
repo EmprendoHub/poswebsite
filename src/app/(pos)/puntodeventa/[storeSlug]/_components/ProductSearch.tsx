@@ -10,6 +10,7 @@ interface SearchResult {
   title: string;
   ASIN?: string;
   price: number;
+  currentPrice?: number;
   images: { url: string }[];
   variations: {
     _id: string;
@@ -139,7 +140,9 @@ export default function ProductSearch({
       variationId: variation._id,
       title: product.title,
       variationLabel: label || "Default",
-      price: variation.price,
+      // Prefer product.currentPrice (the marked-up import price) over variation.price
+      // so that ÷1.1 in the cart always strips the correct 10% markup.
+      price: product.currentPrice ?? variation.price,
       quantity: 1,
       image: variation.image ?? product.images?.[0]?.url ?? "",
       stock: variation.stock,

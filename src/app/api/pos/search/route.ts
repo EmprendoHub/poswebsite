@@ -59,7 +59,7 @@ export async function GET(req: Request) {
     }
 
     const products = await Product.find(filter)
-      .select("_id title ASIN price images variations")
+      .select("_id title ASIN price currentPrice images variations")
       .limit(limit)
       .lean();
 

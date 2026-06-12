@@ -25,11 +25,8 @@ export default function POSCart({
   onCustomerPhoneChange,
   disabled,
 }: POSCartProps) {
-  const POS_DISCOUNT_DIVISOR = 1.1;
   const rawSubtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const subtotal = Math.round((rawSubtotal / POS_DISCOUNT_DIVISOR) * 100) / 100;
-  const discount = Math.round((rawSubtotal - subtotal) * 100) / 100;
-  const iva = Math.round(((subtotal * 16) / 116) * 100) / 100;
+  const iva = Math.round(((rawSubtotal * 16) / 116) * 100) / 100;
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-slate-700 to-slate-900 border border-muted rounded-xl overflow-hidden">
@@ -110,19 +107,9 @@ export default function POSCart({
 
       {/* Footer */}
       <div className="px-4 py-4 border-t border-muted">
-        <div className="flex justify-between text-xs mb-1">
-          <span className="text-muted-foreground">Subtotal</span>
-          <span className="text-muted-foreground">
-            ${rawSubtotal.toFixed(2)}
-          </span>
-        </div>
-        <div className="flex justify-between text-xs mb-1 text-green-500">
-          <span className="font-semibold">Desc.</span>
-          <span className="font-semibold">- ${discount.toFixed(2)}</span>
-        </div>
         <div className="flex justify-between text-sm mb-1">
           <span className="font-semibold">Total</span>
-          <span className="font-bold text-lg">${subtotal.toFixed(2)}</span>
+          <span className="font-bold text-lg">${rawSubtotal.toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-xs mb-4">
           <span className="text-muted-foreground">IVA incluido (16%)</span>

@@ -128,6 +128,7 @@ const InventoryUpdateCSV = () => {
     "all" | "update" | "create" | "skip"
   >("all");
   const [searchText, setSearchText] = useState("");
+  const [pricesOnly, setPricesOnly] = useState(false);
 
   // ── Load stores ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -142,8 +143,11 @@ const InventoryUpdateCSV = () => {
   }, []);
 
   // ── Effective action for a row ─────────────────────────────────────────────
-  const effectiveAction = (r: MatchResult): "update" | "create" | "skip" =>
-    rowActions[r.rowIndex] ?? r.action;
+  const effectiveAction = (r: MatchResult): "update" | "create" | "skip" => {
+    const base = rowActions[r.rowIndex] ?? r.action;
+    if (pricesOnly && base === "create") return "skip";
+    return base;
+  };
 
   const toggleAction = (
     rowIndex: number,
@@ -227,6 +231,7 @@ const InventoryUpdateCSV = () => {
         body: JSON.stringify({
           rows,
           preview: true,
+          pricesOnly,
           storeId: storeId || undefined,
         }),
       });
@@ -265,6 +270,7 @@ const InventoryUpdateCSV = () => {
         body: JSON.stringify({
           rows,
           preview: false,
+          pricesOnly,
           storeId,
           rowActions: finalActions,
         }),
@@ -346,7 +352,7 @@ const InventoryUpdateCSV = () => {
             ))}
           </select>
         </div>
-        {!storeId && (
+        {!storeId && !pricesOnly && (
           <p className="text-xs text-amber-600 dark:text-amber-400 self-end pb-0.5">
             Requerido para aplicar cambios
           </p>
@@ -389,7 +395,19 @@ const InventoryUpdateCSV = () => {
 
       {/* ── Action buttons ──────────────────────────────────────────────── */}
       {rows.length > 0 && !isApplied && (
-        <div className="flex gap-3 mb-6">
+        <div className="flex flex-wrap items-center gap-3 mb-6">
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none px-3 py-2 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors">
+            <input
+              type="checkbox"
+              checked={pricesOnly}
+              onChange={(e) => setPricesOnly(e.target.checked)}
+              className="accent-primary w-4 h-4"
+            />
+            <span className="font-medium">Solo precios</span>
+          </label>
+
+          <div className="h-6 border-l border-muted-foreground/20" />
+
           <button
             onClick={runPreview}
             disabled={loadingPreview}
@@ -402,8 +420,8 @@ const InventoryUpdateCSV = () => {
           {previewResults && (
             <button
               onClick={applyUpdates}
-              disabled={applying || actionableCount === 0 || !storeId}
-              title={!storeId ? "Selecciona una sucursal primero" : undefined}
+              disabled={applying || actionableCount === 0 || (!storeId && !pricesOnly)}
+              title={!storeId && !pricesOnly ? "Selecciona una sucursal primero" : undefined}
               className="flex items-center gap-2 px-5 py-2 bg-green-700 hover:bg-green-800 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors"
             >
               <FaCloudUploadAlt />
@@ -516,7 +534,14 @@ const InventoryUpdateCSV = () => {
                   <th className="px-3 py-2">Coincidencia / Nuevo</th>
                   <th className="px-3 py-2">Método</th>
                   <th className="px-3 py-2 text-center">Stock actual</th>
-                  <th className="px-3 py-2 text-center">Stock nuevo</th>
+                  <th className="px-3 py-2 text-center">
+                    Stock nuevo
+                    {pricesOnly && (
+                      <span className="ml-1 text-[10px] text-amber-500 font-normal normal-case">
+                        (sin cambio)
+                      </span>
+                    )}
+                  </th>
                   <th className="px-3 py-2 text-center">P. Venta</th>
                 </tr>
               </thead>
@@ -660,12 +685,12 @@ const InventoryUpdateCSV = () => {
                       <td className="px-3 py-2 text-center">
                         <span
                           className={`flex items-center justify-center gap-1 font-semibold ${
-                            stockChanged && !isSkipped
+                            stockChanged && !isSkipped && !pricesOnly
                               ? "text-blue-600"
                               : "text-muted-foreground"
                           }`}
                         >
-                          {stockChanged && !isSkipped && (
+                          {stockChanged && !isSkipped && !pricesOnly && (
                             <FaArrowRightLong className="text-[10px]" />
                           )}
                           {r.newStock}
@@ -734,8 +759,8 @@ const InventoryUpdateCSV = () => {
             <div className="mt-4 flex justify-end">
               <button
                 onClick={applyUpdates}
-                disabled={applying || !storeId}
-                title={!storeId ? "Selecciona una sucursal primero" : undefined}
+                disabled={applying || (!storeId && !pricesOnly)}
+                title={!storeId && !pricesOnly ? "Selecciona una sucursal primero" : undefined}
                 className="flex items-center gap-2 px-6 py-2.5 bg-green-700 hover:bg-green-800 disabled:opacity-50 text-white rounded-lg text-sm font-bold transition-colors shadow"
               >
                 <FaCloudUploadAlt />

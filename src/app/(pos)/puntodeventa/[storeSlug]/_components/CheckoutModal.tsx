@@ -8,6 +8,8 @@ import {
   MdPrint,
   MdCheckCircle,
   MdWifiOff,
+  MdShield,
+  MdLocalOffer,
 } from "react-icons/md";
 import { CartItem } from "./ProductSearch";
 import { posDB } from "@/lib/posDB";
@@ -40,6 +42,7 @@ interface ReceiptData {
   storeName: string;
   cashierName: string;
   date: Date;
+  discountAuthBy?: string;
   isOffline?: boolean;
 }
 
@@ -57,10 +60,14 @@ export default function CheckoutModal({
   onClose,
   onSuccess,
 }: CheckoutModalProps) {
-  const POS_DISCOUNT_DIVISOR = 1.1;
   const rawSubtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const subtotal = Math.round((rawSubtotal / POS_DISCOUNT_DIVISOR) * 100) / 100;
-  const discount = Math.round((rawSubtotal - subtotal) * 100) / 100;
+  const [discountApplied, setDiscountApplied] = useState(false);
+  const [discountAuthBy, setDiscountAuthBy] = useState<string | null>(null);
+  const [showDiscountAuth, setShowDiscountAuth] = useState(false);
+  const discount = discountApplied
+    ? Math.round((rawSubtotal - rawSubtotal / 1.1) * 100) / 100
+    : 0;
+  const subtotal = Math.round((rawSubtotal - discount) * 100) / 100;
   const [payMethod, setPayMethod] = useState<PayMethod>("EFECTIVO");
   const [cashReceived, setCashReceived] = useState("");
   const [transactionRef, setTransactionRef] = useState("");
@@ -85,7 +92,9 @@ export default function CheckoutModal({
         variation: i.variationId,
         name: i.title,
         quantity: i.quantity,
-        price: Math.round((i.price / POS_DISCOUNT_DIVISOR) * 100) / 100,
+        price: discountApplied
+          ? Math.round((i.price / 1.1) * 100) / 100
+          : i.price,
         image: i.image,
       }));
 
@@ -143,6 +152,7 @@ export default function CheckoutModal({
           storeName,
           cashierName,
           date: new Date(),
+          discountAuthBy: discountAuthBy ?? undefined,
           isOffline: true,
         });
         return;
@@ -206,159 +216,203 @@ export default function CheckoutModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="bg-gradient-to-tr from-slate-700 to-slate-900 rounded-2xl shadow-2xl w-full max-w-md">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-muted">
-          <h2 className="font-bold text-lg">Cobrar Venta</h2>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <MdClose size={22} />
-          </button>
-        </div>
-
-        {/* Offline warning */}
-        {!isOnline && (
-          <div className="mx-6 mt-4 flex items-start gap-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-xl px-4 py-3">
-            <MdWifiOff
-              size={18}
-              className="text-yellow-600 flex-shrink-0 mt-0.5"
-            />
-            <p className="text-xs text-yellow-800 dark:text-yellow-300 leading-snug">
-              <span className="font-semibold">Sin conexión.</span> La venta se
-              guardará localmente y se sincronizará automáticamente al
-              reconectar.
-            </p>
-          </div>
-        )}
-
-        <div className="px-6 py-5 flex flex-col gap-5">
-          {/* Summary */}
-          <div className="bg-gradient-to-tr from-slate-600 to-slate-800 rounded-xl px-4 py-3 flex flex-col gap-1">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-400">
-                {items.length} artículo(s)
-                {customerName ? ` — ${customerName}` : ""}
-              </span>
-              <span className="text-sm text-slate-400 line-through">
-                ${rawSubtotal.toFixed(2)}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-xs text-emerald-500 font-semibold">
-                Desc. POS
-              </span>
-              <span className="text-xs text-emerald-500 font-semibold">
-                - ${discount.toFixed(2)}
-              </span>
-            </div>
-            <div className="flex justify-between items-center border-t border-muted-foreground/20 pt-1">
-              <span className="text-sm font-semibold">Total</span>
-              <span className="font-bold text-xl">${subtotal.toFixed(2)}</span>
-            </div>
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div className="bg-gradient-to-tr from-slate-700 to-slate-900 rounded-2xl shadow-2xl w-full max-w-md">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-muted">
+            <h2 className="font-bold text-lg">Cobrar Venta</h2>
+            <button
+              onClick={onClose}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <MdClose size={22} />
+            </button>
           </div>
 
-          {/* Payment method */}
-          <div>
-            <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">
-              Método de pago
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              {(["EFECTIVO", "TERMINAL", "MIXTO"] as PayMethod[]).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setPayMethod(m)}
-                  className={`rounded-lg py-2.5 text-xs font-semibold flex flex-col items-center gap-1 border transition-colors ${
-                    payMethod === m
-                      ? "border-emerald-600 bg-primary/10 text-emerald-600"
-                      : "border-muted text-muted-foreground hover:border-foreground"
+          {/* Offline warning */}
+          {!isOnline && (
+            <div className="mx-6 mt-4 flex items-start gap-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-xl px-4 py-3">
+              <MdWifiOff
+                size={18}
+                className="text-yellow-600 flex-shrink-0 mt-0.5"
+              />
+              <p className="text-xs text-yellow-800 dark:text-yellow-300 leading-snug">
+                <span className="font-semibold">Sin conexión.</span> La venta se
+                guardará localmente y se sincronizará automáticamente al
+                reconectar.
+              </p>
+            </div>
+          )}
+
+          <div className="px-6 py-5 flex flex-col gap-5">
+            {/* Summary */}
+            <div className="bg-gradient-to-tr from-slate-600 to-slate-800 rounded-xl px-4 py-3 flex flex-col gap-1">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-400">
+                  {items.length} artículo(s)
+                  {customerName ? ` — ${customerName}` : ""}
+                </span>
+                <span
+                  className={`text-sm ${
+                    discountApplied
+                      ? "text-slate-400 line-through"
+                      : "font-bold text-xl"
                   }`}
                 >
-                  {m === "EFECTIVO" ? (
-                    <MdMoney size={18} />
-                  ) : (
-                    <MdCreditCard size={18} />
-                  )}
-                  {m}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Cash inputs */}
-          {payMethod === "EFECTIVO" && (
-            <div className="flex flex-col gap-2">
-              <input
-                type="number"
-                placeholder="Efectivo recibido"
-                value={cashReceived}
-                onChange={(e) => setCashReceived(e.target.value)}
-                className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-slate-500 text-slate-700 font-bold"
-              />
-              {Number(cashReceived) > 0 && (
-                <div className="flex justify-between text-sm px-1">
-                  <span className="text-muted-foreground">Cambio</span>
-                  <span className="font-bold text-green-500">
-                    ${change.toFixed(2)}
+                  ${rawSubtotal.toFixed(2)}
+                </span>
+              </div>
+              {discountApplied && (
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
+                    <MdLocalOffer size={12} />
+                    Desc. (10%) — Aut: {discountAuthBy}
+                  </span>
+                  <span className="text-xs text-emerald-400 font-semibold">
+                    - ${discount.toFixed(2)}
                   </span>
                 </div>
               )}
+              <div className="flex justify-between items-center border-t border-muted-foreground/20 pt-1">
+                <span className="text-sm font-semibold">Total</span>
+                <span className="font-bold text-xl">
+                  ${subtotal.toFixed(2)}
+                </span>
+              </div>
+              <div className="mt-2 pt-2 border-t border-muted-foreground/10">
+                {discountApplied ? (
+                  <button
+                    onClick={() => {
+                      setDiscountApplied(false);
+                      setDiscountAuthBy(null);
+                    }}
+                    className="w-full flex items-center justify-center gap-1 text-xs text-red-400 hover:text-red-300 py-1 transition-colors"
+                  >
+                    ✕ Quitar descuento aplicado
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowDiscountAuth(true)}
+                    className="w-full flex items-center justify-center gap-1 text-xs bg-emerald-800/40 hover:bg-emerald-700/50 text-emerald-300 py-1.5 rounded-lg transition-colors"
+                  >
+                    <MdLocalOffer size={13} />
+                    Aplicar descuento 10%
+                  </button>
+                )}
+              </div>
             </div>
-          )}
 
-          {payMethod === "TERMINAL" && (
-            <input
-              type="text"
-              placeholder="Referencia / Nº de transacción"
-              value={transactionRef}
-              onChange={(e) => setTransactionRef(e.target.value)}
-              className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-slate-500 text-slate-700 font-bold"
-            />
-          )}
-
-          {payMethod === "MIXTO" && (
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="number"
-                placeholder="Efectivo"
-                value={cashPart}
-                onChange={(e) => setCashPart(e.target.value)}
-                className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-slate-500 text-slate-700 font-bold"
-              />
-              <input
-                type="number"
-                placeholder="Referencia"
-                value={cardPart}
-                onChange={(e) => setCardPart(e.target.value)}
-                className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-slate-500 text-slate-700 font-bold"
-              />
+            {/* Payment method */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">
+                Método de pago
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {(["EFECTIVO", "TERMINAL", "MIXTO"] as PayMethod[]).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setPayMethod(m)}
+                    className={`rounded-lg py-2.5 text-xs font-semibold flex flex-col items-center gap-1 border transition-colors ${
+                      payMethod === m
+                        ? "border-emerald-600 bg-primary/10 text-emerald-600"
+                        : "border-muted text-muted-foreground hover:border-foreground"
+                    }`}
+                  >
+                    {m === "EFECTIVO" ? (
+                      <MdMoney size={18} />
+                    ) : (
+                      <MdCreditCard size={18} />
+                    )}
+                    {m}
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
 
-          {error && (
-            <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
-              {error}
-            </p>
-          )}
-
-          <button
-            onClick={handleCheckout}
-            disabled={loading}
-            className="w-full bg-primary text-primary-foreground rounded-xl py-3.5 font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50 hover:opacity-90 transition-opacity"
-          >
-            {loading ? (
-              "Procesando..."
-            ) : (
-              <>
-                <MdCheck size={18} /> Confirmar Venta
-              </>
+            {/* Cash inputs */}
+            {payMethod === "EFECTIVO" && (
+              <div className="flex flex-col gap-2">
+                <input
+                  type="number"
+                  placeholder="Efectivo recibido"
+                  value={cashReceived}
+                  onChange={(e) => setCashReceived(e.target.value)}
+                  className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-slate-500 text-slate-700 font-bold"
+                />
+                {Number(cashReceived) > 0 && (
+                  <div className="flex justify-between text-sm px-1">
+                    <span className="text-muted-foreground">Cambio</span>
+                    <span className="font-bold text-green-500">
+                      ${change.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+              </div>
             )}
-          </button>
+
+            {payMethod === "TERMINAL" && (
+              <input
+                type="text"
+                placeholder="Referencia / Nº de transacción"
+                value={transactionRef}
+                onChange={(e) => setTransactionRef(e.target.value)}
+                className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-slate-500 text-slate-700 font-bold"
+              />
+            )}
+
+            {payMethod === "MIXTO" && (
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  placeholder="Efectivo"
+                  value={cashPart}
+                  onChange={(e) => setCashPart(e.target.value)}
+                  className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-slate-500 text-slate-700 font-bold"
+                />
+                <input
+                  type="number"
+                  placeholder="Referencia"
+                  value={cardPart}
+                  onChange={(e) => setCardPart(e.target.value)}
+                  className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-slate-500 text-slate-700 font-bold"
+                />
+              </div>
+            )}
+
+            {error && (
+              <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+                {error}
+              </p>
+            )}
+
+            <button
+              onClick={handleCheckout}
+              disabled={loading}
+              className="w-full bg-primary text-primary-foreground rounded-xl py-3.5 font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50 hover:opacity-90 transition-opacity"
+            >
+              {loading ? (
+                "Procesando..."
+              ) : (
+                <>
+                  <MdCheck size={18} /> Confirmar Venta
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+      {showDiscountAuth && (
+        <DiscountManagerCodeModal
+          onAuthorized={(employee) => {
+            setDiscountApplied(true);
+            setDiscountAuthBy(employee.name);
+            setShowDiscountAuth(false);
+          }}
+          onClose={() => setShowDiscountAuth(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -555,16 +609,18 @@ function SaleReceipt({
             <span>SUBTOTAL:</span>
             <span>{fmt(receipt.rawSubtotal)}</span>
           </div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              fontSize: "9px",
-            }}
-          >
-            <span>DESCUENTO POS (10%):</span>
-            <span>- {fmt(receipt.discount)}</span>
-          </div>
+          {receipt.discount > 0 && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: "9px",
+              }}
+            >
+              <span>DESC. GERENTE (10%):</span>
+              <span>- {fmt(receipt.discount)}</span>
+            </div>
+          )}
           <div
             style={{
               display: "flex",
@@ -640,6 +696,103 @@ function SaleReceipt({
             No aceptamos devoluciones. Para verificar la garantia o validez de
             la misma, comunicarse directamente con el fabricante.
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   DiscountManagerCodeModal
+───────────────────────────────────────────────────────────────────────── */
+function DiscountManagerCodeModal({
+  onAuthorized,
+  onClose,
+}: {
+  onAuthorized: (employee: { _id: string; name: string; role: string }) => void;
+  onClose: () => void;
+}) {
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleVerify() {
+    if (code.length !== 6) {
+      setError("El código debe tener 6 dígitos.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/pos/verify-manager-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        onAuthorized(data.employee);
+      } else {
+        setError("Código incorrecto. Intenta de nuevo.");
+        setCode("");
+      }
+    } catch {
+      setError("Error de red. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+      <div className="bg-background rounded-2xl shadow-2xl w-full max-w-xs">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-muted">
+          <h2 className="font-bold text-base flex items-center gap-2">
+            <MdShield size={18} className="text-emerald-500" />
+            Autorización requerida
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground text-lg"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="px-6 py-5">
+          <p className="text-xs text-muted-foreground mb-4">
+            Ingresa el código de manager para autorizar el{" "}
+            <span className="font-semibold text-emerald-600">
+              descuento del 10%
+            </span>
+            .
+          </p>
+          <input
+            type="password"
+            value={code}
+            onChange={(e) => {
+              setCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+              setError("");
+            }}
+            onKeyDown={(e) => e.key === "Enter" && handleVerify()}
+            inputMode="numeric"
+            maxLength={6}
+            autoFocus
+            placeholder="••••••"
+            className="w-full border border-border rounded-lg px-3 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-primary tracking-widest text-center text-lg mb-1"
+          />
+          <p className="text-xs text-muted-foreground text-center mb-3">
+            {code.length}/6 dígitos
+          </p>
+          {error && (
+            <p className="text-xs text-red-500 mb-3 text-center">{error}</p>
+          )}
+          <button
+            onClick={handleVerify}
+            disabled={loading || code.length !== 6}
+            className="w-full bg-emerald-600 text-white rounded-xl py-3 font-bold text-sm disabled:opacity-50"
+          >
+            {loading ? "Verificando..." : "Autorizar descuento"}
+          </button>
         </div>
       </div>
     </div>

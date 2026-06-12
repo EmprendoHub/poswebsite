@@ -117,11 +117,13 @@ export async function POST(req: Request) {
     const {
       rows,
       preview,
+      pricesOnly = false,
       storeId,
       rowActions,
     }: {
       rows: CsvRow[];
       preview: boolean;
+      pricesOnly?: boolean;
       storeId?: string;
       rowActions?: Record<string, "update" | "create" | "skip">;
     } = await req.json();
@@ -136,7 +138,15 @@ export async function POST(req: Request) {
     // Load all products once (only fields we need)
     const allProducts = await Product.find(
       {},
-      { _id: 1, title: 1, ASIN: 1, stock: 1, price: 1, variations: 1 },
+      {
+        _id: 1,
+        title: 1,
+        ASIN: 1,
+        stock: 1,
+        price: 1,
+        currentPrice: 1,
+        variations: 1,
+      },
     ).lean();
 
     // Build branch-stock map from StoreInventory if storeId is provided
@@ -199,7 +209,9 @@ export async function POST(req: Request) {
           : (matched.stock ?? null)
         : null;
 
-      const currentPrice = matched ? (matched.price ?? null) : null;
+      const currentPrice = matched
+        ? (matched.currentPrice ?? matched.price ?? null)
+        : null;
       const defaultAction: "update" | "create" = matched ? "update" : "create";
       // 10% markup applied to sale price for new (unmatched) products
       const markedUpPrice =
@@ -237,7 +249,7 @@ export async function POST(req: Request) {
     }
 
     // ── Apply ──────────────────────────────────────────────────────────────
-    if (!storeId) {
+    if (!storeId && !pricesOnly) {
       return NextResponse.json(
         { error: "Selecciona una sucursal antes de aplicar los cambios" },
         { status: 400 },
@@ -260,36 +272,49 @@ export async function POST(req: Request) {
             { _id: r.matchedId },
             {
               $set: {
-                stock: r.newStock,
-                ...(r.newPrice > 0 ? { price: r.newPrice } : {}),
-                ...(r.newCost > 0 ? { cost: r.newCost } : {}),
+                ...(!pricesOnly ? { stock: r.newStock } : {}),
+                ...(r.newPrice > 0
+                  ? {
+                      price: r.newPrice,
+                      currentPrice: r.newPrice,
+                      "variations.$[].price": r.newPrice,
+                    }
+                  : {}),
+                ...(r.newCost > 0
+                  ? {
+                      cost: r.newCost,
+                      "variations.$[].cost": r.newCost,
+                    }
+                  : {}),
                 ...(r.newAsin ? { ASIN: r.newAsin } : {}),
               },
             },
           );
 
           // Upsert StoreInventory per variation (or product id as fallback)
-          const variations = prod?.variations ?? [];
-          if (variations.length > 0) {
-            for (const v of variations) {
-              const vId = v._id?.toString();
-              if (!vId) continue;
+          if (!pricesOnly) {
+            const variations = prod?.variations ?? [];
+            if (variations.length > 0) {
+              for (const v of variations) {
+                const vId = v._id?.toString();
+                if (!vId) continue;
+                await StoreInventory.findOneAndUpdate(
+                  { store: storeId, product: r.matchedId, variationId: vId },
+                  { $set: { quantity: r.newStock, lastUpdated: new Date() } },
+                  { upsert: true, new: true },
+                );
+              }
+            } else {
               await StoreInventory.findOneAndUpdate(
-                { store: storeId, product: r.matchedId, variationId: vId },
+                {
+                  store: storeId,
+                  product: r.matchedId,
+                  variationId: r.matchedId,
+                },
                 { $set: { quantity: r.newStock, lastUpdated: new Date() } },
                 { upsert: true, new: true },
               );
             }
-          } else {
-            await StoreInventory.findOneAndUpdate(
-              {
-                store: storeId,
-                product: r.matchedId,
-                variationId: r.matchedId,
-              },
-              { $set: { quantity: r.newStock, lastUpdated: new Date() } },
-              { upsert: true, new: true },
-            );
           }
 
           r.updated = true;
@@ -303,7 +328,7 @@ export async function POST(req: Request) {
       }
 
       // ── CREATE new product ───────────────────────────────────────────────
-      if (effectiveAction === "create" && !r.matchedId) {
+      if (effectiveAction === "create" && !r.matchedId && !pricesOnly) {
         try {
           const baseTitle = r.producto?.trim() || `Producto ${r.codigo}`;
 
