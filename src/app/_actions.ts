@@ -2403,10 +2403,24 @@ export async function getOneProduct(slug: any, id: any = "") {
       product = await Product.findOne({ slug: slug });
     }
 
-    // convert to string
+    // Apply 10% online markup before sending to client
+    if (product?.availability?.online) {
+      const p = product.toObject ? product.toObject() : { ...product };
+      const ONLINE_MARKUP = 1.1;
+      p.price = p.price
+        ? Math.round(p.price * ONLINE_MARKUP * 100) / 100
+        : p.price;
+      p.variations = p.variations?.map((v: any) => ({
+        ...v,
+        price: v.price
+          ? Math.round(v.price * ONLINE_MARKUP * 100) / 100
+          : v.price,
+      }));
+      return { product: JSON.stringify(p) };
+    }
+
     product = JSON.stringify(product);
     return { product: product };
-    // return { product };
   } catch (error: any) {
     console.log(error);
     throw Error(error);
@@ -2428,11 +2442,27 @@ export async function getOneProductWithTrending(slug: string, id: string) {
     })
       .sort({ createdAt: -1 })
       .limit(4);
-    // convert to string
-    product = JSON.stringify(product);
+
+    // Apply 10% online markup before sending to client
+    if (product?.availability?.online) {
+      const ONLINE_MARKUP = 1.1;
+      const p = product.toObject ? product.toObject() : { ...product };
+      p.price = p.price
+        ? Math.round(p.price * ONLINE_MARKUP * 100) / 100
+        : p.price;
+      p.variations = p.variations?.map((v: any) => ({
+        ...v,
+        price: v.price
+          ? Math.round(v.price * ONLINE_MARKUP * 100) / 100
+          : v.price,
+      }));
+      product = JSON.stringify(p);
+    } else {
+      product = JSON.stringify(product);
+    }
+
     trendingProducts = JSON.stringify(trendingProducts);
     return { product: product, trendingProducts: trendingProducts };
-    // return { product };
   } catch (error: any) {
     console.log(error);
     throw Error(error);
@@ -2462,7 +2492,22 @@ const getCachedEditorsProducts = unstable_cache(
       .sort({ createdAt: -1 })
       .limit(20)
       .lean();
-    return JSON.stringify(editorsProducts);
+
+    const ONLINE_MARKUP = 1.1;
+    const markedUp = (editorsProducts as any[]).map((p) => ({
+      ...p,
+      price: p.price
+        ? Math.round(p.price * ONLINE_MARKUP * 100) / 100
+        : p.price,
+      variations:
+        p.variations?.map((v: any) => ({
+          ...v,
+          price: v.price
+            ? Math.round(v.price * ONLINE_MARKUP * 100) / 100
+            : v.price,
+        })) ?? [],
+    }));
+    return JSON.stringify(markedUp);
   },
   ["home-editors-products"],
   { revalidate: 300 }, // 5 minutes

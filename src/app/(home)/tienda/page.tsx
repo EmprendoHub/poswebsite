@@ -37,19 +37,37 @@ const getStoreData = unstable_cache(
       .sort({ createdAt: -1 })
       .lean();
 
+    const rawProducts = products as any[];
+
+    // Online customers pay 10% more than the base (POS) price
+    const ONLINE_MARKUP = 1.1;
+    const markedUpProducts = rawProducts.map((p) => ({
+      ...p,
+      price: p.price
+        ? Math.round(p.price * ONLINE_MARKUP * 100) / 100
+        : p.price,
+      variations:
+        p.variations?.map((v: any) => ({
+          ...v,
+          price: v.price
+            ? Math.round(v.price * ONLINE_MARKUP * 100) / 100
+            : v.price,
+        })) ?? [],
+    }));
+
     const allCategories = Array.from(
-      new Set((products as any[]).map((p) => p.category).filter(Boolean)),
+      new Set(markedUpProducts.map((p) => p.category).filter(Boolean)),
     ).sort() as string[];
 
     const allBrands = Array.from(
-      new Set((products as any[]).map((p) => p.brand).filter(Boolean)),
+      new Set(markedUpProducts.map((p) => p.brand).filter(Boolean)),
     ).sort() as string[];
 
     const allGenders = Array.from(
-      new Set((products as any[]).map((p) => p.gender).filter(Boolean)),
+      new Set(markedUpProducts.map((p) => p.gender).filter(Boolean)),
     ).sort() as string[];
 
-    const prices: number[] = (products as any[]).flatMap(
+    const prices: number[] = markedUpProducts.flatMap(
       (p) =>
         p.variations
           ?.map((v: any) => v.price)
@@ -59,7 +77,7 @@ const getStoreData = unstable_cache(
     const maxPrice = prices.length ? Math.max(...prices) : 1000;
 
     return {
-      products: JSON.parse(JSON.stringify(products)),
+      products: JSON.parse(JSON.stringify(markedUpProducts)),
       allCategories,
       allBrands,
       allGenders,
