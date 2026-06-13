@@ -73,6 +73,7 @@ export default function CheckoutModal({
   const [transactionRef, setTransactionRef] = useState("");
   const [cashPart, setCashPart] = useState("");
   const [cardPart, setCardPart] = useState("");
+  const [mixedCardRef, setMixedCardRef] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
@@ -104,8 +105,12 @@ export default function CheckoutModal({
         amountPaid = Math.min(Number(cashReceived), subtotal);
         ref = "EFECTIVO";
       } else if (payMethod === "MIXTO") {
-        amountPaid = Number(cashPart) + Number(cardPart);
-        ref = `MIXTO-CASH:${cashPart}-CARD:${cardPart}`;
+        const cardAmount = Math.max(
+          0,
+          Math.round((subtotal - Number(cashPart)) * 100) / 100,
+        );
+        amountPaid = Number(cashPart) + cardAmount;
+        ref = `MIXTO-CASH:${cashPart}-CARD:${cardAmount.toFixed(2)}${mixedCardRef ? `-REF:${mixedCardRef}` : ""}`;
       }
 
       // ── OFFLINE: queue in IndexedDB and show local receipt ──────────────────
@@ -218,7 +223,7 @@ export default function CheckoutModal({
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-        <div className="bg-gradient-to-tr from-slate-700 to-slate-900 rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="bg-card dark:bg-gradient-to-tr dark:from-slate-700 dark:to-slate-900 rounded-2xl shadow-2xl w-full max-w-md">
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-muted">
             <h2 className="font-bold text-lg">Cobrar Venta</h2>
@@ -247,7 +252,7 @@ export default function CheckoutModal({
 
           <div className="px-6 py-5 flex flex-col gap-5">
             {/* Summary */}
-            <div className="bg-gradient-to-tr from-slate-600 to-slate-800 rounded-xl px-4 py-3 flex flex-col gap-1">
+            <div className="bg-muted/40 dark:bg-gradient-to-tr dark:from-slate-600 dark:to-slate-800 rounded-xl px-4 py-3 flex flex-col gap-1">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-slate-400">
                   {items.length} artículo(s)
@@ -294,7 +299,7 @@ export default function CheckoutModal({
                 ) : (
                   <button
                     onClick={() => setShowDiscountAuth(true)}
-                    className="w-full flex items-center justify-center gap-1 text-xs bg-emerald-800/40 hover:bg-emerald-700/50 text-emerald-300 py-1.5 rounded-lg transition-colors"
+                    className="w-full flex items-center justify-center gap-1 text-xs bg-emerald-800 hover:bg-emerald-700 text-emerald-300 py-1.5 rounded-lg transition-colors"
                   >
                     <MdLocalOffer size={13} />
                     Aplicar descuento 10%
@@ -338,7 +343,7 @@ export default function CheckoutModal({
                   placeholder="Efectivo recibido"
                   value={cashReceived}
                   onChange={(e) => setCashReceived(e.target.value)}
-                  className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-slate-500 text-slate-700 font-bold"
+                  className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-muted-foreground text-foreground font-bold"
                 />
                 {Number(cashReceived) > 0 && (
                   <div className="flex justify-between text-sm px-1">
@@ -357,25 +362,41 @@ export default function CheckoutModal({
                 placeholder="Referencia / Nº de transacción"
                 value={transactionRef}
                 onChange={(e) => setTransactionRef(e.target.value)}
-                className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-slate-500 text-slate-700 font-bold"
+                className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-muted-foreground text-foreground font-bold"
               />
             )}
 
             {payMethod === "MIXTO" && (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-muted-foreground font-medium px-1">
+                      Efectivo recibido
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      value={cashPart}
+                      onChange={(e) => setCashPart(e.target.value)}
+                      className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-muted-foreground text-foreground font-bold"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-muted-foreground font-medium px-1">
+                      Cargo a terminal
+                    </label>
+                    <div className="bg-muted/50 border border-muted rounded-lg px-3 py-2.5 text-lg font-bold text-blue-600 dark:text-blue-400">
+                      $
+                      {Math.max(0, subtotal - Number(cashPart || 0)).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
                 <input
-                  type="number"
-                  placeholder="Efectivo"
-                  value={cashPart}
-                  onChange={(e) => setCashPart(e.target.value)}
-                  className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-slate-500 text-slate-700 font-bold"
-                />
-                <input
-                  type="number"
-                  placeholder="Referencia"
-                  value={cardPart}
-                  onChange={(e) => setCardPart(e.target.value)}
-                  className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-slate-500 text-slate-700 font-bold"
+                  type="text"
+                  placeholder="Referencia / Nº de transacción terminal"
+                  value={mixedCardRef}
+                  onChange={(e) => setMixedCardRef(e.target.value)}
+                  className="bg-muted rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground text-foreground font-semibold"
                 />
               </div>
             )}

@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import { options } from "@/app/api/auth/[...nextauth]/options";
 import Order from "@/backend/models/Order";
+import Payment from "@/backend/models/Payment";
 import Store from "@/backend/models/Store";
 import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
@@ -56,8 +57,22 @@ export async function GET(req: Request) {
 
     const orders = await Order.find(query).sort({ createdAt: 1 });
 
+    // Embed Payment records so the client can show per-order payment methods
+    const orderIds = orders.map((o: any) => o._id);
+    const paymentDocs = await Payment.find({ order: { $in: orderIds } }).lean();
+    const paymentsByOrder: Record<string, any[]> = {};
+    for (const p of paymentDocs) {
+      const key = (p.order as any).toString();
+      if (!paymentsByOrder[key]) paymentsByOrder[key] = [];
+      paymentsByOrder[key].push(p);
+    }
+    const ordersWithPayments = orders.map((o: any) => ({
+      ...o.toObject(),
+      payments: paymentsByOrder[o._id.toString()] ?? [],
+    }));
+
     return NextResponse.json(
-      { orders, storeName: store.name },
+      { orders: ordersWithPayments, storeName: store.name },
       { status: 200 },
     );
   } catch (error: any) {

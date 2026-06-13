@@ -420,7 +420,7 @@ export default function CajaPage() {
     : 0;
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-slate-800 to-slate-900">
+    <div className="flex h-screen bg-background">
       <POSSidebar storeSlug={storeSlug} storeName={storeName} />
 
       {/* ── Print ticket overlay (only shown on screen before printing) ── */}

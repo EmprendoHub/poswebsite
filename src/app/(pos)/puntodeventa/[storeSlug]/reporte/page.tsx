@@ -3,12 +3,20 @@ import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import POSSidebar from "../_components/POSSidebar";
 import FormattedPrice from "@/backend/helpers/FormattedPrice";
-import { MdPrint, MdClose, MdCancel, MdShield } from "react-icons/md";
+import { MdPrint, MdClose, MdCancel, MdShield, MdVisibility } from "react-icons/md";
 
 interface OrderItem {
   name: string;
   quantity: number;
   price: number;
+}
+interface PaymentRecord {
+  _id: string;
+  method: string;
+  amount: number;
+  reference?: string;
+  comment?: string;
+  pay_date?: string;
 }
 interface DayOrder {
   _id: string;
@@ -21,6 +29,17 @@ interface DayOrder {
   orderItems: OrderItem[];
   createdAt: string;
   branch: string;
+  ship_cost?: number;
+  payments?: PaymentRecord[];
+}
+
+function getPayMethodLabel(method: string): string {
+  if (!method) return "—";
+  const m = method.toUpperCase();
+  if (["CASH", "EFECTIVO"].includes(m)) return "Efectivo";
+  if (["CARD", "TERMINAL", "TARJETA", "CREDIT"].includes(m)) return "Terminal";
+  if (["TRANSFER", "TRANSFERENCIA"].includes(m)) return "Transfer.";
+  return method;
 }
 
 /* ─── Manager code verification modal ───────────────────────────── */
@@ -364,6 +383,175 @@ function ReprintModal({
     </div>
   );
 }
+
+/* ─── Order detail modal ─────────────────────────────────────────── */
+function OrderDetailModal({
+  order,
+  onClose,
+  onReprint,
+}: {
+  order: DayOrder;
+  onClose: () => void;
+  onReprint: () => void;
+}) {
+  const itemsTotal = order.orderItems.reduce(
+    (s, i) => s + i.price * i.quantity,
+    0,
+  );
+  const iva = Math.round(((itemsTotal * 16) / 116) * 100) / 100;
+  const shipCost = order.ship_cost ?? 0;
+
+  const fmtDate = new Date(order.createdAt).toLocaleString("es-MX", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "UTC",
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="bg-background rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-muted">
+          <div>
+            <h2 className="font-bold text-base">Pedido #{order.orderId}</h2>
+            <p className="text-xs text-muted-foreground">
+              {order.customerName || "—"} &middot; {fmtDate}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onReprint}
+              className="flex items-center gap-1 text-xs bg-muted hover:bg-muted/70 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <MdPrint size={14} /> Reimprimir
+            </button>
+            <button
+              onClick={onClose}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <MdClose size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-5">
+          {/* Items table */}
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+              Art&iacute;culos
+            </h3>
+            <div className="border border-muted rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/30 text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Art&iacute;culo</th>
+                    <th className="px-3 py-2 text-center">Cant.</th>
+                    <th className="px-3 py-2 text-right">P. Unit.</th>
+                    <th className="px-3 py-2 text-right">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {order.orderItems.map((item, i) => (
+                    <tr key={i} className="border-t border-muted/40">
+                      <td className="px-3 py-2 text-xs">{item.name}</td>
+                      <td className="px-3 py-2 text-center">{item.quantity}</td>
+                      <td className="px-3 py-2 text-right">
+                        <FormattedPrice amount={item.price} />
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold">
+                        <FormattedPrice amount={item.price * item.quantity} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Totals */}
+          <div className="border border-muted rounded-xl overflow-hidden text-sm">
+            <div className="flex justify-between px-4 py-2.5 bg-muted/20">
+              <span className="text-muted-foreground">Subtotal art&iacute;culos</span>
+              <FormattedPrice amount={itemsTotal} />
+            </div>
+            {shipCost > 0 && (
+              <div className="flex justify-between px-4 py-2.5 border-t border-muted/40">
+                <span className="text-muted-foreground">Env&iacute;o</span>
+                <FormattedPrice amount={shipCost} />
+              </div>
+            )}
+            <div className="flex justify-between px-4 py-2.5 border-t border-muted/40">
+              <span className="text-muted-foreground">IVA incluido (16%)</span>
+              <FormattedPrice amount={iva} />
+            </div>
+            <div className="flex justify-between px-4 py-3 bg-foreground text-background font-bold border-t border-muted">
+              <span>TOTAL COBRADO</span>
+              <FormattedPrice amount={order.paymentInfo.amountPaid} />
+            </div>
+          </div>
+
+          {/* Payment methods */}
+          {order.payments && order.payments.length > 0 ? (
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                Formas de pago
+              </h3>
+              <div className="border border-muted rounded-xl overflow-hidden text-sm">
+                {order.payments.map((p, i) => (
+                  <div
+                    key={i}
+                    className={`flex items-center justify-between px-4 py-2.5 ${
+                      i > 0 ? "border-t border-muted/40" : ""
+                    }`}
+                  >
+                    <div>
+                      <span className="font-semibold">
+                        {getPayMethodLabel(p.method)}
+                      </span>
+                      {p.reference && (
+                        <span className="text-xs text-muted-foreground ml-2">
+                          Ref: {p.reference}
+                        </span>
+                      )}
+                      {p.comment && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {p.comment}
+                        </p>
+                      )}
+                    </div>
+                    <span className="font-bold text-green-700 dark:text-green-400">
+                      <FormattedPrice amount={p.amount} />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                Forma de pago
+              </h3>
+              <div className="border border-muted rounded-xl px-4 py-2.5 text-sm font-semibold">
+                {(() => {
+                  const ref = order.paymentInfo?.id ?? "";
+                  if (ref === "EFECTIVO") return "Efectivo";
+                  if (ref.startsWith("MIXTO")) return "Mixto";
+                  if (ref) return "Terminal";
+                  return "—";
+                })()}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 export default function POSReportPage() {
   const params = useParams();
   const storeSlug = params?.storeSlug as string;
@@ -381,6 +569,7 @@ export default function POSReportPage() {
     useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelError, setCancelError] = useState("");
+  const [viewOrder, setViewOrder] = useState<DayOrder | null>(null);
 
   useEffect(() => {
     fetch("/api/stores")
@@ -413,6 +602,30 @@ export default function POSReportPage() {
   const totalItems = orders.reduce(
     (s, o) => s + o.orderItems.reduce((ss, i) => ss + i.quantity, 0),
     0,
+  );
+  const paymentBreakdown = orders.reduce(
+    (acc: Record<string, number>, o) => {
+      if (o.payments && o.payments.length > 0) {
+        for (const p of o.payments) {
+          const label = getPayMethodLabel(p.method);
+          acc[label] = (acc[label] ?? 0) + p.amount;
+        }
+      } else {
+        const ref = o.paymentInfo?.id ?? "";
+        const label =
+          ref === "EFECTIVO"
+            ? "Efectivo"
+            : ref.startsWith("MIXTO")
+              ? "Mixto"
+              : ref
+                ? "Terminal"
+                : null;
+        if (label)
+          acc[label] = (acc[label] ?? 0) + (o.paymentInfo?.amountPaid ?? 0);
+      }
+      return acc;
+    },
+    {},
   );
 
   async function handleCancelOrder(employee: {
@@ -495,6 +708,25 @@ export default function POSReportPage() {
             ))}
           </div>
 
+          {/* Payment method breakdown */}
+          {Object.keys(paymentBreakdown).length > 0 && (
+            <div className="flex flex-wrap gap-3 mb-6">
+              {Object.entries(paymentBreakdown).map(([method, amount]) => (
+                <div
+                  key={method}
+                  className="bg-card border border-muted rounded-lg px-4 py-2.5 flex items-center gap-3"
+                >
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    {method}
+                  </span>
+                  <span className="text-base font-bold">
+                    ${(amount as number).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Orders table */}
           <div ref={printRef}>
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
@@ -550,7 +782,21 @@ export default function POSReportPage() {
                         </td>
                         <td className="px-4 py-3">
                           <p className="font-medium text-xs">
-                            {order.paymentMethod || "—"}
+                            {order.payments && order.payments.length > 0
+                              ? Array.from(
+                                  new Set(
+                                    order.payments.map((p) =>
+                                      getPayMethodLabel(p.method),
+                                    ),
+                                  ),
+                                ).join(" + ")
+                              : (() => {
+                                  const ref = order.paymentInfo?.id ?? "";
+                                  if (ref === "EFECTIVO") return "Efectivo";
+                                  if (ref.startsWith("MIXTO")) return "Mixto";
+                                  if (ref) return "Terminal";
+                                  return order.paymentMethod || "—";
+                                })()}
                           </p>
                         </td>
                         <td className="px-4 py-3 text-center">
@@ -587,6 +833,13 @@ export default function POSReportPage() {
                         </td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => setViewOrder(order)}
+                              title="Ver detalle"
+                              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                            >
+                              <MdVisibility size={16} />
+                            </button>
                             <button
                               onClick={() => setReprintOrder(order)}
                               title="Reimprimir ticket"
@@ -632,6 +885,17 @@ export default function POSReportPage() {
           </div>
         </div>
       </div>
+
+      {viewOrder && (
+        <OrderDetailModal
+          order={viewOrder}
+          onClose={() => setViewOrder(null)}
+          onReprint={() => {
+            setReprintOrder(viewOrder);
+            setViewOrder(null);
+          }}
+        />
+      )}
 
       {reprintOrder && (
         <ReprintModal

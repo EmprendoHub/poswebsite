@@ -147,10 +147,10 @@ export function SideBarItem({
 
   return (
     <li
-      className={`relative flex flex-col items-center font-medium  cursor-pointer py-2 px-2 text-[14px] ${
+      className={`relative flex flex-col items-center font-medium  cursor-pointer py-2 px-2 text-[14px]  rounded-[20px]  ${
         active === "true"
-          ? " text-primary bg-foreground"
-          : "hover:text-primary hover:bg-foreground text-muted"
+          ? " text-slate-400 bg-foreground rounded-lg"
+          : "hover:text-slate-400 hover:bg-foreground text-muted"
       }`}
       onClick={handleDropdownToggle}
       onMouseEnter={() => setHoveredIndex("main")} // Set hoveredIndex to 'main' for the main item
@@ -159,7 +159,7 @@ export function SideBarItem({
       <div className="flex items-center justify-center">
         {icon}
         <span
-          className={`flex justify-between items-center overflow-hidden transition-all ease-in-out ${
+          className={`flex justify-between items-center overflow-hidden transition-all ease-in-out  ${
             expandSidebar ? " w-36 ml-2  maxmd:w-36 maxmd:ml-1" : "w-0"
           }`}
         >
@@ -194,7 +194,7 @@ export function SideBarItem({
                   icon: any;
                   text: string;
                 },
-                index: number
+                index: number,
               ) => (
                 <Link href={item.url} key={index} className="min-w-full">
                   <li
@@ -224,7 +224,7 @@ export function SideBarItem({
                     )}
                   </li>
                 </Link>
-              )
+              ),
             )}
           </motion.ul>
         </AnimatePresence>

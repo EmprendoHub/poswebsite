@@ -29,24 +29,24 @@ export default function POSCart({
   const iva = Math.round(((rawSubtotal * 16) / 116) * 100) / 100;
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-slate-700 to-slate-900 border border-muted rounded-xl overflow-hidden">
+    <div className="flex flex-col h-full bg-card dark:bg-gradient-to-br dark:from-slate-700 dark:to-slate-900 border border-muted rounded-xl overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 border-b border-muted flex items-center gap-2">
         <MdReceiptLong size={20} className="text-emerald-500" />
         <h2 className="font-semibold text-sm">Carrito de Venta</h2>
-        <span className="ml-auto text-xs  bg-muted px-2 py-0.5 rounded-full text-black">
+        <span className="ml-auto text-xs bg-muted px-2 py-0.5 rounded-full text-foreground">
           {items.length} art.
         </span>
       </div>
 
       {/* Customer */}
-      <div className="px-4 py-3 border-b border-muted grid grid-cols-2 gap-2 text-black">
+      <div className="px-4 py-3 border-b border-muted grid grid-cols-2 gap-2">
         <input
           type="text"
           placeholder="Nombre del cliente"
           value={customerName}
           onChange={(e) => onCustomerNameChange(e.target.value)}
-          className="col-span-2 text-xs bg-muted rounded-md px-3 py-2 outline-none placeholder:text-slate-200"
+          className="col-span-2 text-xs bg-muted rounded-md px-3 py-2 outline-none placeholder:text-muted-foreground text-foreground"
         />
       </div>
 
@@ -67,7 +67,7 @@ export default function POSCart({
                 {item.title}
               </p>
               <div className="flex items-center gap-2 mt-0.5">
-                <p className="text-xs font-semibold text-slate-300">
+                <p className="text-xs font-semibold text-muted-foreground">
                   ${item.price.toFixed(2)} x {item.quantity}
                 </p>
                 {item.quantity >= item.stock && (

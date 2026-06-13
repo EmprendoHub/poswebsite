@@ -31,6 +31,7 @@ const AdminOneOrder = ({
 }) => {
   const { data: session } = useSession();
   const isManager = (session?.user as any)?.role === "manager";
+  const isSuperAdmin = (session?.user as any)?.role === "super_admin";
 
   const [showModal, setShowModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -68,6 +69,17 @@ const AdminOneOrder = ({
     order?.orderStatus,
   );
 
+  // ── Price editing (super_admin only) ─────────────────────────────────────
+  const [editingPrices, setEditingPrices] = useState(false);
+  const [draftPrices, setDraftPrices] = useState<number[]>([]);
+  const [savingPrices, setSavingPrices] = useState(false);
+  const [localAmountPaid, setLocalAmountPaid] = useState<number>(
+    order?.paymentInfo?.amountPaid ?? 0,
+  );
+  const [localTaxPaid, setLocalTaxPaid] = useState<number>(
+    order?.paymentInfo?.taxPaid ?? 0,
+  );
+
   function getQuantities(orderItems: any[]) {
     // Use reduce to sum up the 'quantity' fields
     const totalQuantity = orderItems?.reduce(
@@ -100,6 +112,47 @@ const AdminOneOrder = ({
     let sub = order?.paymentInfo?.amountPaid - order?.ship_cost;
     return sub;
   }
+
+  const startEditPrices = () => {
+    setDraftPrices(orderItems.map((i: any) => i.price));
+    setEditingPrices(true);
+  };
+
+  const cancelEditPrices = () => {
+    setEditingPrices(false);
+    setDraftPrices([]);
+  };
+
+  const saveEditPrices = async () => {
+    setSavingPrices(true);
+    try {
+      const payload = draftPrices.map((price, index) => ({ index, price }));
+      const res = await fetch("/api/orders/update-prices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: id, items: payload }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || "Error al guardar precios");
+        return;
+      }
+      const updated = orderItems.map((item: any, i: number) => ({
+        ...item,
+        price: data.orderItems[i]?.price ?? item.price,
+      }));
+      setOrderItems(updated);
+      setLocalAmountPaid(data.amountPaid);
+      setLocalTaxPaid(data.taxPaid);
+      toast("Precios actualizados exitosamente");
+      setEditingPrices(false);
+      setDraftPrices([]);
+    } catch {
+      toast("Error al guardar precios");
+    } finally {
+      setSavingPrices(false);
+    }
+  };
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
@@ -611,6 +664,39 @@ const AdminOneOrder = ({
           </div>
         )}
 
+        {isSuperAdmin && (
+          <div className="flex items-center gap-3 py-2 px-1 mb-2 border-b">
+            {editingPrices ? (
+              <>
+                <span className="text-xs text-amber-700 font-semibold uppercase tracking-wide">
+                  Modo edición de precios
+                </span>
+                <button
+                  onClick={saveEditPrices}
+                  disabled={savingPrices}
+                  className="flex items-center gap-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold rounded px-3 py-1.5 transition-colors"
+                >
+                  {savingPrices ? "Guardando..." : "Guardar cambios"}
+                </button>
+                <button
+                  onClick={cancelEditPrices}
+                  disabled={savingPrices}
+                  className="text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5 border rounded transition-colors disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={startEditPrices}
+                className="flex items-center gap-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded px-3 py-1.5 transition-colors"
+              >
+                <FaPencilAlt className="text-xs" />
+                Editar precios
+              </button>
+            )}
+          </div>
+        )}
         <table className="w-fit maxsm:w-full text-sm text-left">
           <thead className="text-l text-gray-400 uppercase">
             <tr>
@@ -627,7 +713,7 @@ const AdminOneOrder = ({
                 Cant.
               </th>
               <th scope="col" className="px-2 py-3 min-w-10 text-center">
-                Precio
+                {editingPrices ? "Nuevo Precio" : "Precio"}
               </th>
               {isManager && (
                 <th scope="col" className="px-2 py-3 min-w-10 text-center">
@@ -657,7 +743,22 @@ const AdminOneOrder = ({
                     {item.quantity}
                   </td>
                   <td className="px-2 maxsm:px-0 py-2 min-w-10 text-center">
-                    <FormattedPrice amount={item.price || 0} />
+                    {editingPrices && isSuperAdmin ? (
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={draftPrices[index] ?? item.price}
+                        onChange={(e) => {
+                          const updated = [...draftPrices];
+                          updated[index] = parseFloat(e.target.value) || 0;
+                          setDraftPrices(updated);
+                        }}
+                        className="w-24 border border-amber-400 rounded px-1 py-0.5 text-sm bg-background text-center focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      />
+                    ) : (
+                      <FormattedPrice amount={item.price || 0} />
+                    )}
                   </td>
                   {isManager && (
                     <td className="px-2 py-2 text-center">
@@ -856,26 +957,26 @@ const AdminOneOrder = ({
                 <li className="flex justify-between gap-x-5 text-muted  mb-1">
                   <span>Total de Artículos:</span>
                   <span className="text-green-700 text-sm w-full text-end">
-                    {getQuantities(order?.orderItems)} (Artículos)
+                    {getQuantities(orderItems)} (Artículos)
                   </span>
                 </li>
                 <li className="flex justify-between gap-x-5 text-muted  mb-1">
                   <span>Sub-Total:</span>
                   <span>
-                    <FormattedPrice amount={subtotal() || 0} />
+                    <FormattedPrice amount={getTotal(orderItems) || 0} />
                   </span>
                 </li>
 
                 <li className="flex justify-between gap-x-5 text-muted  mb-1">
                   <span>Total:</span>
                   <span>
-                    <FormattedPrice amount={getTotal(order?.orderItems) || 0} />
+                    <FormattedPrice amount={getTotal(orderItems) || 0} />
                   </span>
                 </li>
                 <li className="text-xl font-bold border-t flex justify-between gap-x-5  pt-3">
                   <span>Abono:</span>
                   <span>
-                    - <FormattedPrice amount={order?.paymentInfo?.amountPaid} />
+                    - <FormattedPrice amount={localAmountPaid} />
                   </span>
                 </li>
 
@@ -883,12 +984,7 @@ const AdminOneOrder = ({
                   <span>Pendiente:</span>
                   <span>
                     <FormattedPrice
-                      amount={
-                        getPendingTotal(
-                          order?.orderItems,
-                          order?.paymentInfo?.amountPaid,
-                        ) || 0
-                      }
+                      amount={getPendingTotal(orderItems, localAmountPaid) || 0}
                     />
                   </span>
                 </li>
@@ -898,13 +994,13 @@ const AdminOneOrder = ({
                 <li className="flex justify-between gap-x-5 text-muted  mb-1 text-sm ">
                   <span>Sub-Total:</span>
                   <span>
-                    <FormattedPrice amount={subtotal() || 0} />
+                    <FormattedPrice amount={getTotal(orderItems) || 0} />
                   </span>
                 </li>
                 <li className="flex justify-between gap-x-5 text-muted text-sm mb-1">
                   <span>Cantidades:</span>
                   <span className="text-green-700 text-sm w-full text-end">
-                    {getQuantities(order?.orderItems)} (Artículos)
+                    {getQuantities(orderItems)} (Artículos)
                   </span>
                 </li>
                 <li className="flex justify-between gap-x-5 text-muted  mb-1">
@@ -913,13 +1009,20 @@ const AdminOneOrder = ({
                     <FormattedPrice amount={order?.ship_cost || 0} />
                   </span>
                 </li>
+                {localTaxPaid > 0 && (
+                  <li className="flex justify-between gap-x-5 text-muted text-sm mb-1">
+                    <span>IVA (16%):</span>
+                    <span>
+                      <FormattedPrice amount={localTaxPaid} />
+                    </span>
+                  </li>
+                )}
                 <li className="text-3xl font-bold border-t flex justify-between gap-x-5 mt-3 pt-3">
                   <span>Total:</span>
                   <span>
                     <FormattedPrice
                       amount={
-                        (getTotal(order?.orderItems) || 0) +
-                        (order?.ship_cost || 0)
+                        (getTotal(orderItems) || 0) + (order?.ship_cost || 0)
                       }
                     />
                   </span>

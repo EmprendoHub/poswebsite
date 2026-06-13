@@ -9,7 +9,7 @@ import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
-const ALLOWED_ROLES = ["manager", "director", "sucursal", "pos"];
+const ALLOWED_ROLES = ["super_admin", "manager", "supervisor", "director", "sucursal", "pos"];
 
 // GET /api/work-orders?storeId=xxx&status=pending
 export async function GET(req: Request) {

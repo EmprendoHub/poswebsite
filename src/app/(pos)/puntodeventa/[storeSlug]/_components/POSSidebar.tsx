@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import Image from "next/image";
 import { useState } from "react";
+import { useTheme } from "next-themes";
 import {
   MdPointOfSale,
   MdInventory2,
@@ -11,6 +12,8 @@ import {
   MdBarChart,
   MdArrowBack,
   MdAccountBalance,
+  MdDarkMode,
+  MdLightMode,
 } from "react-icons/md";
 import { FiLogOut } from "react-icons/fi";
 import { BsChevronBarLeft, BsChevronBarRight } from "react-icons/bs";
@@ -23,6 +26,7 @@ interface POSSidebarProps {
 export default function POSSidebar({ storeSlug, storeName }: POSSidebarProps) {
   const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
   const base = `/puntodeventa/${storeSlug}`;
   const { data: session } = useSession();
   const hasAssignedStore = !!(session?.user as any)?.assignedStore;
@@ -133,8 +137,29 @@ export default function POSSidebar({ storeSlug, storeName }: POSSidebarProps) {
           </ul>
         </div>
 
-        {/* Footer: back + logout */}
+        {/* Footer: theme toggle + back + logout */}
         <div className="px-2 pb-4 flex flex-col gap-1">
+          {/* Dark / light toggle */}
+          <button
+            onClick={() =>
+              setTheme(resolvedTheme === "dark" ? "light" : "dark")
+            }
+            title={resolvedTheme === "dark" ? "Modo claro" : "Modo oscuro"}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            {resolvedTheme === "dark" ? (
+              <MdLightMode size={20} />
+            ) : (
+              <MdDarkMode size={20} />
+            )}
+            <span
+              className={`overflow-hidden transition-all ${
+                expanded ? "w-40 opacity-100" : "w-0 opacity-0"
+              }`}
+            >
+              {resolvedTheme === "dark" ? "Modo claro" : "Modo oscuro"}
+            </span>
+          </button>
           {!hasAssignedStore && (
             <Link
               href="/puntodeventa"
