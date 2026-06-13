@@ -206,41 +206,54 @@ export default function ProductSearch({
               Buscando...
             </p>
           )}
-          {results.map((product) => {
-            const v = product.variations?.[0];
-            const outOfStock = (v?.stock ?? 0) <= 0;
-            return (
-              <button
-                key={product._id}
-                onClick={() => v && handleAdd(product, v)}
-                disabled={outOfStock}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left border-b border-muted last:border-0 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+          {results.map((product) => (
+            <div
+              key={product._id}
+              className="border-b border-muted last:border-0"
+            >
+              {/* Product header row */}
+              <div className="flex items-center gap-3 px-4 py-2.5 bg-muted/30 pointer-events-none">
                 {product.images?.[0]?.url && (
                   <Image
                     src={product.images[0].url}
                     alt={product.title}
-                    width={40}
-                    height={40}
-                    className="rounded object-cover w-10 h-10 flex-shrink-0"
+                    width={32}
+                    height={32}
+                    className="rounded object-cover w-8 h-8 flex-shrink-0"
                   />
                 )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {product.title}
-                  </p>
-                  <p
-                    className={`text-xs ${outOfStock ? "text-red-500 font-semibold" : "text-muted-foreground"}`}
+                <p className="text-sm font-semibold truncate flex-1">
+                  {product.title}
+                </p>
+              </div>
+              {/* One row per in-stock variation */}
+              {product.variations.map((v) => {
+                const label =
+                  [v.color, v.size, v.title].filter(Boolean).join(" / ") ||
+                  "Default";
+                return (
+                  <button
+                    key={v._id}
+                    onClick={() => handleAdd(product, v)}
+                    className="w-full flex items-center gap-3 pl-8 pr-4 py-2 hover:bg-muted transition-colors text-left"
                   >
-                    {outOfStock ? "Sin stock" : `Stock: ${v?.stock}`}
-                  </p>
-                </div>
-                <span className="text-sm font-semibold text-primary ml-2">
-                  ${v?.price?.toFixed(2)}
-                </span>
-              </button>
-            );
-          })}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-foreground">
+                        {label}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {v.stock} disponible{v.stock !== 1 ? "s" : ""} en
+                        sucursal
+                      </p>
+                    </div>
+                    <span className="text-sm font-semibold text-primary flex-shrink-0">
+                      ${v.price?.toFixed(2)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </div>
       )}
     </div>

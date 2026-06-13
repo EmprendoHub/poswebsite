@@ -1,9 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import POSSidebar from "../../_components/POSSidebar";
-import { MdArrowBack, MdCheck, MdClose, MdLocalShipping } from "react-icons/md";
+import {
+  MdArrowBack,
+  MdCheck,
+  MdClose,
+  MdLocalShipping,
+  MdShield,
+  MdLock,
+} from "react-icons/md";
 
 const statusLabels: Record<string, string> = {
   draft: "Borrador",
@@ -38,20 +44,112 @@ const nextActions: Record<
   ],
 };
 
+/* ─── Manager code gate ──────────────────────────────────────────── */
+function ManagerCodeModal({
+  onAuthorized,
+  onCancel,
+}: {
+  onAuthorized: () => void;
+  onCancel: () => void;
+}) {
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleVerify() {
+    if (code.length !== 6) {
+      setError("El código debe tener 6 dígitos.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/pos/verify-manager-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        onAuthorized();
+      } else {
+        setError("Código incorrecto. Intenta de nuevo.");
+        setCode("");
+      }
+    } catch {
+      setError("Error de red. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="bg-background rounded-2xl shadow-2xl w-full max-w-xs">
+        <div className="flex items-center gap-3 px-6 py-5 border-b border-muted">
+          <MdLock size={22} className="text-primary" />
+          <div>
+            <h2 className="font-bold text-base">Acceso restringido</h2>
+            <p className="text-xs text-muted-foreground">
+              Se requiere autorización de manager
+            </p>
+          </div>
+        </div>
+        <div className="px-6 py-5">
+          <p className="text-xs text-muted-foreground mb-4">
+            Ingresa el{" "}
+            <span className="font-semibold text-foreground">
+              código de manager
+            </span>{" "}
+            para ver y gestionar esta orden de trabajo.
+          </p>
+          <input
+            type="password"
+            value={code}
+            onChange={(e) => {
+              setCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+              setError("");
+            }}
+            onKeyDown={(e) => e.key === "Enter" && handleVerify()}
+            inputMode="numeric"
+            maxLength={6}
+            autoFocus
+            placeholder="••••••"
+            className="w-full border border-border rounded-lg px-3 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-primary tracking-widest text-center text-lg mb-1"
+          />
+          <p className="text-xs text-muted-foreground text-center mb-3">
+            {code.length}/6 dígitos
+          </p>
+          {error && (
+            <p className="text-xs text-red-500 mb-3 text-center">{error}</p>
+          )}
+          <button
+            onClick={handleVerify}
+            disabled={loading || code.length !== 6}
+            className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <MdShield size={16} />
+            {loading ? "Verificando..." : "Autorizar acceso"}
+          </button>
+          <button
+            onClick={onCancel}
+            className="w-full mt-2 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function WorkOrderDetailPage() {
   const params = useParams();
   const storeSlug = params?.storeSlug as string;
   const workOrderId = params?.id as string;
   const router = useRouter();
-  const { data: session, status } = useSession();
 
-  useEffect(() => {
-    if (status === "loading") return;
-    if ((session?.user as any)?.role !== "manager") {
-      router.replace(`/puntodeventa/${storeSlug}`);
-    }
-  }, [session, status, router, storeSlug]);
-
+  const [pageUnlocked, setPageUnlocked] = useState(false);
   const [storeName, setStoreName] = useState("");
   const [wo, setWo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -98,6 +196,18 @@ export default function WorkOrderDetailPage() {
     } finally {
       setActing(false);
     }
+  }
+
+  if (!pageUnlocked) {
+    return (
+      <div className="flex h-screen bg-background">
+        <POSSidebar storeSlug={storeSlug} storeName={storeName} />
+        <ManagerCodeModal
+          onAuthorized={() => setPageUnlocked(true)}
+          onCancel={() => router.push(`/puntodeventa/${storeSlug}/`)}
+        />
+      </div>
+    );
   }
 
   if (loading)

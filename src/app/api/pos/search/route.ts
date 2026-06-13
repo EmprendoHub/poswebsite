@@ -82,16 +82,15 @@ export async function GET(req: Request) {
       stockMap.set(rec.variationId, rec.quantity);
     }
 
-    // Annotate each variation with branch stock, filter out zero-stock
+    // Annotate each variation with branch stock.
+    // If no StoreInventory record exists for this branch, the variation is NOT
+    // available here (stock = 0) — never fall back to global product stock.
     const filtered = products
       .map((product: any) => {
         const variations = product.variations
           .map((v: any) => {
             const variationId = v._id.toString();
-            // Use branch inventory if available, else fall back to product stock
-            const branchStock = stockMap.has(variationId)
-              ? stockMap.get(variationId)!
-              : (v.stock ?? 0);
+            const branchStock = stockMap.get(variationId) ?? 0;
             return { ...v, stock: branchStock };
           })
           .filter((v: any) => v.stock > 0);

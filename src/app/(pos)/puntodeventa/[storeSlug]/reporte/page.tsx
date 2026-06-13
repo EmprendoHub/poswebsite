@@ -3,7 +3,13 @@ import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import POSSidebar from "../_components/POSSidebar";
 import FormattedPrice from "@/backend/helpers/FormattedPrice";
-import { MdPrint, MdClose, MdCancel, MdShield, MdVisibility } from "react-icons/md";
+import {
+  MdPrint,
+  MdClose,
+  MdCancel,
+  MdShield,
+  MdVisibility,
+} from "react-icons/md";
 
 interface OrderItem {
   name: string;
@@ -31,6 +37,7 @@ interface DayOrder {
   branch: string;
   ship_cost?: number;
   payments?: PaymentRecord[];
+  comment?: string;
 }
 
 function getPayMethodLabel(method: string): string {
@@ -40,6 +47,12 @@ function getPayMethodLabel(method: string): string {
   if (["CARD", "TERMINAL", "TARJETA", "CREDIT"].includes(m)) return "Terminal";
   if (["TRANSFER", "TRANSFERENCIA"].includes(m)) return "Transfer.";
   return method;
+}
+
+function parseCancelledBy(comment?: string): string | null {
+  if (!comment) return null;
+  const match = comment.match(/Cancelado por:\s*([^(]+)/);
+  return match ? match[1].trim() : null;
 }
 
 /* ─── Manager code verification modal ───────────────────────────── */
@@ -476,7 +489,9 @@ function OrderDetailModal({
           {/* Totals */}
           <div className="border border-muted rounded-xl overflow-hidden text-sm">
             <div className="flex justify-between px-4 py-2.5 bg-muted/20">
-              <span className="text-muted-foreground">Subtotal art&iacute;culos</span>
+              <span className="text-muted-foreground">
+                Subtotal art&iacute;culos
+              </span>
               <FormattedPrice amount={itemsTotal} />
             </div>
             {shipCost > 0 && (
@@ -595,15 +610,18 @@ export default function POSReportPage() {
       .catch(() => setLoading(false));
   }, [storeId, selectedDate]);
 
-  const totalSales = orders.reduce(
+  const activeOrders = orders.filter((o) => o.orderStatus !== "Cancelado");
+  const cancelledCount = orders.length - activeOrders.length;
+
+  const totalSales = activeOrders.reduce(
     (s, o) => s + (o.paymentInfo?.amountPaid ?? 0),
     0,
   );
-  const totalItems = orders.reduce(
+  const totalItems = activeOrders.reduce(
     (s, o) => s + o.orderItems.reduce((ss, i) => ss + i.quantity, 0),
     0,
   );
-  const paymentBreakdown = orders.reduce(
+  const paymentBreakdown = activeOrders.reduce(
     (acc: Record<string, number>, o) => {
       if (o.payments && o.payments.length > 0) {
         for (const p of o.payments) {
@@ -690,9 +708,9 @@ export default function POSReportPage() {
           </div>
 
           {/* Summary cards */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             {[
-              { label: "Órdenes", value: orders.length },
+              { label: "Órdenes", value: activeOrders.length },
               { label: "Artículos vendidos", value: totalItems },
               { label: "Total cobrado", value: `$${totalSales.toFixed(2)}` },
             ].map((card) => (
@@ -706,6 +724,16 @@ export default function POSReportPage() {
                 <p className="text-2xl font-bold">{card.value}</p>
               </div>
             ))}
+            {cancelledCount > 0 && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-5 py-4">
+                <p className="text-xs text-red-500 dark:text-red-400 mb-1">
+                  Canceladas
+                </p>
+                <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                  {cancelledCount}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Payment method breakdown */}
@@ -770,100 +798,130 @@ export default function POSReportPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {orders.map((order) => (
-                      <tr key={order._id} className="border-t border-muted">
-                        <td className="px-4 py-3 font-bold">
-                          #{order.orderId}
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-xs">
-                            {order.customerName || "—"}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-xs">
-                            {order.payments && order.payments.length > 0
-                              ? Array.from(
-                                  new Set(
-                                    order.payments.map((p) =>
-                                      getPayMethodLabel(p.method),
-                                    ),
-                                  ),
-                                ).join(" + ")
-                              : (() => {
-                                  const ref = order.paymentInfo?.id ?? "";
-                                  if (ref === "EFECTIVO") return "Efectivo";
-                                  if (ref.startsWith("MIXTO")) return "Mixto";
-                                  if (ref) return "Terminal";
-                                  return order.paymentMethod || "—";
-                                })()}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {order.orderItems?.reduce(
-                            (s, i) => s + i.quantity,
-                            0,
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold">
-                          <FormattedPrice
-                            amount={order.paymentInfo?.amountPaid}
-                          />
-                        </td>
-                        <td
-                          className={`px-4 py-3 text-xs font-semibold ${
-                            order.orderStatus === "Entregado"
-                              ? "text-green-600"
-                              : order.orderStatus === "Apartado"
-                                ? "text-amber-500"
-                                : "text-muted-foreground"
+                    {orders.map((order) => {
+                      const isCancelled = order.orderStatus === "Cancelado";
+                      const cancelledBy = parseCancelledBy(order.comment);
+                      return (
+                        <tr
+                          key={order._id}
+                          className={`border-t border-muted ${
+                            isCancelled
+                              ? "bg-red-50/60 dark:bg-red-950/20 opacity-75"
+                              : ""
                           }`}
                         >
-                          {order.orderStatus}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">
-                          {new Date(order.createdAt).toLocaleTimeString(
-                            "es-MX",
-                            {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              timeZone: "UTC",
-                            },
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <button
-                              onClick={() => setViewOrder(order)}
-                              title="Ver detalle"
-                              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                            >
-                              <MdVisibility size={16} />
-                            </button>
-                            <button
-                              onClick={() => setReprintOrder(order)}
-                              title="Reimprimir ticket"
-                              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                            >
-                              <MdPrint size={16} />
-                            </button>
-                            {order.orderStatus !== "Cancelado" && (
-                              <button
-                                onClick={() => {
-                                  setCancelOrder(order);
-                                  setCancelError("");
-                                  setShowManagerCodeForCancel(true);
-                                }}
-                                title="Cancelar orden"
-                                className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors text-muted-foreground hover:text-red-600"
-                              >
-                                <MdCancel size={16} />
-                              </button>
+                          <td
+                            className={`px-4 py-3 font-bold ${isCancelled ? "line-through text-muted-foreground" : ""}`}
+                          >
+                            #{order.orderId}
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-xs">
+                              {order.customerName || "—"}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-xs">
+                              {order.payments && order.payments.length > 0
+                                ? Array.from(
+                                    new Set(
+                                      order.payments.map((p) =>
+                                        getPayMethodLabel(p.method),
+                                      ),
+                                    ),
+                                  ).join(" + ")
+                                : (() => {
+                                    const ref = order.paymentInfo?.id ?? "";
+                                    if (ref === "EFECTIVO") return "Efectivo";
+                                    if (ref.startsWith("MIXTO")) return "Mixto";
+                                    if (ref) return "Terminal";
+                                    return order.paymentMethod || "—";
+                                  })()}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {order.orderItems?.reduce(
+                              (s, i) => s + i.quantity,
+                              0,
                             )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td
+                            className={`px-4 py-3 text-right font-semibold ${isCancelled ? "line-through text-muted-foreground" : ""}`}
+                          >
+                            <FormattedPrice
+                              amount={order.paymentInfo?.amountPaid}
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            {isCancelled ? (
+                              <div>
+                                <span className="font-semibold text-red-600 dark:text-red-400">
+                                  Cancelado
+                                </span>
+                                {cancelledBy && (
+                                  <p className="text-muted-foreground mt-0.5 leading-tight">
+                                    por {cancelledBy}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <span
+                                className={`font-semibold ${
+                                  order.orderStatus === "Entregado"
+                                    ? "text-green-600"
+                                    : order.orderStatus === "Apartado"
+                                      ? "text-amber-500"
+                                      : "text-muted-foreground"
+                                }`}
+                              >
+                                {order.orderStatus}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                            {new Date(order.createdAt).toLocaleTimeString(
+                              "es-MX",
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                timeZone: "UTC",
+                              },
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => setViewOrder(order)}
+                                title="Ver detalle"
+                                className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                              >
+                                <MdVisibility size={16} />
+                              </button>
+                              <button
+                                onClick={() => setReprintOrder(order)}
+                                title="Reimprimir ticket"
+                                className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                              >
+                                <MdPrint size={16} />
+                              </button>
+                              {!isCancelled && (
+                                <button
+                                  onClick={() => {
+                                    setCancelOrder(order);
+                                    setCancelError("");
+                                    setShowManagerCodeForCancel(true);
+                                  }}
+                                  title="Cancelar orden"
+                                  className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors text-muted-foreground hover:text-red-600"
+                                >
+                                  <MdCancel size={16} />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                   <tfoot className="bg-muted/30 font-bold text-sm">
                     <tr className="border-t-2 border-muted">

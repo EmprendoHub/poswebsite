@@ -14,8 +14,10 @@ import {
   MdAccountBalance,
   MdDarkMode,
   MdLightMode,
+  MdAddBox,
+  MdPieChart,
 } from "react-icons/md";
-import { FiLogOut } from "react-icons/fi";
+import { FiBarChart, FiLogOut } from "react-icons/fi";
 import { BsChevronBarLeft, BsChevronBarRight } from "react-icons/bs";
 
 interface POSSidebarProps {
@@ -41,18 +43,6 @@ export default function POSSidebar({ storeSlug, storeName }: POSSidebarProps) {
       managerOnly: false,
     },
     {
-      href: `${base}/inventario`,
-      label: "Inventario",
-      icon: <MdInventory2 size={20} />,
-      managerOnly: true,
-    },
-    {
-      href: `${base}/ordenes-trabajo`,
-      label: "Órdenes de Trabajo",
-      icon: <MdAssignment size={20} />,
-      managerOnly: true,
-    },
-    {
       href: `${base}/caja`,
       label: "Caja",
       icon: <MdAccountBalance size={20} />,
@@ -61,7 +51,20 @@ export default function POSSidebar({ storeSlug, storeName }: POSSidebarProps) {
     {
       href: `${base}/reporte`,
       label: "Reporte del Día",
-      icon: <MdBarChart size={20} />,
+      icon: <FiBarChart size={20} />,
+      managerOnly: false,
+    },
+
+    {
+      href: `${base}/inventario`,
+      label: "Inventario",
+      icon: <MdInventory2 size={20} />,
+      managerOnly: false,
+    },
+    {
+      href: `${base}/ordenes-trabajo`,
+      label: "Órdenes de Trabajo",
+      icon: <MdAssignment size={20} />,
       managerOnly: false,
     },
   ].filter((item) => !item.managerOnly || isManager);
@@ -107,7 +110,7 @@ export default function POSSidebar({ storeSlug, storeName }: POSSidebarProps) {
           )}
 
           {/* Nav items */}
-          <ul className="flex flex-col gap-1 px-2 mt-1">
+          <ul className="flex flex-col gap-2 px-2 mt-1">
             {navItems.map((item) => {
               const isActive = item.exact
                 ? pathname === item.href
@@ -116,20 +119,28 @@ export default function POSSidebar({ storeSlug, storeName }: POSSidebarProps) {
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                    className={`flex items-center rounded-[20px] text-sm transition-colors  ${
+                      expanded
+                        ? "px-3 py-2.5 gap-3"
+                        : "px-3 py-3 justify-center"
+                    } ${
                       isActive
                         ? "bg-primary text-primary-foreground font-semibold"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                   >
-                    {item.icon}
-                    <span
-                      className={`overflow-hidden transition-all ${
-                        expanded ? "w-40 opacity-100" : "w-0 opacity-0"
-                      }`}
-                    >
-                      {item.label}
-                    </span>
+                    <span>{item.icon}</span>
+                    {expanded && (
+                      <span
+                        className={`overflow-hidden transition-all ${
+                          expanded
+                            ? "w-40 opacity-100"
+                            : "w-0 opacity-0 py-1 text-center"
+                        }`}
+                      >
+                        {item.label}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );

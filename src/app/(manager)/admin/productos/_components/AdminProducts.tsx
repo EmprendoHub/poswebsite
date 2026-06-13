@@ -8,6 +8,7 @@ import {
   FaEye,
   FaFileExcel,
 } from "react-icons/fa";
+import { MdClose, MdStorefront } from "react-icons/md";
 import FormattedPrice from "@/backend/helpers/FormattedPrice";
 import Swal, { SweetAlertIcon } from "sweetalert2";
 import SearchProducts from "@/app/(manager)/admin/productos/search";
@@ -61,8 +62,68 @@ const AdminProducts = ({
     url: string;
     title: string;
   } | null>(null);
+  const [stockPreview, setStockPreview] = useState<any | null>(null);
+  const [stockPreviewLoading, setStockPreviewLoading] = useState(false);
+  const [stockPreviewRows, setStockPreviewRows] = useState<
+    {
+      storeName: string;
+      total: number;
+      details: { label: string; quantity: number }[];
+    }[]
+  >([]);
 
   const closePreview = useCallback(() => setPreviewImage(null), []);
+  const closeStockPreview = useCallback(() => {
+    setStockPreview(null);
+    setStockPreviewRows([]);
+  }, []);
+
+  const openStockPreview = useCallback(async (product: any) => {
+    setStockPreview(product);
+    setStockPreviewLoading(true);
+    setStockPreviewRows([]);
+    try {
+      const res = await fetch(`/api/store-inventory?productId=${product._id}`);
+      const data = await res.json();
+      if (!Array.isArray(data)) return;
+
+      const grouped = data.reduce((acc: any, rec: any) => {
+        const storeName = rec.store?.name ?? "—";
+        const variation = rec.product?.variations?.find(
+          (vr: any) => vr._id?.toString() === rec.variationId?.toString(),
+        );
+        const label =
+          variation?.title ||
+          [variation?.color, variation?.size].filter(Boolean).join(" / ") ||
+          rec.variationId?.toString()?.slice(-6) ||
+          "—";
+
+        if (!acc[storeName]) {
+          acc[storeName] = { total: 0, details: [] as any[] };
+        }
+        acc[storeName].total += Number(rec.quantity ?? 0);
+        acc[storeName].details.push({
+          label,
+          quantity: Number(rec.quantity ?? 0),
+        });
+        return acc;
+      }, {});
+
+      setStockPreviewRows(
+        Object.entries(grouped)
+          .map(([storeName, value]: any) => ({
+            storeName,
+            total: value.total,
+            details: value.details,
+          }))
+          .sort((a, b) => b.total - a.total),
+      );
+    } catch {
+      setStockPreviewRows([]);
+    } finally {
+      setStockPreviewLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && closePreview();
@@ -529,7 +590,16 @@ const AdminProducts = ({
                   </b>
                 </td>
 
-                <td className="w-full px-1 py-0 ">{product?.stock}</td>
+                <td className="w-full px-1 py-0 ">
+                  <button
+                    type="button"
+                    onClick={() => openStockPreview(product)}
+                    className="inline-flex min-w-14 items-center justify-center rounded-[20px] border border-border bg-background px-2 py-1 text-sm font-bold text-foreground hover:bg-muted transition-colors"
+                    title="Ver stock por sucursal"
+                  >
+                    {product?.stock ?? 0}
+                  </button>
+                </td>
                 <td className="w-full px-1 py-0 maxsm:hidden text-[11px] text-muted-foreground">
                   {product?.dimensions
                     ? `${product.dimensions.length ?? "—"}×${product.dimensions.width ?? "—"}×${product.dimensions.height ?? "—"}`
@@ -617,6 +687,105 @@ const AdminProducts = ({
                 height={900}
                 className="w-full max-h-[80vh] object-contain rounded-xl shadow-2xl"
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stock preview modal */}
+      {stockPreview && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+          onClick={closeStockPreview}
+        >
+          <div
+            className="w-full max-w-3xl rounded-2xl bg-background shadow-2xl border border-muted overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-muted">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                  Existencias por sucursal
+                </p>
+                <h3 className="text-lg font-bold">{stockPreview.title}</h3>
+              </div>
+              <button
+                onClick={closeStockPreview}
+                className="rounded-lg p-2 hover:bg-muted transition-colors"
+                aria-label="Cerrar"
+              >
+                <MdClose size={20} />
+              </button>
+            </div>
+
+            <div className="p-5 max-h-[75vh] overflow-y-auto">
+              <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+                <MdStorefront size={18} />
+                <span>
+                  Total en inventario:{" "}
+                  <strong className="text-foreground">
+                    {stockPreview.stock ?? 0}
+                  </strong>
+                </span>
+              </div>
+
+              {stockPreviewLoading ? (
+                <p className="text-sm text-muted-foreground animate-pulse">
+                  Cargando stock...
+                </p>
+              ) : stockPreviewRows.length > 0 ? (
+                <div className="space-y-4">
+                  {stockPreviewRows.map((branch) => (
+                    <div
+                      key={branch.storeName}
+                      className="border border-muted rounded-xl overflow-hidden"
+                    >
+                      <div className="flex items-center justify-between bg-muted/40 px-4 py-3">
+                        <div>
+                          <p className="font-semibold">{branch.storeName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Variaciones: {branch.details.length}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                            Stock total
+                          </p>
+                          <p className="text-lg font-bold text-emerald-600">
+                            {branch.total}
+                          </p>
+                        </div>
+                      </div>
+
+                      <table className="w-full text-sm">
+                        <thead className="bg-background text-muted-foreground text-xs uppercase">
+                          <tr>
+                            <th className="px-4 py-2 text-left">Variación</th>
+                            <th className="px-4 py-2 text-right">Stock</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {branch.details.map((detail, idx) => (
+                            <tr
+                              key={`${branch.storeName}-${idx}`}
+                              className="border-t border-muted/50"
+                            >
+                              <td className="px-4 py-2">{detail.label}</td>
+                              <td className="px-4 py-2 text-right font-semibold">
+                                {detail.quantity}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">
+                  No hay registros de inventario para este producto.
+                </p>
+              )}
             </div>
           </div>
         </div>

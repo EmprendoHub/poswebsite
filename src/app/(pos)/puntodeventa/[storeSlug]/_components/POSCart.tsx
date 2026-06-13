@@ -70,11 +70,10 @@ export default function POSCart({
                 <p className="text-xs font-semibold text-muted-foreground">
                   ${item.price.toFixed(2)} x {item.quantity}
                 </p>
-                {item.quantity >= item.stock && (
-                  <span className="text-[10px] font-semibold text-amber-400 leading-none">
-                    máx. {item.stock}
-                  </span>
-                )}
+
+                <span className="text-[10px] font-semibold text-amber-400 leading-none">
+                  máx. {item.stock}
+                </span>
               </div>
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">

@@ -50,7 +50,6 @@ export async function GET(req: Request) {
     }
 
     const query: any = {
-      orderStatus: { $ne: "Cancelado" },
       createdAt: { $gte: start, $lte: end },
       branch: { $in: branchValues },
     };

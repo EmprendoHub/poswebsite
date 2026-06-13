@@ -4,9 +4,11 @@ import Link from "next/link";
 import React, { createContext, useContext, useState } from "react";
 import { BsChevronBarLeft, BsChevronBarRight } from "react-icons/bs";
 import { FiLogOut } from "react-icons/fi";
+import { MdLightMode, MdDarkMode } from "react-icons/md";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
+import { useTheme } from "next-themes";
 
 export interface SidebarContextType {
   expandSidebar: boolean;
@@ -22,6 +24,7 @@ const backdropVariants = {
 
 const AdminSidebar = ({ children }: { children: any }) => {
   const [expandSidebar, setExpandSidebar] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
   let user: any;
   const { data: session } = useSession();
   const isLoggedIn = Boolean(session?.user);
@@ -65,6 +68,28 @@ const AdminSidebar = ({ children }: { children: any }) => {
           </SidebarContext.Provider>
         </div>
         <div>
+          {/* theme toggle */}
+          <button
+            onClick={() =>
+              setTheme(resolvedTheme === "dark" ? "light" : "dark")
+            }
+            title={resolvedTheme === "dark" ? "Modo claro" : "Modo oscuro"}
+            className="w-full flex items-center gap-2 px-3 py-2 text-muted hover:text-foreground hover:bg-foreground/10 transition-colors"
+          >
+            {resolvedTheme === "dark" ? (
+              <MdLightMode size={18} className="shrink-0" />
+            ) : (
+              <MdDarkMode size={18} className="shrink-0" />
+            )}
+            <span
+              className={`overflow-hidden transition-all ease-in-out text-xs whitespace-nowrap ${
+                expandSidebar ? "w-auto opacity-100" : "w-0 opacity-0"
+              }`}
+            >
+              {resolvedTheme === "dark" ? "Modo claro" : "Modo oscuro"}
+            </span>
+          </button>
+
           {/* user avatar */}
           <div
             onClick={() => setExpandSidebar((currentState) => !currentState)}
