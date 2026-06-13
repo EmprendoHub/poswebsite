@@ -40,6 +40,7 @@ interface OrderItem {
   variationTitle: string;
   quantity: number;
   unitCost: number | "";
+  adjustmentDirection: "add" | "remove";
 }
 
 interface SearchResult {
@@ -124,6 +125,7 @@ export default function NuevaOrdenTrabajoPage() {
           variationTitle: label,
           quantity: 1,
           unitCost: variation.price ?? "",
+          adjustmentDirection: "add",
         },
       ]);
     }
@@ -163,6 +165,8 @@ export default function NuevaOrdenTrabajoPage() {
           variationTitle: i.variationTitle,
           quantity: Number(i.quantity),
           unitCost: i.unitCost !== "" ? Number(i.unitCost) : undefined,
+          adjustmentDirection:
+            type === "adjustment" ? i.adjustmentDirection : undefined,
         })),
       };
       if (type === "transfer") payload.fromStore = fromStore;
@@ -337,6 +341,9 @@ export default function NuevaOrdenTrabajoPage() {
                 {type === "receive" && (
                   <th className="px-4 py-2 text-right w-32">Costo Unit.</th>
                 )}
+                {type === "adjustment" && (
+                  <th className="px-4 py-2 text-center w-40">Ajuste</th>
+                )}
                 <th className="px-4 py-2 w-10"></th>
               </tr>
             </thead>
@@ -377,6 +384,38 @@ export default function NuevaOrdenTrabajoPage() {
                         placeholder="—"
                         className="w-24 text-right bg-muted rounded-lg px-2 py-1 text-xs outline-none border border-muted"
                       />
+                    </td>
+                  )}
+                  {type === "adjustment" && (
+                    <td className="px-4 py-2.5 text-center">
+                      <div className="inline-flex rounded-lg border border-muted overflow-hidden text-xs font-semibold">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateItem(idx, "adjustmentDirection", "add")
+                          }
+                          className={`px-3 py-1 transition-colors ${
+                            item.adjustmentDirection === "add"
+                              ? "bg-green-600 text-white"
+                              : "bg-muted text-muted-foreground hover:bg-green-50 dark:hover:bg-green-900/30"
+                          }`}
+                        >
+                          + Agregar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateItem(idx, "adjustmentDirection", "remove")
+                          }
+                          className={`px-3 py-1 transition-colors ${
+                            item.adjustmentDirection === "remove"
+                              ? "bg-red-600 text-white"
+                              : "bg-muted text-muted-foreground hover:bg-red-50 dark:hover:bg-red-900/30"
+                          }`}
+                        >
+                          − Retirar
+                        </button>
+                      </div>
                     </td>
                   )}
                   <td className="px-4 py-2.5 text-center">

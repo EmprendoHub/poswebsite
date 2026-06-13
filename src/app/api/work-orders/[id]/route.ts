@@ -118,7 +118,7 @@ export async function PATCH(
 // Applies inventory adjustments when a work order is completed
 async function applyInventoryChanges(wo: any) {
   for (const item of wo.items) {
-    const { product, variationId, quantity } = item;
+    const { product, variationId, quantity, adjustmentDirection } = item;
 
     // Deduct from source store (transfer type only)
     if (wo.type === "transfer" && wo.fromStore) {
@@ -128,11 +128,17 @@ async function applyInventoryChanges(wo: any) {
       );
     }
 
-    // Add to destination store (all types)
+    // For adjustments, direction determines whether we add or remove stock
+    const qtyDelta =
+      wo.type === "adjustment" && adjustmentDirection === "remove"
+        ? -quantity
+        : quantity;
+
+    // Add / adjust destination store (all types)
     await StoreInventory.findOneAndUpdate(
       { store: wo.toStore, variationId },
       {
-        $inc: { quantity },
+        $inc: { quantity: qtyDelta },
         $setOnInsert: { product, store: wo.toStore, variationId, minStock: 1 },
         lastUpdated: new Date(),
       },

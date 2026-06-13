@@ -23,6 +23,7 @@ export interface WorkOrderItem {
   quantity: number;
   unitCost?: number;
   notes?: string;
+  adjustmentDirection?: "add" | "remove"; // For adjustment orders only
   // For new_product orders only
   isNewProduct?: boolean;
   newProductData?: Record<string, any>;
@@ -83,6 +84,11 @@ const WorkOrderSchema = new Schema<WorkOrderDocument>(
         quantity: { type: Number, required: true, min: 1 },
         unitCost: { type: Number },
         notes: { type: String },
+        adjustmentDirection: {
+          type: String,
+          enum: ["add", "remove"],
+          default: "add",
+        },
         isNewProduct: { type: Boolean, default: false },
         newProductData: { type: Schema.Types.Mixed },
       },
