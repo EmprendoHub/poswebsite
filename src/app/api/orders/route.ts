@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 import Affiliate from "@/backend/models/Affiliate";
 import Order from "@/backend/models/Order";
+import Store from "@/backend/models/Store";
+import User from "@/backend/models/User";
 import APIOrderFilters from "@/lib/APIOrderFilters";
 import dbConnect from "@/lib/db";
 import { NextResponse } from "next/server";
@@ -20,6 +22,26 @@ export const GET = async (request: any, res: any) => {
     let orderQuery;
     if (["manager", "super_admin"].includes(session?.user?.role as string)) {
       orderQuery = Order.find({ orderStatus: { $ne: "Cancelado" } });
+    } else if (session?.user?.role === "supervisor") {
+      const me = await User.findById(session.user._id)
+        .select("assignedStore")
+        .lean();
+      const storeId = (me as any)?.assignedStore;
+      if (storeId) {
+        const store = (await Store.findById(storeId)
+          .select("slug branchLegacyName")
+          .lean()) as any;
+        const branchMatchers: any[] = [{ storeId }];
+        if (store?.slug) branchMatchers.push({ branch: store.slug });
+        if (store?.branchLegacyName)
+          branchMatchers.push({ branch: store.branchLegacyName });
+        orderQuery = Order.find({
+          $or: branchMatchers,
+          orderStatus: { $ne: "Cancelado" },
+        });
+      } else {
+        orderQuery = Order.find({ _id: null });
+      }
     } else if (session?.user?.role === "afiliado") {
       const affiliate = await Affiliate.findOne({ user: session?.user?._id });
       orderQuery = Order.find({

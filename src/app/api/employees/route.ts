@@ -6,7 +6,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 
-const POS_ROLES = ["pos", "organizer", "empleado"];
+const POS_ROLES = ["pos", "organizer", "empleado", "supervisor"];
 
 // GET /api/employees — list all POS/staff users (manager only)
 export async function GET(req: Request) {

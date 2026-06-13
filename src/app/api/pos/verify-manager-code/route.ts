@@ -5,7 +5,14 @@ import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
-const POS_ROLES = ["pos", "organizer", "empleado", "manager", "sucursal"];
+const POS_ROLES = [
+  "pos",
+  "organizer",
+  "empleado",
+  "manager",
+  "sucursal",
+  "supervisor",
+];
 
 /**
  * POST /api/pos/verify-manager-code

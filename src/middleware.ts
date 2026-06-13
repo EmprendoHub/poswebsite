@@ -18,6 +18,7 @@ export async function middleware(request: NextRequest) {
   if (token?.user) {
     if (
       (token?.user?.role === "manager" ||
+        token?.user?.role === "supervisor" ||
         token?.user?.role === "director" ||
         token?.user?.role === "super_admin") &&
       !pathname.includes("admin")
@@ -64,10 +65,29 @@ export async function middleware(request: NextRequest) {
       "/admin/productos/inventario",
       "/admin/inventario-inicial",
       "/admin/sucursales",
+      "/admin/empleados",
+      "/admin/reportes",
+      "/admin/finanzas",
     ];
     if (superAdminOnlyPaths.some((p) => pathname.startsWith(p))) {
-      if (token?.user?.role !== "super_admin") {
+      if (
+        token?.user?.role !== "super_admin" &&
+        token?.user?.role !== "manager"
+      ) {
         signInUrl = new URL("/no-autorizado", request.url);
+        return NextResponse.redirect(signInUrl);
+      }
+    }
+
+    // Supervisor can only access products and orders pages
+    if (token?.user?.role === "supervisor") {
+      const supervisorAllowed = [
+        "/admin/productos",
+        "/admin/pedidos",
+        "/admin/pedido",
+      ];
+      if (!supervisorAllowed.some((p) => pathname.startsWith(p))) {
+        signInUrl = new URL("/admin/pedidos", request.url);
         return NextResponse.redirect(signInUrl);
       }
     }
@@ -81,6 +101,7 @@ export async function middleware(request: NextRequest) {
       }
     } else if (
       token?.user?.role !== "manager" &&
+      token?.user?.role !== "supervisor" &&
       token?.user?.role !== "director" &&
       token?.user?.role !== "super_admin" &&
       token?.user?.role !== "organizer"
@@ -139,6 +160,7 @@ export async function middleware(request: NextRequest) {
     }
     if (
       token?.user?.role === "manager" ||
+      token?.user?.role === "supervisor" ||
       token?.user?.role === "super_admin"
     ) {
       signInUrl = new URL("/admin", request.url);

@@ -2092,6 +2092,31 @@ export async function getAllOrder(searchQuery: any) {
       orderQuery = Order.find({ orderStatus: { $ne: "Cancelado" } }).populate(
         "user",
       );
+    } else if (session?.user?.role === "supervisor") {
+      // Find the user's assigned store to get its slug and legacy name
+      const me = await User.findById((session.user as any)._id)
+        .select("assignedStore")
+        .lean();
+      const storeId = (me as any)?.assignedStore;
+
+      if (storeId) {
+        const store = (await Store.findById(storeId)
+          .select("slug branchLegacyName")
+          .lean()) as any;
+
+        const branchMatchers: any[] = [{ storeId: storeId }];
+        if (store?.slug) branchMatchers.push({ branch: store.slug });
+        if (store?.branchLegacyName)
+          branchMatchers.push({ branch: store.branchLegacyName });
+
+        orderQuery = Order.find({
+          $or: branchMatchers,
+          orderStatus: { $ne: "Cancelado" },
+        }).populate("user");
+      } else {
+        // No assigned store — return empty set
+        orderQuery = Order.find({ _id: null }).populate("user");
+      }
     } else if (session?.user?.role === "afiliado") {
       const affiliate = await Affiliate.findOne({ user: session?.user?._id });
       orderQuery = Order.find({

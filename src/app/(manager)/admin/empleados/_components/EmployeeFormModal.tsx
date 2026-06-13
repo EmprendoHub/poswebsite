@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { MdClose } from "react-icons/md";
 
-const POS_ROLES = ["pos", "organizer", "empleado"] as const;
+const POS_ROLES = ["pos", "organizer", "empleado", "supervisor"] as const;
 type PosRole = (typeof POS_ROLES)[number];
 type AnyRole = PosRole | "manager";
 
@@ -10,6 +10,7 @@ const roleLabels: Record<AnyRole, string> = {
   pos: "Caja",
   organizer: "Organizador",
   empleado: "Empleado",
+  supervisor: "Supervisor",
   manager: "Manager",
 };
 
@@ -274,11 +275,11 @@ export default function EmployeeFormModal({
             />
           </div>
 
-          {/* Manager code — only visible when role is "manager" */}
-          {form.role === "manager" && (
+          {/* Manager code — visible when role is "manager" or "supervisor" */}
+          {(form.role === "manager" || form.role === "supervisor") && (
             <div>
               <label className="block text-sm font-medium mb-1">
-                Código de Manager{" "}
+                Código de Autorización{" "}
                 <span className="text-muted-foreground font-normal text-xs">
                   (6 dígitos —{" "}
                   {isEdit && employee?.hasManagerCode
