@@ -10,6 +10,7 @@ import {
   MdRemove,
   MdPrint,
   MdShield,
+  MdReceipt,
 } from "react-icons/md";
 
 /* ──────────────────── Types ──────────────────── */
@@ -237,7 +238,7 @@ export default function CajaPage() {
   const [showMovModal, setShowMovModal] = useState<"in" | "out" | null>(null);
   // pending direction while manager code is being verified
   const [showManagerCodeFor, setShowManagerCodeFor] = useState<
-    "in" | "out" | null
+    "in" | "out" | "expense" | null
   >(null);
   const [authorizedManager, setAuthorizedManager] = useState<{
     _id: string;
@@ -253,6 +254,12 @@ export default function CajaPage() {
   const [cutNotes, setCutNotes] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState("");
+
+  // Expense form states
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseCategory, setExpenseCategory] = useState("otros");
+  const [expenseDescription, setExpenseDescription] = useState("");
 
   // Last cut — for printing
   const [lastCut, setLastCut] = useState<CorteRecord | null>(null);
@@ -353,6 +360,47 @@ export default function CajaPage() {
       setShowMovModal(null);
       setMovAmount("");
       setMovNotes("");
+      setAuthorizedManager(null);
+      await fetchState();
+    } catch (e: any) {
+      setActionError(e.message);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  /* ── Expense ── */
+  async function handleExpense() {
+    if (!activeSession) return;
+    if (!expenseAmount || Number(expenseAmount) <= 0) {
+      setActionError("Ingresa un monto válido");
+      return;
+    }
+    if (!expenseDescription.trim()) {
+      setActionError("Ingresa una descripción del gasto");
+      return;
+    }
+    setActionLoading(true);
+    setActionError("");
+    try {
+      const res = await fetch("/api/pos/caja/expense", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: activeSession._id,
+          amount: Number(expenseAmount),
+          category: expenseCategory,
+          description: expenseDescription.trim(),
+          authorizedById: authorizedManager?._id ?? null,
+          authorizedByName: authorizedManager?.name ?? null,
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error ?? "Error al registrar gasto");
+      setShowExpenseModal(false);
+      setExpenseAmount("");
+      setExpenseCategory("otros");
+      setExpenseDescription("");
       setAuthorizedManager(null);
       await fetchState();
     } catch (e: any) {
@@ -533,6 +581,15 @@ export default function CajaPage() {
                 >
                   <MdRemove size={14} /> Salida
                 </button>
+                <button
+                  onClick={() => {
+                    setActionError("");
+                    setShowManagerCodeFor("expense");
+                  }}
+                  className="flex items-center gap-1 text-xs bg-muted hover:bg-amber-100 dark:hover:bg-amber-900 px-3 py-2 rounded-lg transition-colors"
+                >
+                  <MdReceipt size={14} /> Gasto
+                </button>
                 {/* <button
                   onClick={() => {
                     setShowCorteModal(true);
@@ -612,52 +669,68 @@ export default function CajaPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {movements.map((m) => (
-                        <tr key={m._id} className="border-t border-muted">
-                          <td className="px-4 py-3">
-                            <span
-                              className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                      {movements.map((m) => {
+                        const isExpense =
+                          m.type === "manual_out" &&
+                          !!m.notes?.startsWith("[Gasto -");
+                        return (
+                          <tr key={m._id} className="border-t border-muted">
+                            <td className="px-4 py-3">
+                              <span
+                                className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                  m.type === "manual_in"
+                                    ? "bg-green-100 text-green-700"
+                                    : isExpense
+                                      ? "bg-amber-100 text-amber-700"
+                                      : "bg-red-100 text-red-600"
+                                }`}
+                              >
+                                {m.type === "manual_in"
+                                  ? "↑ ENTRADA"
+                                  : isExpense
+                                    ? "💸 GASTO"
+                                    : "↓ SALIDA"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-xs">
+                              {fmtDate(m.createdAt)}
+                            </td>
+                            <td
+                              className={`px-4 py-3 text-right font-bold ${
                                 m.type === "manual_in"
-                                  ? "bg-green-100 text-green-700"
-                                  : "bg-red-100 text-red-600"
+                                  ? "text-green-600"
+                                  : isExpense
+                                    ? "text-amber-600"
+                                    : "text-red-500"
                               }`}
                             >
-                              {m.type === "manual_in"
-                                ? "↑ ENTRADA"
-                                : "↓ SALIDA"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-xs">
-                            {fmtDate(m.createdAt)}
-                          </td>
-                          <td
-                            className={`px-4 py-3 text-right font-bold ${
-                              m.type === "manual_in"
-                                ? "text-green-600"
-                                : "text-red-500"
-                            }`}
-                          >
-                            {m.type === "manual_out" ? "-" : "+"}
-                            {fmt(m.cashAmount)}
-                          </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
-                            {m.notes ?? "—"}
-                          </td>
-                          <td className="px-4 py-3 text-xs">
-                            {m.createdByName ?? "—"}
-                          </td>
-                          <td className="px-4 py-3 text-xs">
-                            {m.authorizedByName ? (
-                              <span className="flex items-center gap-1">
-                                <MdShield size={12} className="text-primary" />
-                                {m.authorizedByName}
-                              </span>
-                            ) : (
-                              "—"
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                              {m.type === "manual_out" ? "-" : "+"}
+                              {fmt(m.cashAmount)}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-muted-foreground">
+                              {isExpense
+                                ? m.notes!.replace(/^\[Gasto - [^\]]+\] /, "")
+                                : (m.notes ?? "—")}
+                            </td>
+                            <td className="px-4 py-3 text-xs">
+                              {m.createdByName ?? "—"}
+                            </td>
+                            <td className="px-4 py-3 text-xs">
+                              {m.authorizedByName ? (
+                                <span className="flex items-center gap-1">
+                                  <MdShield
+                                    size={12}
+                                    className="text-primary"
+                                  />
+                                  {m.authorizedByName}
+                                </span>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -785,7 +858,11 @@ export default function CajaPage() {
           direction={showManagerCodeFor}
           onAuthorized={(employee) => {
             setAuthorizedManager(employee);
-            setShowMovModal(showManagerCodeFor);
+            if (showManagerCodeFor === "expense") {
+              setShowExpenseModal(true);
+            } else {
+              setShowMovModal(showManagerCodeFor as "in" | "out");
+            }
             setShowManagerCodeFor(null);
           }}
           onClose={() => setShowManagerCodeFor(null)}
@@ -849,6 +926,75 @@ export default function CajaPage() {
         </Modal>
       )}
 
+      {showExpenseModal && (
+        <Modal
+          title="Registrar Gasto"
+          onClose={() => {
+            setShowExpenseModal(false);
+            setAuthorizedManager(null);
+          }}
+        >
+          {authorizedManager && (
+            <p className="text-xs text-green-600 bg-green-50 dark:bg-green-900/20 rounded-lg px-3 py-2 mb-3 flex items-center gap-1">
+              <MdShield size={14} className="flex-shrink-0" />
+              Autorizado por:{" "}
+              <span className="font-semibold ml-1">
+                {authorizedManager.name}
+              </span>
+            </p>
+          )}
+          <label className="text-xs text-muted-foreground mb-1 block">
+            Categoría
+          </label>
+          <select
+            value={expenseCategory}
+            onChange={(e) => setExpenseCategory(e.target.value)}
+            className="w-full bg-muted rounded-lg px-3 py-2.5 text-sm outline-none mb-3"
+          >
+            <option value="renta">Renta</option>
+            <option value="servicios">Servicios</option>
+            <option value="nomina">Nómina</option>
+            <option value="inventario">Inventario</option>
+            <option value="marketing">Marketing</option>
+            <option value="equipamiento">Equipamiento</option>
+            <option value="transporte">Transporte</option>
+            <option value="impuestos">Impuestos</option>
+            <option value="otros">Otros</option>
+          </select>
+          <label className="text-xs text-muted-foreground mb-1 block">
+            Monto ($)
+          </label>
+          <input
+            type="number"
+            value={expenseAmount}
+            onChange={(e) => setExpenseAmount(e.target.value)}
+            className="w-full bg-muted rounded-lg px-3 py-2.5 text-sm outline-none mb-3"
+            min={0}
+            placeholder="0.00"
+          />
+          <label className="text-xs text-muted-foreground mb-1 block">
+            Descripción
+          </label>
+          <textarea
+            value={expenseDescription}
+            onChange={(e) => setExpenseDescription(e.target.value)}
+            rows={2}
+            className="w-full bg-muted rounded-lg px-3 py-2.5 text-sm outline-none mb-4 resize-none"
+            placeholder="Ej. Pago de electricidad, insumos de limpieza…"
+          />
+          {actionError && (
+            <p className="text-xs text-red-500 mb-3">{actionError}</p>
+          )}
+          <button
+            onClick={handleExpense}
+            disabled={actionLoading}
+            className="w-full rounded-xl py-3 font-bold text-sm disabled:opacity-50 text-white bg-amber-600"
+          >
+            {actionLoading ? "Guardando..." : "Registrar Gasto"}
+          </button>
+        </Modal>
+      )}
+
       {showCorteModal && (
         <CutModal
           title="Corte de Caja"
@@ -894,7 +1040,7 @@ function ManagerCodeModal({
   onAuthorized,
   onClose,
 }: {
-  direction: "in" | "out";
+  direction: "in" | "out" | "expense";
   onAuthorized: (employee: { _id: string; name: string; role: string }) => void;
   onClose: () => void;
 }) {
@@ -946,9 +1092,13 @@ function ManagerCodeModal({
         </div>
         <div className="px-6 py-5">
           <p className="text-xs text-muted-foreground mb-4">
-            Ingresa el código de manager para autorizar la{" "}
+            Ingresa el código de manager para autorizar{" "}
             <span className="font-semibold">
-              {direction === "in" ? "entrada" : "salida"} de efectivo
+              {direction === "in"
+                ? "la entrada de efectivo"
+                : direction === "out"
+                  ? "la salida de efectivo"
+                  : "el registro de gasto"}
             </span>
             .
           </p>
