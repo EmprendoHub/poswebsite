@@ -147,7 +147,7 @@ input[type="number"] {
     top: 0 !important;
     left: 0 !important;
     width: 100% !important;
-    max-width: 100% !important;
+    max-width: 95% !important;
     font-size: 10px !important;
     font-family: "Courier New", Courier, monospace !important;
     color: black !important;

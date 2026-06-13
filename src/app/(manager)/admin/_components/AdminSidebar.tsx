@@ -174,7 +174,7 @@ export function SideBarItem({
     <li
       className={`relative flex flex-col items-center font-medium  cursor-pointer py-2 px-2 text-[14px]  rounded-[20px]  ${
         active === "true"
-          ? " text-slate-400 bg-foreground rounded-lg"
+          ? " text-slate-400 bg-foreground rounded-[20px] "
           : "hover:text-slate-400 hover:bg-foreground text-muted"
       }`}
       onClick={handleDropdownToggle}

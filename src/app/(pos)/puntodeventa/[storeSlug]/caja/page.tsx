@@ -90,9 +90,9 @@ function CajaTicket({
       id="pos-ticket"
       className="font-mono text-black bg-white"
       style={{
-        width: "100%",
+        width: "95%",
         fontSize: "10px",
-        padding: "2mm",
+        padding: "4mm",
         lineHeight: "1.4",
         textTransform: "uppercase",
         fontWeight: "bold",
