@@ -55,6 +55,20 @@ function parseCancelledBy(comment?: string): string | null {
   return match ? match[1].trim() : null;
 }
 
+function parseMixtoAmounts(
+  ref: string,
+): { cash: number; card: number; cardRef: string } | null {
+  if (!ref.startsWith("MIXTO")) return null;
+  const cashMatch = ref.match(/CASH:([\d.]+)/);
+  const cardMatch = ref.match(/CARD:([\d.]+)/);
+  const refMatch = ref.match(/REF:([^-]+)/);
+  return {
+    cash: cashMatch ? Number(cashMatch[1]) : 0,
+    card: cardMatch ? Number(cardMatch[1]) : 0,
+    cardRef: refMatch ? refMatch[1] : "",
+  };
+}
+
 /* ─── Manager code verification modal ───────────────────────────── */
 function ManagerCodeModal({
   onAuthorized,
@@ -551,15 +565,46 @@ function OrderDetailModal({
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                 Forma de pago
               </h3>
-              <div className="border border-muted rounded-xl px-4 py-2.5 text-sm font-semibold">
-                {(() => {
-                  const ref = order.paymentInfo?.id ?? "";
-                  if (ref === "EFECTIVO") return "Efectivo";
-                  if (ref.startsWith("MIXTO")) return "Mixto";
-                  if (ref) return "Terminal";
-                  return "—";
-                })()}
-              </div>
+              {(() => {
+                const ref = order.paymentInfo?.id ?? "";
+                const mixto = parseMixtoAmounts(ref);
+                if (mixto) {
+                  return (
+                    <div className="border border-muted rounded-xl overflow-hidden text-sm">
+                      <div className="flex items-center justify-between px-4 py-2.5">
+                        <span className="font-semibold">Efectivo</span>
+                        <span className="font-bold text-green-700 dark:text-green-400">
+                          <FormattedPrice amount={mixto.cash} />
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between px-4 py-2.5 border-t border-muted/40">
+                        <div>
+                          <span className="font-semibold">Terminal</span>
+                          {mixto.cardRef && (
+                            <span className="text-xs text-muted-foreground ml-2">
+                              Ref: {mixto.cardRef}
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-bold text-green-700 dark:text-green-400">
+                          <FormattedPrice amount={mixto.card} />
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between px-4 py-2.5 border-t border-muted font-bold bg-muted/20">
+                        <span>TOTAL</span>
+                        <span className="text-green-700 dark:text-green-400">
+                          <FormattedPrice amount={mixto.cash + mixto.card} />
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="border border-muted rounded-xl px-4 py-2.5 text-sm font-semibold">
+                    {ref === "EFECTIVO" ? "Efectivo" : ref ? "Terminal" : "—"}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
@@ -625,21 +670,40 @@ export default function POSReportPage() {
     (acc: Record<string, number>, o) => {
       if (o.payments && o.payments.length > 0) {
         for (const p of o.payments) {
-          const label = getPayMethodLabel(p.method);
-          acc[label] = (acc[label] ?? 0) + p.amount;
+          const m = p.method?.toUpperCase() ?? "";
+          if (m === "MIXTO") {
+            // Payment record with MIXTO method — try to parse amounts from reference
+            const mixto = parseMixtoAmounts(p.reference ?? "");
+            if (mixto && (mixto.cash > 0 || mixto.card > 0)) {
+              if (mixto.cash > 0)
+                acc["Efectivo"] = (acc["Efectivo"] ?? 0) + mixto.cash;
+              if (mixto.card > 0)
+                acc["Terminal"] = (acc["Terminal"] ?? 0) + mixto.card;
+            } else {
+              acc["Mixto"] = (acc["Mixto"] ?? 0) + p.amount;
+            }
+          } else {
+            const label = getPayMethodLabel(p.method);
+            acc[label] = (acc[label] ?? 0) + p.amount;
+          }
         }
       } else {
         const ref = o.paymentInfo?.id ?? "";
-        const label =
-          ref === "EFECTIVO"
-            ? "Efectivo"
-            : ref.startsWith("MIXTO")
-              ? "Mixto"
-              : ref
-                ? "Terminal"
-                : null;
-        if (label)
-          acc[label] = (acc[label] ?? 0) + (o.paymentInfo?.amountPaid ?? 0);
+        if (ref === "EFECTIVO") {
+          acc["Efectivo"] =
+            (acc["Efectivo"] ?? 0) + (o.paymentInfo?.amountPaid ?? 0);
+        } else if (ref.startsWith("MIXTO")) {
+          const mixto = parseMixtoAmounts(ref);
+          if (mixto) {
+            if (mixto.cash > 0)
+              acc["Efectivo"] = (acc["Efectivo"] ?? 0) + mixto.cash;
+            if (mixto.card > 0)
+              acc["Terminal"] = (acc["Terminal"] ?? 0) + mixto.card;
+          }
+        } else if (ref) {
+          acc["Terminal"] =
+            (acc["Terminal"] ?? 0) + (o.paymentInfo?.amountPaid ?? 0);
+        }
       }
       return acc;
     },
