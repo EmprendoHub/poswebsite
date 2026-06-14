@@ -69,7 +69,10 @@ export async function POST(req: Request) {
   }
   if (!["EFECTIVO", "TERMINAL", "MIXTO"].includes(payMethod)) {
     return NextResponse.json(
-      { error: "Selecciona un método de pago válido (Efectivo, Terminal o Mixto)." },
+      {
+        error:
+          "Selecciona un método de pago válido (Efectivo, Terminal o Mixto).",
+      },
       { status: 400 },
     );
   }
@@ -110,7 +113,9 @@ export async function POST(req: Request) {
     await mongoSession.withTransaction(async () => {
       const store = await Store.findById(storeId).session(mongoSession);
       if (!store) {
-        throw new Error("Sucursal no encontrada. Recarga la página e intenta de nuevo.");
+        throw new Error(
+          "Sucursal no encontrada. Recarga la página e intenta de nuevo.",
+        );
       }
 
       const isPaid = paidCents >= owedCents;
@@ -143,14 +148,15 @@ export async function POST(req: Request) {
 
       // 2. Decrement branch inventory for each line item
       for (const item of orderItems) {
-        const inv = await StoreInventory.findOne(
-          { store: storeId, variationId: item.variation },
-        ).session(mongoSession);
+        const inv = await StoreInventory.findOne({
+          store: storeId,
+          variationId: item.variation,
+        }).session(mongoSession);
 
         if (!inv || inv.quantity < item.quantity) {
           throw new Error(
             `Stock insuficiente para "${item.name ?? item.variation}" en esta sucursal. ` +
-            `Disponible: ${inv?.quantity ?? 0}, solicitado: ${item.quantity}.`,
+              `Disponible: ${inv?.quantity ?? 0}, solicitado: ${item.quantity}.`,
           );
         }
 

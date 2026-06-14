@@ -7,6 +7,7 @@ import Store from "@/backend/models/Store";
 import Product from "@/backend/models/Product";
 import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
+import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 
 // GET /api/work-orders/[id]
@@ -58,7 +59,11 @@ export async function PATCH(
     const { status, cancelReason, notes } = await req.json();
     const userId = (session.user as any)?._id;
 
-    const wo = await WorkOrder.findById(params.id);
+    // Use lean() so applyInventoryChanges reads exact MongoDB values.
+    // A normal findById() would apply Mongoose schema defaults to subdocument
+    // fields that are missing in the DB (e.g. adjustmentDirection defaults to
+    // "add" even when the stored value was "remove" on older documents).
+    const wo = await WorkOrder.findById(params.id).lean<any>();
     if (!wo)
       return NextResponse.json(
         { error: "Orden no encontrada" },
@@ -115,31 +120,44 @@ export async function PATCH(
   }
 }
 
-// Applies inventory adjustments when a work order is completed
+// Applies inventory adjustments when a work order is completed.
+// Re-reads the document via the native MongoDB driver so adjustmentDirection
+// is always the raw stored string, never a Mongoose schema default.
 async function applyInventoryChanges(wo: any) {
-  for (const item of wo.items) {
+  const rawWo = await mongoose.connection.db!.collection("workorders").findOne({
+    _id:
+      wo._id instanceof mongoose.Types.ObjectId
+        ? wo._id
+        : new mongoose.Types.ObjectId(String(wo._id)),
+  });
+
+  if (!rawWo) return;
+
+  for (const item of rawWo.items ?? []) {
     const { product, variationId, quantity, adjustmentDirection } = item;
 
     // Deduct from source store (transfer type only)
-    if (wo.type === "transfer" && wo.fromStore) {
+    if (rawWo.type === "transfer" && rawWo.fromStore) {
       await StoreInventory.findOneAndUpdate(
-        { store: wo.fromStore, variationId },
+        { store: rawWo.fromStore, variationId },
         { $inc: { quantity: -quantity }, lastUpdated: new Date() },
       );
     }
 
-    // For adjustments, direction determines whether we add or remove stock
-    const qtyDelta =
-      wo.type === "adjustment" && adjustmentDirection === "remove"
-        ? -quantity
-        : quantity;
+    const isRemoval =
+      rawWo.type === "adjustment" && adjustmentDirection === "remove";
+    const qtyDelta = isRemoval ? -quantity : quantity;
 
-    // Add / adjust destination store (all types)
     await StoreInventory.findOneAndUpdate(
-      { store: wo.toStore, variationId },
+      { store: rawWo.toStore, variationId },
       {
         $inc: { quantity: qtyDelta },
-        $setOnInsert: { product, store: wo.toStore, variationId, minStock: 1 },
+        $setOnInsert: {
+          product,
+          store: rawWo.toStore,
+          variationId,
+          minStock: 1,
+        },
         lastUpdated: new Date(),
       },
       { upsert: true },

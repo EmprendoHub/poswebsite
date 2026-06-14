@@ -7,6 +7,7 @@ import Store from "@/backend/models/Store";
 import Product from "@/backend/models/Product";
 import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
+import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 
 const ALLOWED_ROLES = [
@@ -80,13 +81,61 @@ export async function POST(req: Request) {
     const data = await req.json();
     const userId = (session.user as any)?._id;
 
-    const workOrder = await WorkOrder.create({
-      ...data,
-      requestedBy: userId,
-      status: "pending",
-    });
+    // Use the native MongoDB driver directly.
+    // WorkOrder.create() runs through the Mongoose model which may be cached
+    // from before adjustmentDirection was added to the schema, causing it to
+    // silently strip the field from every item on insert.
+    const woColl = mongoose.connection.db!.collection("workorders");
 
-    return NextResponse.json(workOrder, { status: 201 });
+    // Replicate the pre-save workOrderNumber auto-increment
+    const [highest] = await woColl
+      .find({}, { projection: { workOrderNumber: 1 } })
+      .sort({ workOrderNumber: -1 })
+      .limit(1)
+      .toArray();
+    const workOrderNumber = ((highest?.workOrderNumber as number) ?? 1000) + 1;
+
+    const toOid = (id: any) =>
+      id
+        ? id instanceof mongoose.Types.ObjectId
+          ? id
+          : new mongoose.Types.ObjectId(String(id))
+        : undefined;
+
+    const now = new Date();
+    const doc: any = {
+      workOrderNumber,
+      type: data.type,
+      toStore: toOid(data.toStore),
+      requestedBy: toOid(userId),
+      status: "pending",
+      notes: data.notes || "",
+      items: (data.items ?? []).map((item: any) => ({
+        _id: new mongoose.Types.ObjectId(),
+        product: toOid(item.product),
+        productTitle: String(item.productTitle || ""),
+        variationId: String(item.variationId || ""),
+        variationTitle: item.variationTitle ?? undefined,
+        sku: item.sku ?? undefined,
+        quantity: Number(item.quantity),
+        unitCost: item.unitCost != null ? Number(item.unitCost) : undefined,
+        notes: item.notes ?? undefined,
+        // Written directly to MongoDB — no Mongoose schema processing
+        adjustmentDirection:
+          item.adjustmentDirection === "remove" ? "remove" : "add",
+        isNewProduct: item.isNewProduct ?? false,
+        newProductData: item.newProductData ?? undefined,
+      })),
+      createdAt: now,
+      updatedAt: now,
+    };
+    if (data.fromStore) doc.fromStore = toOid(data.fromStore);
+
+    const result = await woColl.insertOne(doc);
+    return NextResponse.json(
+      { _id: result.insertedId.toString(), workOrderNumber },
+      { status: 201 },
+    );
   } catch (error: any) {
     console.error("[POST /api/work-orders] Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -52,7 +52,7 @@ export const shoppingSlice = createSlice({
     },
     addToPOSCart: (state: any, action: any) => {
       const existingProduct: any = state.productsPOS.find(
-        (item: any) => item._id === action.payload._id
+        (item: any) => item._id === action.payload._id,
       );
       if (existingProduct) {
         existingProduct.quantity += action.payload.quantity;
@@ -62,7 +62,7 @@ export const shoppingSlice = createSlice({
     },
     increasePOSQuantity: (state, action) => {
       const existingProduct: any = state.productsPOS.find(
-        (item: any) => item._id === action.payload._id
+        (item: any) => item._id === action.payload._id,
       );
 
       if (existingProduct && existingProduct.stock > existingProduct.quantity) {
@@ -71,7 +71,7 @@ export const shoppingSlice = createSlice({
     },
     decreasePOSQuantity: (state, action) => {
       const existingProduct: any = state.productsPOS.find(
-        (item: any) => item._id === action.payload._id
+        (item: any) => item._id === action.payload._id,
       );
       if (existingProduct?.quantity === 1) {
         existingProduct.quantity === 1;
@@ -81,7 +81,7 @@ export const shoppingSlice = createSlice({
     },
     deletePOSProduct: (state, action) => {
       state.productsPOS = state.productsPOS.filter(
-        (item: any) => item._id !== action.payload
+        (item: any) => item._id !== action.payload,
       );
     },
     resetPOSCart: (state) => {
@@ -89,7 +89,7 @@ export const shoppingSlice = createSlice({
     },
     addToCart: (state: any, action: PayloadAction<Variation>) => {
       const existingProduct: any = state.productsData.find(
-        (item: any) => item._id === action.payload._id
+        (item: any) => item._id === action.payload._id,
       );
       if (existingProduct) {
         existingProduct.quantity =
@@ -100,13 +100,13 @@ export const shoppingSlice = createSlice({
     },
     increaseQuantity: (state, action) => {
       const existingProduct: any = state.productsData.find(
-        (item: any) => item._id === action.payload._id
+        (item: any) => item._id === action.payload._id,
       );
       existingProduct.quantity++;
     },
     decreaseQuantity: (state, action) => {
       const existingProduct: any = state.productsData.find(
-        (item: any) => item._id === action.payload._id
+        (item: any) => item._id === action.payload._id,
       );
       if (existingProduct?.quantity === 1) {
         existingProduct.quantity === 1;
@@ -116,7 +116,7 @@ export const shoppingSlice = createSlice({
     },
     deleteProduct: (state, action) => {
       state.productsData = state.productsData.filter(
-        (item: any) => item._id !== action.payload
+        (item: any) => item._id !== action.payload,
       );
     },
     setCartQuantity: (
@@ -133,11 +133,11 @@ export const shoppingSlice = createSlice({
     },
     addToFavorites: (state: any, action: any) => {
       const existingProduct = state.favoritesData.find(
-        (item: any) => item._id === action.payload._id
+        (item: any) => item._id === action.payload._id,
       );
       if (existingProduct) {
         state.favoritesData = state.favoritesData.filter(
-          (item: any) => item._id !== action.payload._id
+          (item: any) => item._id !== action.payload._id,
         );
       } else {
         state.favoritesData.push(action.payload);
@@ -145,7 +145,7 @@ export const shoppingSlice = createSlice({
     },
     deleteFavorite: (state, action) => {
       state.favoritesData = state.favoritesData.filter(
-        (item: any) => item._id !== action.payload
+        (item: any) => item._id !== action.payload,
       );
     },
     resetFavorites: (state) => {
@@ -190,12 +190,12 @@ export const shoppingSlice = createSlice({
     },
     saveEmailReceiver: (state: any, action: any) => {
       const existingEmail = state.emailListData.find(
-        (item: any) => item.id === action.payload.id
+        (item: any) => item.id === action.payload.id,
       );
       if (existingEmail) {
         const clientIdToRemove = action.payload.id;
         state.emailListData = state.emailListData.filter(
-          (item: any) => item.id !== clientIdToRemove
+          (item: any) => item.id !== clientIdToRemove,
         );
       } else {
         state.emailListData.push(action.payload);
@@ -204,7 +204,7 @@ export const shoppingSlice = createSlice({
     removeEmailReceiver: (state, action) => {
       const clientIdToRemove = action.payload;
       state.emailListData = state.emailListData.filter(
-        (item: any) => item.id !== clientIdToRemove
+        (item: any) => item.id !== clientIdToRemove,
       );
     },
     resetEmailReceiver: (state: any) => {
@@ -212,12 +212,12 @@ export const shoppingSlice = createSlice({
     },
     saveQRToPrint: (state: any, action: any) => {
       const existingEmail = state.qrListData.find(
-        (item: any) => item.id === action.payload.id
+        (item: any) => item.id === action.payload.id,
       );
       if (existingEmail) {
         const productIdToRemove = action.payload.id;
         state.qrListData = state.qrListData.filter(
-          (item: any) => item.id !== productIdToRemove
+          (item: any) => item.id !== productIdToRemove,
         );
       } else {
         state.qrListData.push(action.payload);
@@ -226,7 +226,7 @@ export const shoppingSlice = createSlice({
     removeQRToPrint: (state, action) => {
       const productIdToRemove = action.payload;
       state.qrListData = state.qrListData.filter(
-        (item: any) => item.id !== productIdToRemove
+        (item: any) => item.id !== productIdToRemove,
       );
     },
     resetQRToPrint: (state) => {
