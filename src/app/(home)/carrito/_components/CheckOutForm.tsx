@@ -1,16 +1,32 @@
 "use client";
-import React, { useMemo } from "react";
-import { useSelector } from "react-redux";
+import React, { useMemo, useState } from "react";
+import { useSelector, useDispatch } from "react-redux";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import FormattedPrice from "@/backend/helpers/FormattedPrice";
 import { calculateShippingQuotes } from "@/lib/shippingRates";
+import { getVariationStock } from "@/app/_actions";
+import { deleteProduct, setCartQuantity } from "@/redux/shoppingSlice";
+import { AiOutlineLoading3Quarters } from "react-icons/ai";
+
+interface StockError {
+  _id: string;
+  title: string;
+  cartQty: number;
+  available: number;
+}
 
 const CheckOutForm = () => {
   const { data: session } = useSession();
   const isLoggedIn = Boolean(session?.user);
   const { productsData } = useSelector((state: any) => state.compras);
+  const dispatch = useDispatch();
+  const router = useRouter();
+
+  const [checking, setChecking] = useState(false);
+  const [stockErrors, setStockErrors] = useState<StockError[]>([]);
 
   const amountTotal = productsData?.reduce(
     (acc: any, cartItem: any) => acc + cartItem.quantity * cartItem.price,
@@ -45,6 +61,52 @@ const CheckOutForm = () => {
 
   const totalAmountCalc = Number(amountTotal) + Number(shipAmount);
   const iva = Math.round(((totalAmountCalc * 16) / 116) * 100) / 100;
+
+  async function handleContinuar() {
+    setChecking(true);
+    setStockErrors([]);
+    try {
+      // Check every item in parallel
+      const results = await Promise.all(
+        productsData.map(async (item: any) => {
+          const { currentStock } = await getVariationStock(item._id);
+          return {
+            _id: item._id,
+            title: item.title,
+            cartQty: item.quantity,
+            available: currentStock,
+          };
+        }),
+      );
+
+      const errors = results.filter((r) => r.available < r.cartQty);
+      if (errors.length > 0) {
+        setStockErrors(errors);
+      } else {
+        router.push("/carrito/envio");
+      }
+    } catch {
+      setStockErrors([
+        {
+          _id: "__error__",
+          title: "No se pudo verificar el stock",
+          cartQty: 0,
+          available: -1,
+        },
+      ]);
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  function fixStockError(err: StockError) {
+    if (err.available <= 0) {
+      dispatch(deleteProduct(err._id));
+    } else {
+      dispatch(setCartQuantity({ id: err._id, quantity: err.available }));
+    }
+    setStockErrors((prev) => prev.filter((e) => e._id !== err._id));
+  }
 
   return (
     <section className="p-2 maxsm:py-7 ">
@@ -88,12 +150,58 @@ const CheckOutForm = () => {
 
         {isLoggedIn ? (
           <div className="flex flex-col items-center gap-1">
-            <Link
-              href="/carrito/envio"
-              className="text-slate-100 text-center bg-emerald-700 mt-4 py-3 px-6 hover:bg-card hover:text-foreground duration-300 ease-in-out cursor-pointer w-full rounded-xl"
+            {/* Stock error list */}
+            {stockErrors.length > 0 && (
+              <div className="w-full rounded-xl border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 px-3 py-3 mb-1">
+                <p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-2">
+                  Hay productos con stock insuficiente:
+                </p>
+                <ul className="flex flex-col gap-2">
+                  {stockErrors.map((err) =>
+                    err._id === "__error__" ? (
+                      <li key="__error__" className="text-xs text-red-600">
+                        {err.title}
+                      </li>
+                    ) : (
+                      <li
+                        key={err._id}
+                        className="text-xs text-red-700 dark:text-red-300"
+                      >
+                        <span className="font-medium">{err.title}</span>
+                        <br />
+                        <span className="text-red-500">
+                          {err.available <= 0
+                            ? "Sin stock disponible."
+                            : `Solo ${err.available} disponible(s), tienes ${err.cartQty} en carrito.`}
+                        </span>
+                        <button
+                          onClick={() => fixStockError(err)}
+                          className="ml-2 underline text-red-600 dark:text-red-400 hover:text-red-800"
+                        >
+                          {err.available <= 0
+                            ? "Eliminar"
+                            : `Ajustar a ${err.available}`}
+                        </button>
+                      </li>
+                    ),
+                  )}
+                </ul>
+              </div>
+            )}
+
+            <button
+              onClick={handleContinuar}
+              disabled={checking}
+              className="flex items-center justify-center gap-2 text-slate-100 text-center bg-emerald-700 mt-4 py-3 px-6 hover:bg-emerald-800 disabled:opacity-60 disabled:cursor-not-allowed duration-300 ease-in-out w-full rounded-xl"
             >
-              Continuar
-            </Link>
+              {checking && (
+                <AiOutlineLoading3Quarters
+                  size={15}
+                  className="animate-spin flex-shrink-0"
+                />
+              )}
+              {checking ? "Verificando stock..." : "Continuar"}
+            </button>
 
             <Link
               href="/tienda"

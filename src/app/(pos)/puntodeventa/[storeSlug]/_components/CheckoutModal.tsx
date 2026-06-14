@@ -102,7 +102,12 @@ export default function CheckoutModal({
       let amountPaid = subtotal;
       let ref = transactionRef;
       if (payMethod === "EFECTIVO") {
-        amountPaid = Math.min(Number(cashReceived), subtotal);
+        // If cashReceived is blank, assume the customer paid exactly the total.
+        // Only treat it as a partial payment when the cashier explicitly
+        // entered a value that is strictly less than the subtotal.
+        const cashNum =
+          cashReceived !== "" ? Number(cashReceived) : subtotal;
+        amountPaid = Math.min(cashNum, subtotal);
         ref = "EFECTIVO";
       } else if (payMethod === "MIXTO") {
         const cardAmount = Math.max(

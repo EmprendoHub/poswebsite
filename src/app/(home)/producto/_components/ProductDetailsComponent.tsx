@@ -405,6 +405,7 @@ const ProductDetailsComponent = ({
                     </motion.button>
                   )}
                 </motion.div>
+
                 <div className="flex flex-col text-xs">
                   <span>
                     Categoría:{" "}

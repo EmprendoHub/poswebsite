@@ -119,6 +119,15 @@ export const shoppingSlice = createSlice({
         (item: any) => item._id !== action.payload
       );
     },
+    setCartQuantity: (
+      state,
+      action: PayloadAction<{ id: string; quantity: number }>,
+    ) => {
+      const item = (state.productsData as any[]).find(
+        (i: any) => i._id === action.payload.id,
+      );
+      if (item) item.quantity = action.payload.quantity;
+    },
     resetCart: (state) => {
       state.productsData = [];
     },
@@ -232,6 +241,7 @@ export const {
   increaseQuantity,
   decreaseQuantity,
   deleteProduct,
+  setCartQuantity,
   resetCart,
   addToPOSCart,
   increasePOSQuantity,
