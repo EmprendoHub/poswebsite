@@ -342,21 +342,50 @@ export default function ReportesClient() {
 }
 
 // ── Ventas ────────────────────────────────────────────────────────────────────
+function payMethodLabel(ref: string): string {
+  if (!ref) return "—";
+  if (ref === "EFECTIVO") return "Efectivo";
+  if (ref.startsWith("MIXTO")) return "Mixto";
+  if (ref === "POS" || ref === "POS-OFFLINE") return "POS";
+  return "Terminal";
+}
+
 function VentasTab({ data }: { data: any }) {
+  const [showDetail, setShowDetail] = useState(false);
   if (!data) return null;
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Kpi
           label="Ingresos Totales"
           value={fmt(data.totalRevenue)}
           color="text-green-600"
         />
+        <Kpi
+          label="💵 Efectivo"
+          value={fmt(data.revenueEfectivo ?? 0)}
+          color="text-sky-600"
+        />
+        <Kpi
+          label="💳 Terminal"
+          value={fmt(data.revenueTerminal ?? 0)}
+          color="text-violet-600"
+        />
         <Kpi label="Pedidos" value={data.totalOrders} />
         <Kpi label="Artículos" value={data.totalItems} />
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-3 gap-6">
+        <Section title="Por Método de Pago">
+          <Table
+            cols={["Método", "Pedidos", "Total"]}
+            rows={(data.byPayMethod ?? []).map((r: any) => [
+              r._id,
+              r.count,
+              fmt(r.total),
+            ])}
+          />
+        </Section>
         <Section title="Por Estado">
           <Table
             cols={["Estado", "Pedidos", "Total"]}
@@ -403,6 +432,132 @@ function VentasTab({ data }: { data: any }) {
           ])}
         />
       </Section>
+
+      {/* Detailed orders toggle */}
+      {Array.isArray(data.orderList) && (
+        <div>
+          <button
+            onClick={() => setShowDetail((v) => !v)}
+            className="flex bg-orange-500 items-center gap-2 text-sm font-medium border border-muted rounded-lg px-4 py-2 hover:bg-muted transition mb-4"
+          >
+            <MdOutlineReceipt size={16} />
+            {showDetail
+              ? "Ocultar detalle de pedidos"
+              : `Ver detalle de pedidos (${data.orderList.length})`}
+          </button>
+
+          {showDetail && (
+            <Section title={`Detalle de Pedidos (${data.orderList.length})`}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[800px]">
+                  <thead className="bg-muted/50 text-xs text-muted-foreground uppercase">
+                    <tr>
+                      {[
+                        "# Pedido",
+                        "Cliente",
+                        "Sucursal",
+                        "Fecha",
+                        "Método",
+                        "Total",
+                        "Estado",
+                      ].map((h) => (
+                        <th key={h} className="px-4 py-2 text-left">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.orderList.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="px-4 py-8 text-center text-muted-foreground"
+                        >
+                          Sin pedidos
+                        </td>
+                      </tr>
+                    ) : (
+                      data.orderList.map((o: any) => {
+                        const isCancelled = o.orderStatus === "Cancelado";
+                        return (
+                          <tr
+                            key={o._id}
+                            className={`border-t border-muted hover:bg-muted/20 ${isCancelled ? "opacity-50" : ""}`}
+                          >
+                            <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                              #{o.orderId}
+                            </td>
+                            <td className="px-4 py-2.5 truncate max-w-[140px]">
+                              {o.customerName || "—"}
+                            </td>
+                            <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                              {o.branch || "WWW"}
+                            </td>
+                            <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
+                              {new Date(o.createdAt).toLocaleDateString(
+                                "es-MX",
+                              )}{" "}
+                              {new Date(o.createdAt).toLocaleTimeString(
+                                "es-MX",
+                                {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                },
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-xs">
+                              {payMethodLabel(o.paymentInfo?.id ?? "")}
+                            </td>
+                            <td
+                              className={`px-4 py-2.5 font-semibold ${
+                                isCancelled
+                                  ? "line-through text-muted-foreground"
+                                  : "text-green-700 dark:text-green-400"
+                              }`}
+                            >
+                              {fmt(o.paymentInfo?.amountPaid ?? 0)}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <span
+                                className={`text-xs px-2 py-0.5 rounded-full bg-muted ${STATUS_COLOR[o.orderStatus] ?? "text-muted-foreground"}`}
+                              >
+                                {o.orderStatus}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                  <tfoot className="bg-muted/30 font-bold text-sm border-t-2 border-muted">
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="px-4 py-3 text-right text-xs text-muted-foreground"
+                      >
+                        TOTAL (activos)
+                      </td>
+                      <td className="px-4 py-3 text-green-700 dark:text-green-400">
+                        {fmt(
+                          data.orderList
+                            .filter((o: any) => o.orderStatus !== "Cancelado")
+                            .reduce(
+                              (s: number, o: any) =>
+                                s + (o.paymentInfo?.amountPaid ?? 0),
+                              0,
+                            ),
+                        )}
+                      </td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </Section>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -31,22 +31,64 @@ export async function GET(req: Request) {
     const storeId = url.searchParams.get("storeId");
     const section = url.searchParams.get("section") || "all";
 
-    const start = from
-      ? new Date(from)
+    // Parse "YYYY-MM-DD" strings as LOCAL midnight to avoid the UTC-parse + local
+    // setHours mismatch that causes same-day ranges to return zero results.
+    const parseLocalDay = (s: string): Date => {
+      const [y, m, d] = s.split("-").map(Number);
+      return new Date(y, m - 1, d); // local midnight
+    };
+
+    const startDay = from
+      ? parseLocalDay(from)
       : new Date(new Date().getFullYear(), 0, 1);
-    const end = to
-      ? new Date(new Date(to).setHours(23, 59, 59, 999))
-      : new Date();
+    const start = new Date(
+      startDay.getFullYear(),
+      startDay.getMonth(),
+      startDay.getDate(),
+      0,
+      0,
+      0,
+      0,
+    );
+
+    const endDay = to ? parseLocalDay(to) : new Date();
+    const end = new Date(
+      endDay.getFullYear(),
+      endDay.getMonth(),
+      endDay.getDate(),
+      23,
+      59,
+      59,
+      999,
+    );
 
     const result: any = {};
 
-    // ── VENTAS ────────────────────────────────────────────────────────────────
+    // Resolve storeId → branch values used in Order.branch field.
+    // Orders store branch as store.slug (sometimes branchLegacyName), NOT the _id.
+    let branchFilter: string[] | null = null;
+    if (storeId) {
+      const storeDoc = await Store.findById(storeId)
+        .select("slug branchLegacyName")
+        .lean<any>();
+      if (storeDoc) {
+        branchFilter = [storeDoc.slug];
+        if (
+          storeDoc.branchLegacyName &&
+          storeDoc.branchLegacyName !== storeDoc.slug
+        ) {
+          branchFilter.push(storeDoc.branchLegacyName);
+        }
+      }
+    }
+
+    // ── VENTAS ───────────────────────────────────────────────────────────────────────────────
     if (section === "all" || section === "ventas") {
       const orderMatch: any = {
         createdAt: { $gte: start, $lte: end },
         orderStatus: { $ne: "Cancelado" },
       };
-      if (storeId) orderMatch.branch = storeId;
+      if (branchFilter) orderMatch.branch = { $in: branchFilter };
 
       // Summary
       const [venSummary] = await Order.aggregate([
@@ -123,14 +165,83 @@ export async function GET(req: Request) {
         { $sort: { "_id.year": 1, "_id.month": 1 } },
       ]);
 
+      // By payment method — 3 buckets: Efectivo / Mixto / Terminal
+      const byPayMethod = await Order.aggregate([
+        { $match: orderMatch },
+        {
+          $group: {
+            _id: {
+              $switch: {
+                branches: [
+                  {
+                    case: { $eq: ["$paymentInfo.id", "EFECTIVO"] },
+                    then: "Efectivo",
+                  },
+                  {
+                    case: {
+                      $regexMatch: {
+                        input: { $ifNull: ["$paymentInfo.id", ""] },
+                        regex: "^MIXTO",
+                      },
+                    },
+                    then: "Mixto",
+                  },
+                ],
+                default: "Terminal",
+              },
+            },
+            total: { $sum: "$paymentInfo.amountPaid" },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { total: -1 } },
+      ]);
+
+      // Detailed per-order list (including cancelled for full picture)
+      const orderListMatch: any = { createdAt: { $gte: start, $lte: end } };
+      if (branchFilter) orderListMatch.branch = { $in: branchFilter };
+      const orderList = await Order.find(orderListMatch)
+        .select("orderId customerName branch createdAt paymentInfo orderStatus")
+        .sort({ createdAt: -1 })
+        .limit(1000)
+        .lean();
+
+      // Split MIXTO cash vs terminal components from orderList
+      const _parseMixto = (id: string) => ({
+        cash: +(id.match(/CASH:([\.\d]+)/)?.[1] ?? 0),
+        card: +(id.match(/CARD:([\.\d]+)/)?.[1] ?? 0),
+      });
+      let revenueEfectivo = 0;
+      let revenueTerminal = 0;
+      for (const o of orderList as any[]) {
+        if (o.orderStatus === "Cancelado") continue;
+        const pid: string = o.paymentInfo?.id ?? "";
+        const amt: number = o.paymentInfo?.amountPaid ?? 0;
+        if (pid === "EFECTIVO") {
+          revenueEfectivo += amt;
+        } else if (pid.startsWith("MIXTO")) {
+          const { cash, card } = _parseMixto(pid);
+          revenueEfectivo += cash;
+          revenueTerminal += card;
+        } else {
+          revenueTerminal += amt;
+        }
+      }
+      revenueEfectivo = Math.round(revenueEfectivo * 100) / 100;
+      revenueTerminal = Math.round(revenueTerminal * 100) / 100;
+
       result.ventas = {
         totalRevenue: venSummary?.totalRevenue ?? 0,
         totalOrders: venSummary?.totalOrders ?? 0,
         totalItems: venSummary?.totalItems ?? 0,
+        revenueEfectivo,
+        revenueTerminal,
         byStatus,
         byBranch,
+        byPayMethod,
         topProducts,
         monthlyTrend,
+        orderList,
       };
     }
 
@@ -392,7 +503,7 @@ export async function GET(req: Request) {
         orderStatus: { $ne: "Cancelado" },
         "paymentInfo.taxPaid": { $gt: 0 },
       };
-      if (storeId) orderMatch.branch = storeId;
+      if (branchFilter) orderMatch.branch = { $in: branchFilter };
 
       const [ivaSummary] = await Order.aggregate([
         { $match: orderMatch },
