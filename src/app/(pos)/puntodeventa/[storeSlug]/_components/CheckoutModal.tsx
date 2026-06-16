@@ -43,6 +43,7 @@ interface ReceiptData {
   cashierName: string;
   date: Date;
   discountAuthBy?: string;
+  discountLabel?: string;
   isOffline?: boolean;
 }
 
@@ -64,9 +65,22 @@ export default function CheckoutModal({
   const [discountApplied, setDiscountApplied] = useState(false);
   const [discountAuthBy, setDiscountAuthBy] = useState<string | null>(null);
   const [showDiscountAuth, setShowDiscountAuth] = useState(false);
+  const [showDiscountInput, setShowDiscountInput] = useState(false);
+  const [discountType, setDiscountType] = useState<"percent" | "amount">(
+    "percent",
+  );
+  const [discountInput, setDiscountInput] = useState("");
+
+  const discountValue = Number(discountInput) || 0;
   const discount = discountApplied
-    ? Math.round((rawSubtotal - rawSubtotal / 1.1) * 100) / 100
+    ? discountType === "percent"
+      ? Math.round(rawSubtotal * (discountValue / 100) * 100) / 100
+      : Math.min(Math.round(discountValue * 100) / 100, rawSubtotal)
     : 0;
+  const discountLabel =
+    discountType === "percent"
+      ? `${discountValue}%`
+      : `$${discountValue.toFixed(2)}`;
   const subtotal = Math.round((rawSubtotal - discount) * 100) / 100;
   const [payMethod, setPayMethod] = useState<PayMethod>("EFECTIVO");
   const [cashReceived, setCashReceived] = useState("");
@@ -162,6 +176,7 @@ export default function CheckoutModal({
           cashierName,
           date: new Date(),
           discountAuthBy: discountAuthBy ?? undefined,
+          discountLabel: discount > 0 ? discountLabel : undefined,
           isOffline: true,
         });
         return;
@@ -205,6 +220,8 @@ export default function CheckoutModal({
         storeName,
         cashierName,
         date: new Date(),
+        discountAuthBy: discountAuthBy ?? undefined,
+        discountLabel: discount > 0 ? discountLabel : undefined,
         isOffline: false,
       });
     } catch (err: any) {
@@ -276,7 +293,7 @@ export default function CheckoutModal({
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
                     <MdLocalOffer size={12} />
-                    Desc. (10%) — Aut: {discountAuthBy}
+                    Desc. ({discountLabel}) — Aut: {discountAuthBy}
                   </span>
                   <span className="text-xs text-emerald-400 font-semibold">
                     - ${discount.toFixed(2)}
@@ -295,18 +312,94 @@ export default function CheckoutModal({
                     onClick={() => {
                       setDiscountApplied(false);
                       setDiscountAuthBy(null);
+                      setDiscountInput("");
+                      setShowDiscountInput(false);
                     }}
                     className="w-full flex items-center justify-center gap-1 text-xs text-red-400 hover:text-red-300 py-1 transition-colors"
                   >
-                    ✕ Quitar descuento aplicado
+                    ✕ Quitar descuento ({discountLabel}) — Aut: {discountAuthBy}
                   </button>
+                ) : showDiscountInput ? (
+                  <div className="flex flex-col gap-2">
+                    {/* Type toggle */}
+                    <div className="flex gap-1 rounded-lg overflow-hidden border border-muted text-xs">
+                      <button
+                        onClick={() => setDiscountType("percent")}
+                        className={`flex-1 py-1.5 font-semibold transition-colors ${
+                          discountType === "percent"
+                            ? "bg-emerald-700 text-white"
+                            : "text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        % Porcentaje
+                      </button>
+                      <button
+                        onClick={() => setDiscountType("amount")}
+                        className={`flex-1 py-1.5 font-semibold transition-colors ${
+                          discountType === "amount"
+                            ? "bg-emerald-700 text-white"
+                            : "text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        $ Monto fijo
+                      </button>
+                    </div>
+                    {/* Value input */}
+                    <input
+                      type="number"
+                      min="0"
+                      max={discountType === "percent" ? 100 : rawSubtotal}
+                      placeholder={
+                        discountType === "percent" ? "Ej: 10" : "Ej: 50.00"
+                      }
+                      value={discountInput}
+                      onChange={(e) => setDiscountInput(e.target.value)}
+                      autoFocus
+                      className="bg-muted rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground text-foreground font-semibold"
+                    />
+                    {/* Live preview */}
+                    {discountValue > 0 && (
+                      <div className="flex justify-between text-xs px-1 text-emerald-400 font-semibold">
+                        <span>Descuento a aplicar:</span>
+                        <span>
+                          -$
+                          {(discountType === "percent"
+                            ? Math.round(
+                                rawSubtotal * (discountValue / 100) * 100,
+                              ) / 100
+                            : Math.min(discountValue, rawSubtotal)
+                          ).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setShowDiscountInput(false);
+                          setDiscountInput("");
+                        }}
+                        className="flex-1 text-xs text-muted-foreground border border-muted rounded-lg py-1.5 hover:bg-muted transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={() => setShowDiscountAuth(true)}
+                        disabled={discountValue <= 0}
+                        className="flex-1 flex items-center justify-center gap-1 text-xs bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-emerald-300 py-1.5 rounded-lg transition-colors font-semibold"
+                      >
+                        <MdShield size={12} />
+                        Autorizar
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   <button
-                    onClick={() => setShowDiscountAuth(true)}
+                    onClick={() => setShowDiscountInput(true)}
                     className="w-full flex items-center justify-center gap-1 text-xs bg-emerald-800 hover:bg-emerald-700 text-emerald-300 py-1.5 rounded-lg transition-colors"
                   >
                     <MdLocalOffer size={13} />
-                    Aplicar descuento 10%
+                    Aplicar descuento
                   </button>
                 )}
               </div>
@@ -429,10 +522,12 @@ export default function CheckoutModal({
       </div>
       {showDiscountAuth && (
         <DiscountManagerCodeModal
+          discountDescription={discountLabel}
           onAuthorized={(employee) => {
             setDiscountApplied(true);
             setDiscountAuthBy(employee.name);
             setShowDiscountAuth(false);
+            setShowDiscountInput(false);
           }}
           onClose={() => setShowDiscountAuth(false)}
         />
@@ -642,7 +737,7 @@ function SaleReceipt({
                 fontSize: "9px",
               }}
             >
-              <span>DESC. GERENTE (10%):</span>
+              <span>DESCUENTO ({receipt.discountLabel ?? "—"}):</span>
               <span>- {fmt(receipt.discount)}</span>
             </div>
           )}
@@ -733,9 +828,11 @@ function SaleReceipt({
 function DiscountManagerCodeModal({
   onAuthorized,
   onClose,
+  discountDescription,
 }: {
   onAuthorized: (employee: { _id: string; name: string; role: string }) => void;
   onClose: () => void;
+  discountDescription?: string;
 }) {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -787,7 +884,7 @@ function DiscountManagerCodeModal({
           <p className="text-xs text-muted-foreground mb-4">
             Ingresa el código de manager para autorizar el{" "}
             <span className="font-semibold text-emerald-600">
-              descuento del 10%
+              descuento de {discountDescription ?? "—"}
             </span>
             .
           </p>
