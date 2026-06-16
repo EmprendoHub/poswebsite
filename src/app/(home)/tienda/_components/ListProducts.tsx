@@ -25,6 +25,7 @@ interface Product {
   category: string;
   brand: string;
   gender: string;
+  ASIN?: string;
   variations: { price: number; stock: number }[];
 }
 
@@ -85,35 +86,37 @@ const ListProducts = ({
   const filteredProducts = useMemo(() => {
     let filtered = [...products];
 
-    // Search filter
+    // Search filter — matches title, ASIN, category, brand and gender
     if (searchParams.search) {
       const searchTerm = searchParams.search.toLowerCase();
       filtered = filtered.filter(
         (product) =>
           product.title.toLowerCase().includes(searchTerm) ||
+          (product.ASIN ?? "").toLowerCase().includes(searchTerm) ||
           product.category.toLowerCase().includes(searchTerm) ||
-          product.brand.toLowerCase().includes(searchTerm)
+          product.brand.toLowerCase().includes(searchTerm) ||
+          product.gender.toLowerCase().includes(searchTerm),
       );
     }
 
     // Category filter (single value now, not array)
     if (searchParams.category) {
       filtered = filtered.filter(
-        (product) => product.category === searchParams.category
+        (product) => product.category === searchParams.category,
       );
     }
 
     // Brand filter (single value now, not array)
     if (searchParams.brand) {
       filtered = filtered.filter(
-        (product) => product.brand === searchParams.brand
+        (product) => product.brand === searchParams.brand,
       );
     }
 
     // Gender filter (single value now, not array)
     if (searchParams.gender) {
       filtered = filtered.filter(
-        (product) => product.gender === searchParams.gender
+        (product) => product.gender === searchParams.gender,
       );
     }
 
@@ -147,7 +150,7 @@ const ListProducts = ({
     // Simulate loading delay for better UX
     setTimeout(() => {
       setDisplayedProductsCount((prev) =>
-        Math.min(prev + PRODUCTS_PER_PAGE, filteredProducts.length)
+        Math.min(prev + PRODUCTS_PER_PAGE, filteredProducts.length),
       );
       setIsLoading(false);
     }, 500);
@@ -169,7 +172,7 @@ const ListProducts = ({
       {
         threshold: 0.1,
         rootMargin: "100px", // Load when element is 100px away from viewport
-      }
+      },
     );
 
     if (target) {

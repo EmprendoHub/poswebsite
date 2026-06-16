@@ -27,6 +27,7 @@ const getStoreData = unstable_cache(
         category: 1,
         brand: 1,
         gender: 1,
+        ASIN: 1,
         createdAt: 1,
         weight: 1,
         dimensions: 1,

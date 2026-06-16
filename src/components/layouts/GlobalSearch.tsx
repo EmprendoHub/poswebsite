@@ -14,7 +14,7 @@ const GlobalSearch = ({
   const submitHandler = (e: any) => {
     e.preventDefault();
     if (keyword) {
-      router.push(`/tienda/?keyword=${keyword}`);
+      router.push(`/tienda/?search=${keyword}`);
     } else {
       router.push("/tienda");
     }

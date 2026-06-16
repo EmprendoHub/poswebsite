@@ -3035,6 +3035,30 @@ export async function getAllProduct(searchQuery: any) {
     apiProductFilters.pagination(resPerPage, page);
     productsData = await apiProductFilters.query.clone().exec();
 
+    // Overlay Product.stock with the live sum from StoreInventory so the
+    // admin table always shows the correct total across all branches.
+    if (productsData.length > 0) {
+      const productIds = productsData.map((p: any) => p._id);
+      const stockTotals = await StoreInventory.aggregate([
+        { $match: { product: { $in: productIds } } },
+        { $group: { _id: "$product", total: { $sum: "$quantity" } } },
+      ]);
+      const stockMap = new Map<string, number>(
+        stockTotals.map((r: any) => [r._id.toString(), r.total]),
+      );
+      productsData = productsData.map((p: any) => {
+        const pid = p._id?.toString();
+        if (pid && stockMap.has(pid)) {
+          // toObject() so we can safely mutate without touching the Mongoose doc
+          const obj =
+            typeof p.toObject === "function" ? p.toObject() : { ...p };
+          obj.stock = stockMap.get(pid);
+          return obj;
+        }
+        return p;
+      });
+    }
+
     const response = {
       products: JSON.stringify(productsData),
       productsCount,

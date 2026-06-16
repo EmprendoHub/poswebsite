@@ -268,11 +268,13 @@ export async function POST(req: Request) {
         try {
           const prod = (await Product.findById(r.matchedId).lean()) as any;
 
+          // Update prices/cost/ASIN on the Product document.
+          // We do NOT touch Product.stock here — it is recalculated below
+          // from StoreInventory so that other branches are never overwritten.
           await Product.updateOne(
             { _id: r.matchedId },
             {
               $set: {
-                ...(!pricesOnly ? { stock: r.newStock } : {}),
                 ...(r.newPrice > 0
                   ? {
                       price: r.newPrice,
@@ -291,7 +293,9 @@ export async function POST(req: Request) {
             },
           );
 
-          // Upsert StoreInventory per variation (or product id as fallback)
+          // Upsert StoreInventory for the selected branch only.
+          // Each record is scoped to (store, variationId) — other branches
+          // are untouched.
           if (!pricesOnly) {
             const variations = prod?.variations ?? [];
             if (variations.length > 0) {
@@ -315,6 +319,23 @@ export async function POST(req: Request) {
                 { upsert: true, new: true },
               );
             }
+
+            // Recalculate Product.stock as the sum of ALL StoreInventory
+            // entries for this product across every branch and variation.
+            // This keeps the global stock in sync without overwriting
+            // other branches' stock.
+            const allInv = await StoreInventory.find(
+              { product: r.matchedId },
+              { quantity: 1 },
+            ).lean();
+            const totalStock = (allInv as any[]).reduce(
+              (sum, e) => sum + (e.quantity ?? 0),
+              0,
+            );
+            await Product.updateOne(
+              { _id: r.matchedId },
+              { $set: { stock: totalStock, isOutOfStock: totalStock === 0 } },
+            );
           }
 
           r.updated = true;

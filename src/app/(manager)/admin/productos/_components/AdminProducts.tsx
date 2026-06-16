@@ -469,7 +469,7 @@ const AdminProducts = ({
         )}
 
         <table className="w-full text-sm  text-left h-full">
-          <thead className="text-l text-gray-700 uppercase">
+          <thead className="text-l dark:text-slate-300 text-gray-700 uppercase">
             <tr className="flex flex-row items-center">
               <th scope="col" className="w-fit px-2 py-3">
                 <input
@@ -483,28 +483,25 @@ const AdminProducts = ({
                   aria-label="Seleccionar todos"
                 />
               </th>
-              <th
-                scope="col"
-                className="w-full px-6 maxsm:px-0 py-3 maxsm:hidden"
-              >
+              <th scope="col" className="w-full py-3 maxsm:hidden">
                 Titulo
               </th>
-              <th scope="col" className="w-full px-6 maxsm:px-0 py-3 ">
+              <th scope="col" className="w-full py-3 ">
                 Categoría
               </th>
-              <th scope="col" className="w-fit px-2 maxsm:px-0 py-3 ">
+              <th scope="col" className="w-40 py-3 ">
                 Img
               </th>
-              <th scope="col" className="w-full px-2 maxsm:px-0 py-3 ">
+              <th scope="col" className="w-full py-3 ">
                 Genero
               </th>
-              <th scope="col" className="w-full px-2 maxsm:px-0 py-3 ">
+              {/* <th scope="col" className="w-full py-3 ">
                 Linea
-              </th>
-              <th scope="col" className="w-full px-2 maxsm:px-0 py-3 ">
+              </th> */}
+              <th scope="col" className="w-full py-3 ">
                 ASIN
               </th>
-              <th scope="col" className="w-full px-2 maxsm:px-0 py-3 ">
+              <th scope="col" className="w-full py-3 ">
                 Precio
               </th>
               <th scope="col" className="w-full px-1 py-3 ">
@@ -540,16 +537,16 @@ const AdminProducts = ({
                   />
                 </td>
                 <td
-                  className={`w-full px-6 maxsm:px-0 py-0 font-bold maxsm:hidden text-[12px]`}
+                  className={`w-full py-0 font-bold maxsm:hidden text-[12px]`}
                 >
-                  {product?.title?.substring(0, 30)}...
+                  {product?.title?.substring(0, 30)}
                 </td>
                 <td
-                  className={`w-full px-2 maxsm:px-0 py-0 font-bold maxsm:hidden text-[12px]`}
+                  className={`w-full py-0 font-bold maxsm:hidden text-[12px]`}
                 >
                   {product?.category}
                 </td>
-                <td className="w-fit  px-0 maxsm:px-0 py-0 relative ">
+                <td className="w-full px-0 maxsm:px-0 py-0  ">
                   <span className="relative flex items-center justify-center text-foreground w-20 h-20 maxsm:w-8 maxsm:h-8 shadow mt-2">
                     <button
                       type="button"
@@ -580,7 +577,7 @@ const AdminProducts = ({
                   </span>
                 </td>
                 <td className="w-full px-1 py-0 ">{product?.gender}</td>
-                <td className="w-full px-1 py-0 ">{product?.linea}</td>
+                {/* <td className="w-full px-1 py-0 ">{product?.linea}</td> */}
                 <td className="w-full px-1 py-0 text-[11px] uppercase">
                   {product?.ASIN || "—"}
                 </td>
