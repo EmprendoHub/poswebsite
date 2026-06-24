@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   MdClose,
   MdCheck,
@@ -91,11 +91,19 @@ export default function CheckoutModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  const inFlightRef = useRef(false);
+  const requestIdRef = useRef(
+    typeof crypto?.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
 
   const change =
     payMethod === "EFECTIVO" ? Math.max(0, Number(cashReceived) - subtotal) : 0;
 
   async function handleCheckout() {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setError("");
     setLoading(true);
     try {
@@ -197,6 +205,7 @@ export default function CheckoutModal({
           taxPaid: iva,
           transactionRef: ref,
           total: subtotal,
+          requestId: requestIdRef.current,
         }),
       });
 
@@ -228,6 +237,7 @@ export default function CheckoutModal({
       setError(err.message);
     } finally {
       setLoading(false);
+      inFlightRef.current = false;
     }
   }
 
@@ -440,12 +450,12 @@ export default function CheckoutModal({
                   placeholder="Efectivo recibido"
                   value={cashReceived}
                   onChange={(e) => setCashReceived(e.target.value)}
-                  className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-muted-foreground text-foreground font-bold"
+                  className="bg-muted rounded-lg px-3 py-2.5 text-2xl outline-none placeholder:text-muted-foreground text-black font-bold"
                 />
                 {Number(cashReceived) > 0 && (
-                  <div className="flex justify-between text-sm px-1">
+                  <div className="flex justify-between text-lg px-1">
                     <span className="text-muted-foreground">Cambio</span>
-                    <span className="font-bold text-green-500">
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400 ">
                       ${change.toFixed(2)}
                     </span>
                   </div>
@@ -459,7 +469,7 @@ export default function CheckoutModal({
                 placeholder="Referencia / Nº de transacción"
                 value={transactionRef}
                 onChange={(e) => setTransactionRef(e.target.value)}
-                className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-muted-foreground text-foreground font-bold"
+                className="bg-muted rounded-lg px-3 py-2.5 text-2xl outline-none placeholder:text-muted-foreground text-black font-bold"
               />
             )}
 
@@ -475,7 +485,7 @@ export default function CheckoutModal({
                       placeholder="0.00"
                       value={cashPart}
                       onChange={(e) => setCashPart(e.target.value)}
-                      className="bg-muted rounded-lg px-3 py-2.5 text-lg outline-none placeholder:text-muted-foreground text-foreground font-bold"
+                      className="bg-muted rounded-lg px-3 py-2.5 text-2xl outline-none placeholder:text-muted-foreground text-black font-bold"
                     />
                   </div>
                   <div className="flex flex-col gap-1">

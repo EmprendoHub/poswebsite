@@ -111,6 +111,8 @@ export const POST = async (request: any) => {
     shippingMethod,
     affiliateInfo,
     payType,
+    fulfillmentType = "shipping", // "shipping", "pickup", or "pos"
+    pickupStore,
   } = await reqBody;
 
   try {
@@ -212,20 +214,25 @@ export const POST = async (request: any) => {
       phone: user?.phone,
       email: user?.email,
       customerName: user?.name,
-      ship_cost: shippingCost,
+      ship_cost: fulfillmentType === "shipping" ? shippingCost : 0,
+      fulfillmentType: fulfillmentType,
+      ...(fulfillmentType === "pickup" && pickupStore ? { pickupStore } : {}),
       createdAt: date,
-      shippingInfo: {
-        ...shipping,
-        shippingMethod: shippingMethod,
-        shippingCost: shippingCost,
-        carrier: shippingMethod?.carrier || "",
-        service: shippingMethod?.service || "",
-        estimatedDays: shippingMethod?.estimatedDays || 0,
-      },
+      ...(fulfillmentType === "shipping" && {
+        shippingInfo: {
+          ...shipping,
+          shippingMethod: shippingMethod,
+          shippingCost: shippingCost,
+          carrier: shippingMethod?.carrier || "",
+          service: shippingMethod?.service || "",
+          estimatedDays: shippingMethod?.estimatedDays || 0,
+        },
+      }),
       paymentInfo,
       branch: "WWW",
       orderItems: order_items,
-      orderStatus: "Pendiente",
+      orderStatus:
+        fulfillmentType === "pickup" ? "Listo para recoger" : "Pendiente",
       layaway: false,
       affiliateId: affiliate?._id.toString() || "",
     };
@@ -235,9 +242,9 @@ export const POST = async (request: any) => {
     // Intentionally cause an error by attempting to insert a document with missing required fields
     //await new Customer({}).save({ session: mongoSession });
 
-    // Create shipping rate dynamically if shipping cost exists
+    // Create shipping rate dynamically if shipping cost exists (only for shipping fulfillment)
     let shipping_options = undefined;
-    if (shippingCost > 0 && shippingMethod) {
+    if (fulfillmentType === "shipping" && shippingCost > 0 && shippingMethod) {
       const shippingRate = await stripe.shippingRates.create({
         display_name: shippingMethod.service || "Envío",
         type: "fixed_amount",

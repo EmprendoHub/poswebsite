@@ -2,10 +2,14 @@ import mongoose, { Document, Model, Schema } from "mongoose";
 
 interface OrderDocument extends Document {
   orderId?: number;
+  posRequestId?: string;
   affiliateId?: string;
   layaway?: boolean;
   layaway_amount?: number;
   ship_cost?: number;
+  fulfillmentType?: "shipping" | "pickup" | "pos"; // New: shipping (default), pickup (in-store), or pos (point of sale)
+  pickupStore?: mongoose.Types.ObjectId; // New: Store reference for pickup orders
+  pickupReadyDate?: Date; // New: When order is ready for pickup
   orderItems: Array<{
     product: mongoose.Types.ObjectId;
     variation: string;
@@ -50,6 +54,9 @@ const OrderSchema = new Schema<OrderDocument>({
   orderId: {
     type: Number, // This will store the unique incremental order number
   },
+  posRequestId: {
+    type: String,
+  },
   affiliateId: {
     type: String,
   },
@@ -61,6 +68,18 @@ const OrderSchema = new Schema<OrderDocument>({
   },
   ship_cost: {
     type: Number,
+  },
+  fulfillmentType: {
+    type: String,
+    enum: ["shipping", "pickup", "pos"],
+    default: "shipping",
+  },
+  pickupStore: {
+    type: Schema.Types.ObjectId,
+    ref: "Store",
+  },
+  pickupReadyDate: {
+    type: Date,
   },
   orderItems: [
     {
@@ -192,6 +211,9 @@ const OrderSchema = new Schema<OrderDocument>({
 OrderSchema.index({ "user.phone": 1 });
 OrderSchema.index({ "user.email": 1 });
 OrderSchema.index({ "user.name": 1 });
+OrderSchema.index({ posRequestId: 1 }, { unique: true, sparse: true });
+OrderSchema.index({ fulfillmentType: 1, pickupStore: 1, orderStatus: 1 }); // For querying pickup orders
+OrderSchema.index({ fulfillmentType: 1, pickupReadyDate: 1 }); // For querying ready-for-pickup orders
 
 // Apply the pre-save hook to generate the orderNumber
 OrderSchema.pre<OrderDocument>("save", async function (next) {

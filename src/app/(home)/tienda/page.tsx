@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { unstable_cache } from "next/cache";
 import dbConnect from "@/lib/db";
 import Product from "@/backend/models/Product";
+import StoreInventory from "@/backend/models/StoreInventory";
 
 import ListProducts from "./_components/ListProducts";
 
@@ -38,7 +39,27 @@ const getStoreData = unstable_cache(
       .sort({ createdAt: -1 })
       .lean();
 
-    const rawProducts = products as any[];
+    // Filter products to only show those with stock in at least one store
+    const productIds = products.map((p) => p._id);
+    const productsWithStock = await StoreInventory.find(
+      {
+        product: { $in: productIds },
+        quantity: { $gt: 0 }, // Only entries with stock > 0
+      },
+      { product: 1 },
+    ).distinct("product");
+
+    // Convert ObjectIds to strings for comparison
+    const productsWithStockSet = new Set(
+      productsWithStock.map((id) => id.toString()),
+    );
+
+    // Filter out products with no stock in any store
+    const filteredProducts = products.filter((p: any) =>
+      productsWithStockSet.has(p._id.toString()),
+    );
+
+    const rawProducts = filteredProducts as any[];
 
     // Online customers pay 10% more than the base (POS) price
     const ONLINE_MARKUP = 1.1;

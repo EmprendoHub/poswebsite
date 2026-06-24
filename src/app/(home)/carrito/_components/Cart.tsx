@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import {
   decreaseQuantity,
@@ -11,12 +11,15 @@ import { useDispatch, useSelector } from "react-redux";
 import { AiOutlineClose } from "react-icons/ai";
 import CheckOutForm from "./CheckOutForm";
 import { useRouter } from "next/navigation";
-import { getVariationStock } from "@/app/_actions";
 import BreadCrumbs from "@/components/layouts/BreadCrumbs";
 
 const Cart = () => {
   const router = useRouter();
   const dispatch = useDispatch();
+  const [stockCache, setStockCache] = useState<Record<string, number>>({});
+  const [loadingStock, setLoadingStock] = useState<Set<string>>(new Set());
+  const [stockError, setStockError] = useState<Record<string, string>>({});
+
   const breadCrumbs = [
     {
       name: "Tienda",
@@ -36,18 +39,73 @@ const Cart = () => {
     // eslint-disable-next-line
   }, [productsData]);
 
-  const handleIncreaseQuantity = async (cartItem: any) => {
-    const currentStock = await getVariationStock(cartItem._id);
-    const existingProduct = productsData.find(
-      (item: any) => item._id === cartItem._id,
-    );
-    if (
-      existingProduct &&
-      currentStock.currentStock > existingProduct.quantity
-    ) {
-      dispatch(increaseQuantity(cartItem));
+  // Fetch stock for a variation
+  const fetchVariationStock = async (variationId: string) => {
+    // Return cached value if available
+    if (stockCache[variationId] !== undefined) {
+      return stockCache[variationId];
     }
-    //dispatch(increaseQuantity(cartItem));
+
+    try {
+      setLoadingStock((prev) => {
+        const updated = new Set(prev);
+        updated.add(variationId);
+        return updated;
+      });
+      const res = await fetch(
+        `/api/inventory/variation-stock?variationId=${variationId}`,
+      );
+
+      if (!res.ok) throw new Error("Failed to fetch stock");
+
+      const data = await res.json();
+      const total = data.totalStock || 0;
+
+      setStockCache((prev) => ({ ...prev, [variationId]: total }));
+      setStockError((prev) => {
+        const updated = { ...prev };
+        delete updated[variationId];
+        return updated;
+      });
+
+      return total;
+    } catch (error) {
+      console.error("Error fetching stock:", error);
+      setStockError((prev) => ({
+        ...prev,
+        [variationId]: "No se pudo verificar el stock",
+      }));
+      return 0;
+    } finally {
+      setLoadingStock((prev) => {
+        const updated = new Set(prev);
+        updated.delete(variationId);
+        return updated;
+      });
+    }
+  };
+
+  const handleIncreaseQuantity = async (cartItem: any) => {
+    const variationId = cartItem._id;
+    const availableStock = await fetchVariationStock(variationId);
+    const existingProduct = productsData.find(
+      (item: any) => item._id === variationId,
+    );
+
+    if (existingProduct && availableStock > existingProduct.quantity) {
+      dispatch(increaseQuantity(cartItem));
+      // Clear error if user successfully increases
+      setStockError((prev) => {
+        const updated = { ...prev };
+        delete updated[variationId];
+        return updated;
+      });
+    } else if (!existingProduct || existingProduct.quantity >= availableStock) {
+      setStockError((prev) => ({
+        ...prev,
+        [variationId]: `Stock máximo disponible: ${availableStock}`,
+      }));
+    }
   };
 
   return (
@@ -91,7 +149,7 @@ const Cart = () => {
                               onClick={() =>
                                 dispatch(decreaseQuantity(cartItem))
                               }
-                              className="cursor-pointer"
+                              className="cursor-pointer hover:text-muted-foreground transition-colors"
                             >
                               <FiChevronLeft />
                             </span>
@@ -100,11 +158,25 @@ const Cart = () => {
                             </span>
                             <span
                               onClick={() => handleIncreaseQuantity(cartItem)}
-                              className="cursor-pointer"
+                              className={`cursor-pointer transition-colors ${
+                                loadingStock.has(cartItem._id)
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : "hover:text-muted-foreground"
+                              }`}
                             >
-                              <FiChevronRight />
+                              {loadingStock.has(cartItem._id) ? (
+                                <span className="animate-spin">⟳</span>
+                              ) : (
+                                <FiChevronRight />
+                              )}
                             </span>
                           </div>
+                          {/* Stock Error Message */}
+                          {stockError[cartItem._id] && (
+                            <p className="text-xs text-red-600 mt-2">
+                              ⚠️ {stockError[cartItem._id]}
+                            </p>
+                          )}
                         </div>
                         <div>
                           <div className="leading-5">

@@ -4,6 +4,7 @@ import Link from "next/link";
 import BreadCrumbs from "@/components/layouts/BreadCrumbs";
 import PaymentForm from "./PaymentForm";
 import ShippingOptions from "./ShippingOptions";
+import FulfillmentSelector from "./FulfillmentSelector";
 import {
   addUser,
   addShippingInfo,
@@ -14,6 +15,10 @@ import { useSession } from "next-auth/react";
 
 const Shipping = ({ addresses }: { addresses: any }) => {
   const [selectedShipping, setSelectedShipping] = useState<any>(null);
+  const [fulfillmentType, setFulfillmentType] = useState<"shipping" | "pickup">(
+    "shipping",
+  );
+  const [pickupStore, setPickupStore] = useState<string>("");
 
   const breadCrumbs = [
     {
@@ -53,65 +58,101 @@ const Shipping = ({ addresses }: { addresses: any }) => {
     setSelectedShipping(shippingQuote);
     dispatch(addShippingMethod(shippingQuote));
   };
+
+  const handleFulfillmentChange = (
+    type: "shipping" | "pickup",
+    store?: string,
+  ) => {
+    setFulfillmentType(type);
+    if (store) setPickupStore(store);
+  };
+
   return (
     <div>
       <section className="py-10 ">
         <div className=" max-w-screen-xl mx-auto px-4">
           <div className="flex maxsm:flex-col flex-row gap-4 lg:gap-8">
             <main className="md:w-2/3">
-              <article className="border border-muted bg-background shadow-sm rounded-xl p-4 lg:p-6 mb-5">
-                <h2 className="text-xl font-semibold mb-3">
-                  Información de Envió
-                </h2>
-
-                <div className="grid grid-cols-2 maxsm:grid-cols-1 gap-4 mb-6">
-                  {addresses?.map((address: any, index: number) => (
-                    <label
-                      key={index}
-                      className="flex p-3 border border-muted bg-card rounded-xl hover:border-blue-400 hover:bg-background cursor-pointer"
-                    >
-                      <span>
-                        <input
-                          name="shipping"
-                          type="radio"
-                          className="h-4 w-4 mt-1"
-                          onClick={(e) => handleClick(e.target, address)}
-                        />
-                      </span>
-                      <p className="ml-2">
-                        <span>{address?.street}</span>
-                        <small className="block text-sm text-gray-400">
-                          {address?.city}, {address?.province},{" "}
-                          {address?.zip_code}
-                          <br />
-                          {address?.country}
-                          <br />
-                          {address?.phone}
-                        </small>
-                      </p>
-                    </label>
-                  ))}
-                </div>
-
-                {addresses.length <= 0 && (
-                  <Link
-                    href={`/perfil/direcciones/nueva?callbackUrl=${process.env.NEXT_PUBLIC_NEXTAUTH_URL}/carrito/envio`}
-                    className="px-4 py-2 inline-block  border border-gray-300 rounded-xl hover:bg-muted"
-                  >
-                    <i className="mr-1 fa fa-plus"></i> Agregar nueva dirección
-                  </Link>
-                )}
-              </article>
-
-              {/* Shipping Options Section */}
-              <ShippingOptions
-                onShippingSelect={handleShippingSelect}
-                selectedShipping={selectedShipping}
+              {/* Fulfillment Method Selection */}
+              <FulfillmentSelector
+                onFulfillmentChange={handleFulfillmentChange}
               />
+
+              {/* Shipping Address Section - Only show for shipping fulfillment */}
+              {fulfillmentType === "shipping" && (
+                <article className="border border-muted bg-background shadow-sm rounded-xl p-4 lg:p-6 mb-5">
+                  <h2 className="text-xl font-semibold mb-3">
+                    Información de Envió
+                  </h2>
+
+                  <div className="grid grid-cols-2 maxsm:grid-cols-1 gap-4 mb-6">
+                    {addresses?.map((address: any, index: number) => (
+                      <label
+                        key={index}
+                        className="flex p-3 border border-muted bg-card rounded-xl hover:border-blue-400 hover:bg-background cursor-pointer"
+                      >
+                        <span>
+                          <input
+                            name="shipping"
+                            type="radio"
+                            className="h-4 w-4 mt-1"
+                            onClick={(e) => handleClick(e.target, address)}
+                          />
+                        </span>
+                        <p className="ml-2">
+                          <span>{address?.street}</span>
+                          <small className="block text-sm text-gray-400">
+                            {address?.city}, {address?.province},{" "}
+                            {address?.zip_code}
+                            <br />
+                            {address?.country}
+                            <br />
+                            {address?.phone}
+                          </small>
+                        </p>
+                      </label>
+                    ))}
+                  </div>
+
+                  {addresses.length <= 0 && (
+                    <Link
+                      href={`/perfil/direcciones/nueva?callbackUrl=${process.env.NEXT_PUBLIC_NEXTAUTH_URL}/carrito/envio`}
+                      className="px-4 py-2 inline-block  border border-gray-300 rounded-xl hover:bg-muted"
+                    >
+                      <i className="mr-1 fa fa-plus"></i> Agregar nueva
+                      dirección
+                    </Link>
+                  )}
+                </article>
+              )}
+
+              {/* Pickup Confirmation - Only show for pickup fulfillment */}
+              {fulfillmentType === "pickup" && pickupStore && (
+                <article className="border border-green-300 bg-green-50 dark:bg-green-950/20 shadow-sm rounded-xl p-4 lg:p-6 mb-5">
+                  <h2 className="text-xl font-semibold text-green-800 dark:text-green-200 mb-2">
+                    ✓ Retiro en Tienda Confirmado
+                  </h2>
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    Tu pedido será pagado en línea y podrás recogerlo en la
+                    sucursal seleccionada dentro de 24-48 horas.
+                  </p>
+                </article>
+              )}
+
+              {/* Shipping Options Section - Only show for shipping fulfillment */}
+              {fulfillmentType === "shipping" && (
+                <ShippingOptions
+                  onShippingSelect={handleShippingSelect}
+                  selectedShipping={selectedShipping}
+                />
+              )}
             </main>
             <aside className="md:w-1/4">
               <article className="border border-muted bg-background shadow-sm rounded-xl mb-5 p-1">
-                <PaymentForm />
+                <PaymentForm
+                  fulfillmentType={fulfillmentType}
+                  pickupStore={pickupStore}
+                />
               </article>
             </aside>
           </div>

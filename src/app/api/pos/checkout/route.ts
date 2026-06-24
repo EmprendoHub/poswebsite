@@ -52,7 +52,13 @@ export async function POST(req: Request) {
     taxPaid,
     transactionRef,
     total,
+    requestId,
   } = body;
+
+  const posRequestId =
+    typeof requestId === "string" && requestId.trim().length > 0
+      ? requestId.trim().slice(0, 120)
+      : undefined;
 
   // ── Pre-flight validations (no DB, pure logic) ─────────────────────────
   if (!orderItems?.length) {
@@ -109,8 +115,22 @@ export async function POST(req: Request) {
   const mongoSession = await mongoose.startSession();
   try {
     let newOrder: any;
+    let deduplicated = false;
 
     await mongoSession.withTransaction(async () => {
+      // Idempotency guard: if this requestId was already processed, return
+      // the existing order and skip all writes (inventory/caja/order).
+      if (posRequestId) {
+        const existing = await Order.findOne({ posRequestId }).session(
+          mongoSession,
+        );
+        if (existing) {
+          newOrder = existing;
+          deduplicated = true;
+          return;
+        }
+      }
+
       const store = await Store.findById(storeId).session(mongoSession);
       if (!store) {
         throw new Error(
@@ -131,6 +151,7 @@ export async function POST(req: Request) {
             phone: customerPhone || "",
             branch: store.slug,
             storeId: store._id,
+            ...(posRequestId ? { posRequestId } : {}),
             paymentInfo: {
               id: transactionRef || "POS",
               status: paymentStatus,
@@ -226,11 +247,34 @@ export async function POST(req: Request) {
       }
     });
 
+    const statusCode = deduplicated ? 200 : 201;
     return NextResponse.json(
-      { success: true, orderId: newOrder.orderId, _id: newOrder._id },
-      { status: 201 },
+      {
+        success: true,
+        deduplicated,
+        orderId: newOrder.orderId,
+        _id: newOrder._id,
+      },
+      { status: statusCode },
     );
   } catch (error: any) {
+    // If two identical checkout requests race with the same idempotency key,
+    // one may fail with duplicate-key error. Treat that as a successful retry.
+    if (posRequestId && Number(error?.code) === 11000) {
+      const existing = await Order.findOne({ posRequestId });
+      if (existing) {
+        return NextResponse.json(
+          {
+            success: true,
+            deduplicated: true,
+            orderId: existing.orderId,
+            _id: existing._id,
+          },
+          { status: 200 },
+        );
+      }
+    }
+
     console.error("POS checkout error:", error);
     // Surface the human-readable message directly to the client.
     // Our own throws above are already in Spanish; Mongoose errors get a

@@ -74,6 +74,18 @@ export async function POST(req: Request) {
 
     for (const order of orders) {
       try {
+        // Idempotency guard for offline sync retries.
+        // If this localId was already synced once, return the same order.
+        const existing = await Order.findOne({ posRequestId: order.localId });
+        if (existing) {
+          results.push({
+            localId: order.localId,
+            success: true,
+            orderId: existing.orderId,
+          });
+          continue;
+        }
+
         const store = await Store.findById(order.storeId);
         if (!store) throw new Error("Sucursal no encontrada");
 
@@ -82,6 +94,7 @@ export async function POST(req: Request) {
         const paymentStatus = isPaid ? "Pagado" : "Pendiente";
 
         const newOrder = await Order.create({
+          posRequestId: order.localId,
           orderItems: order.orderItems,
           customerName: order.customerName || "Cliente POS",
           phone: order.customerPhone || "",

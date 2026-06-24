@@ -12,7 +12,15 @@ import FormattedPrice from "@/backend/helpers/FormattedPrice";
 import { revalidatePath } from "next/cache";
 import { calculateShippingQuotes } from "@/lib/shippingRates";
 
-const PaymentForm = () => {
+interface PaymentFormProps {
+  fulfillmentType?: "shipping" | "pickup";
+  pickupStore?: string;
+}
+
+const PaymentForm = ({
+  fulfillmentType = "shipping",
+  pickupStore = "",
+}: PaymentFormProps) => {
   const dispatch = useDispatch();
   const { data: session } = useSession();
   const isLoggedIn = Boolean(session?.user);
@@ -55,11 +63,13 @@ const PaymentForm = () => {
   }, [productsData]);
 
   const shipAmount =
-    shippingMethod?.price ||
-    (calculatedShipAmount && typeof calculatedShipAmount === "object"
-      ? calculatedShipAmount.price
-      : 0) ||
-    0;
+    fulfillmentType === "pickup"
+      ? 0
+      : shippingMethod?.price ||
+        (calculatedShipAmount && typeof calculatedShipAmount === "object"
+          ? calculatedShipAmount.price
+          : 0) ||
+        0;
   const layawayAmount = Number(amountTotal) * 0.3;
 
   const totalAmountCalc = Number(amountTotal) + Number(shipAmount);
@@ -86,30 +96,50 @@ const PaymentForm = () => {
       return;
     }
 
-    // Usar método de envío seleccionado o el calculado automáticamente
-    const finalShippingMethod = shippingMethod || calculatedShipAmount;
-
-    if (!finalShippingMethod) {
-      alert(
-        "Error al calcular el costo de envío. Por favor intenta nuevamente.",
-      );
+    // Validar según tipo de fulfillment
+    if (fulfillmentType === "pickup" && !pickupStore) {
+      alert("Por favor selecciona una sucursal para el retiro.");
       return;
+    }
+
+    if (fulfillmentType === "shipping") {
+      // Usar método de envío seleccionado o el calculado automáticamente
+      const finalShippingMethod = shippingMethod || calculatedShipAmount;
+
+      if (!finalShippingMethod) {
+        alert(
+          "Error al calcular el costo de envío. Por favor intenta nuevamente.",
+        );
+        return;
+      }
     }
 
     const stripe = await stripePromise;
 
+    const requestBody: any = {
+      items: productsData,
+      email: userData.email,
+      user: userData,
+      fulfillmentType: fulfillmentType,
+      payType: payType,
+      affiliateInfo: affiliateInfo,
+    };
+
+    // Only add shipping info for shipping fulfillment
+    if (fulfillmentType === "shipping") {
+      requestBody.shipping = shippingInfo;
+      requestBody.shippingMethod = shippingMethod || calculatedShipAmount;
+    }
+
+    // Add pickup store for pickup fulfillment
+    if (fulfillmentType === "pickup") {
+      requestBody.pickupStore = pickupStore;
+    }
+
     const response = await fetch(`/api/checkout?${payType}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        items: productsData,
-        email: userData.email,
-        user: userData,
-        shipping: shippingInfo,
-        shippingMethod: finalShippingMethod,
-        affiliateInfo: affiliateInfo,
-        payType: payType,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     try {
