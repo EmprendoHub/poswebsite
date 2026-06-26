@@ -171,31 +171,26 @@ const ProductDetailsComponent = ({
   );
 
   return (
-    <div className="container-class maxsm:py-8 ">
+    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-black to-gray-900">
       <div className="flex flex-col items-center justify-between">
-        <div className="w-full mx-auto wrapper-class gap-3 text-foreground  ">
-          <div className="flex flex-row maxsm:flex-col items-center justify-center gap-x-5 px-20 py-8 maxmd:py-4  maxmd:px-3">
-            {/* Left Panel */}
-            <div className="relative w-auto maxsm:w-full flex flex-col items-center justify-center">
-              <Image
-                src={"/covers/duela_bg.webp"}
-                alt="Invierte tu dinero en coleccionables"
-                fill
-                className="-z-[1] absolute w-full rounded-lg"
-              />
+        <div className="w-full mx-auto gap-3 text-foreground">
+          <div className="flex flex-row maxsm:flex-col items-stretch justify-center gap-8 px-6 maxlg:px-8 py-8 maxmd:py-4 maxmd:px-4 maxsm:gap-4">
+            {/* Left Panel - Product Image */}
+            <div className="relative w-full lg:w-[50%] flex flex-col items-center justify-start">
+              {/* Image Container */}
               <motion.div
                 initial={{ x: -50, opacity: 0 }}
                 whileInView={{ x: 0, opacity: 1 }}
                 transition={{ duration: 0.7 }}
-                className="p-2 w-full relative h-full"
+                className="relative w-full aspect-square maxsm:aspect-auto flex items-center justify-center rounded-2xl overflow-hidden bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-800 hover:border-gray-700 transition-colors"
               >
                 <motion.div
-                  key={mainImage} // This key prop forces the div to re-render when the mainImage changes
+                  key={mainImage}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.5 }} // Adjust the duration to control the speed of the transition
-                  className="relative flex h-auto w-auto"
+                  transition={{ duration: 0.5 }}
+                  className="relative flex h-full w-full items-center justify-center"
                   onMouseEnter={() => setShowZoom(true)}
                   onMouseLeave={() => setShowZoom(false)}
                   onMouseMove={handleMouseMove}
@@ -205,14 +200,15 @@ const ProductDetailsComponent = ({
                   <Image
                     src={mainImage}
                     alt="product image"
-                    width={450}
-                    height={450}
+                    width={500}
+                    height={500}
                     priority
+                    className="w-full h-full object-cover"
                   />
 
                   {showZoom && (
                     <motion.div
-                      className="absolute border-2 border-gray-300 pointer-events-none overflow-hidden rounded-full"
+                      className="absolute border-2 border-primary pointer-events-none overflow-hidden rounded-full shadow-lg"
                       style={{
                         width: `${zoomSize}px`,
                         height: `${zoomSize}px`,
@@ -242,62 +238,74 @@ const ProductDetailsComponent = ({
                   )}
                 </motion.div>
               </motion.div>
-              <div className="w-full">
-                <div className=" h-20 w-20 flex items-center justify-start gap-2 ">
+
+              {/* Thumbnail Images */}
+              <div className="w-full mt-4">
+                <div className="flex items-center justify-start gap-3 overflow-x-auto pb-2">
                   {images.map((image: any) => (
-                    <Image
+                    <motion.button
                       key={image._id}
-                      src={image.url}
-                      alt="product image"
-                      width={250}
-                      height={250}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => clickImage(image.url)}
-                      className="cursor-pointer hover:scale-105 transition-all duration-300"
-                    />
+                      className={`relative flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
+                        mainImage === image.url
+                          ? "border-primary shadow-lg shadow-primary/50"
+                          : "border-gray-700 hover:border-gray-600"
+                      }`}
+                    >
+                      <Image
+                        src={image.url}
+                        alt="product thumbnail"
+                        width={80}
+                        height={80}
+                        className="w-full h-full object-cover"
+                      />
+                    </motion.button>
                   ))}
                 </div>
               </div>
             </div>
-            {/* Right PAnel */}
-            <div className="description-class w-auto maxsm:w-full h-full ">
-              <div className="flex flex-col items-start justify-start pt-1 maxsm:pt-2 gap-y-3 w-[90%] maxmd:w-full p-5 pb-10">
+            {/* Right Panel - Product Details */}
+            <div className="w-full lg:w-[50%] flex flex-col items-start justify-start">
+              <div className="flex flex-col items-start justify-start gap-y-4 w-full">
                 <motion.div
                   initial={{ x: 50, opacity: 0 }}
                   whileInView={{ x: 0, opacity: 1 }}
                   transition={{ duration: 0.5 }}
+                  className="w-full space-y-3"
                 >
-                  <p className="text-5xl font-semibold font-EB_Garamond mb-3">
+                  {/* Brand */}
+                  <p className="text-3xl lg:text-4xl font-semibold font-EB_Garamond text-white">
                     {product?.brand}
                   </p>
-                  <div className="text-xl font-normal s">
-                    <div className="flex items-center gap-x-1">
-                      <span className="font-base text-base">
-                        {product?.title}
-                      </span>
-                    </div>
-                  </div>
+
+                  {/* Title */}
+                  <p className="text-lg lg:text-xl text-gray-300 font-light">
+                    {product?.title}
+                  </p>
+
+                  {/* Discount Badge and Old Price */}
                   {product?.sale_price ? (
-                    <div className="flex flex-row items-center justify-between">
-                      <div className="border-[1px] border-yellow-600 w-fit py-1 px-4 rounded-full text-xs text-foreground">
-                        <p>
-                          {calculatePercentage(
-                            variation.price,
-                            product?.sale_price,
-                          )}
-                          % menos
-                        </p>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-2">
+                      <div className="bg-gradient-to-r from-yellow-600 to-yellow-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
+                        {calculatePercentage(
+                          variation.price,
+                          product?.sale_price,
+                        )}
+                        % OFF
                       </div>
-                      <div className="flex items-center gap-x-2">
-                        <p className="line-through text-sm text-muted font-bodyFont">
+                      <div className="flex items-center gap-3">
+                        <p className="line-through text-sm text-gray-500 font-bodyFont">
                           <FormattedPrice amount={variation.price} />
                         </p>
                       </div>
                     </div>
-                  ) : (
-                    ""
-                  )}
-                  <div>
-                    <p className="font-semibold text-4xl text-foreground font-bodyFont">
+                  ) : null}
+
+                  {/* Price - Main */}
+                  <div className="pt-2">
+                    <p className="font-semibold text-4xl lg:text-5xl text-white font-bodyFont">
                       {product?.sale_price > 0 ? (
                         <FormattedPrice amount={product?.sale_price} />
                       ) : variation.price > 0 ? (
@@ -309,125 +317,132 @@ const ProductDetailsComponent = ({
                   </div>
                 </motion.div>
 
+                {/* Description */}
                 <motion.div
-                  initial={{ y: 50, opacity: 0 }}
+                  initial={{ y: 30, opacity: 0 }}
                   whileInView={{ y: 0, opacity: 1 }}
                   transition={{ duration: 0.6 }}
-                  className="text-gray-500 text-xs description-class tracking-wider"
+                  className="text-gray-400 text-sm leading-relaxed pt-2"
                 >
                   {product?.description ? product?.description : ""}
                 </motion.div>
-                <span className="text-xs">
-                  Existencias:{" "}
-                  <span className=" font-bodyFont">
-                    <strong>{variation.stock}</strong>
+                {/* Stock Info */}
+                <div className="flex items-center gap-2 pt-2 pb-4 border-b border-gray-800">
+                  <span className="text-gray-400 text-sm">
+                    Stock Disponible:
                   </span>
-                </span>
-                {variation?.stock <= 0 ? (
-                  ""
-                ) : (
-                  <div className="flex items-start gap-6">
-                    <motion.div
-                      initial={{ y: 50, opacity: 0 }}
-                      whileInView={{ y: 0, opacity: 1 }}
-                      transition={{ duration: 0.7 }}
-                      className="text-sm text-lightText flex flex-col items-center justify-center"
-                    >
+                  <span
+                    className={`text-sm font-semibold ${variation.stock > 0 ? "text-green-400" : "text-red-400"}`}
+                  >
+                    {variation.stock} unidades
+                  </span>
+                </div>
+
+                {/* Variations - Size and Color */}
+                {variation?.stock > 0 && (
+                  <motion.div
+                    initial={{ y: 30, opacity: 0 }}
+                    whileInView={{ y: 0, opacity: 1 }}
+                    transition={{ duration: 0.7 }}
+                    className="w-full space-y-4 pt-2"
+                  >
+                    {/* Sizes */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm font-semibold text-gray-300">
+                        Tamaño
+                      </label>
                       {product?.variations.length > 1 ? (
-                        <span className="flex items-center gap-5 justify-center ">
+                        <div className="flex flex-wrap gap-2">
                           {sizes?.map((s: any, index: number) => (
-                            <button
+                            <motion.button
                               key={index}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
                               onClick={handleSizeSelection}
                               value={s}
-                              className={`rounded-full border border-slate-400 flex items-center justify-center px-2 py-1 ${
+                              className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
                                 size === s
-                                  ? " bg-black text-white"
-                                  : "border-slate-400"
+                                  ? "bg-primary border-primary text-white shadow-lg shadow-primary/50"
+                                  : "border-gray-700 text-gray-300 hover:border-gray-600"
                               }`}
                             >
                               {s}
-                            </button>
+                            </motion.button>
                           ))}
-                        </span>
+                        </div>
                       ) : (
-                        <div className="grid maxxsm:grid-cols-1 maxmd:grid-cols-2 grid-cols-4 gap-4">
-                          <p className="text-foreground">
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800 border border-gray-700">
+                          <span className="text-gray-300 text-sm font-medium">
                             {product?.variations[0].size}
-                          </p>
+                          </span>
                         </div>
                       )}
-                    </motion.div>
-                  </div>
+                    </div>
+                  </motion.div>
                 )}
-                {/* add to cart button */}
+                {/* Add to Cart Button */}
                 <motion.div
                   initial={{ y: 50, opacity: 0 }}
                   whileInView={{ y: 0, opacity: 1 }}
                   transition={{ duration: 0.8 }}
-                  className="flex items-center group"
+                  className="w-full pt-4"
                 >
                   {variation?.stock <= 0 ? (
-                    <span className="text-[12px] border-[1px] border-black font-medium py-1 px-3  bg-primary text-slate-100">
-                      SIN EXISTENCIAS
-                    </span>
+                    <div className="w-full px-6 py-3 bg-gray-700 text-gray-300 rounded-lg text-center font-semibold cursor-not-allowed">
+                      Producto Agotado
+                    </div>
                   ) : alreadyCart ? (
                     <Link href="/carrito">
-                      <span className="  border-[1px] border-black text-xs py-1 px-3  bg-primary text-slate-100">
-                        TODAS LAS EXISTENCIAS ESTÁN EN CARRITO
-                      </span>
+                      <button className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-semibold transition-all">
+                        Ver en Carrito
+                      </button>
                     </Link>
                   ) : (
                     <motion.button
                       disabled={variation?.stock <= 0}
-                      whileHover={{ scale: 1.07 }}
-                      whileTap={{ scale: 0.9 }}
-                      className={`${
-                        variation?.stock <= 0
-                          ? "bg-slate-300 grayscale-0 text-foreground border-slate-300"
-                          : "text-white border-black"
-                      } border  drop-shadow-md flex flex-row items-center justify-between px-6 py-2  gap-x-4 text-xs bg-primary   ease-in-out  duration-300 w-auto uppercase tracking-wider cursor-pointer `}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full px-6 py-3 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-white rounded-lg font-semibold text-base flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl"
                       onClick={handleClick}
                     >
-                      {variation?.stock <= 0
-                        ? "Out of Stock"
-                        : "Agregar a carrito"}
-
-                      <span
-                        className={`text-white ${
-                          variation?.stock <= 0
-                            ? "bg-slate-300 grayscale-0 text-foreground"
-                            : "group-hover:bg-black group-hover:text-white duration-200 "
-                        } text-xl text-foreground w-12 flex items-center justify-center  rounded-full py-2`}
-                      >
-                        <IoMdCart size={18} />
-                      </span>
+                      <IoMdCart size={20} />
+                      Agregar a Carrito
                     </motion.button>
                   )}
                 </motion.div>
 
-                <div className="flex flex-col text-xs">
-                  <span>
-                    Categoría:{" "}
-                    <span className="t font-bodyFont">
-                      <b>{product?.category}</b>
+                {/* Product Info */}
+                <div className="w-full border-t border-gray-800 pt-4 space-y-2 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Categoría:</span>
+                    <span className="text-white font-medium">
+                      {product?.category}
                     </span>
-                  </span>
-                  <span>
-                    Genero:{" "}
-                    <span className="t font-bodyFont">{product?.gender}</span>
-                  </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Género:</span>
+                    <span className="text-white font-medium">
+                      {product?.gender}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        <div className="bg-black w-full">
-          <div className="bg-black maxsm:px-4 mb-10 mt-10 w-[50%] maxxlg:w-[75%] maxlg:w-[80%] maxmd:w-[95%] mx-auto h-full">
-            <p className="text-3xl maxsm:text-4xl font-EB_Garamond text-white pb-5 font-semibold">
-              {"También te puede gustar"}
-            </p>
-            <div className="grid maxsm:grid-cols-2 maxmd:grid-cols-4 grid-cols-4 gap-4 mt-2">
+        {/* Related Products Section */}
+        <div className="w-full bg-gradient-to-b from-gray-900 to-gray-950 border-t border-gray-800">
+          <div className="max-w-7xl mx-auto px-6 py-16 maxmd:py-10">
+            {/* Section Header */}
+            <div className="mb-10">
+              <h2 className="text-3xl lg:text-4xl font-bold font-EB_Garamond text-white mb-2">
+                Productos Relacionados
+              </h2>
+              <div className="w-16 h-1 bg-gradient-to-r from-primary to-primary/50 rounded-full"></div>
+            </div>
+
+            {/* Products Grid */}
+            <div className="grid grid-cols-2 maxmd:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 maxmd:gap-4">
               {filteredTrendingProducts?.map((product: any, index: number) => (
                 <ProductCard key={product._id} item={product} index={index} />
               ))}

@@ -7,6 +7,7 @@ import GlobalSearch from "../layouts/GlobalSearch";
 import LocationConcent from "./LocationConcent";
 import { FiLogOut } from "react-icons/fi";
 import { signOut, useSession } from "next-auth/react";
+import CartBadgeAnimation from "./CartBadgeAnimation";
 
 // const CustomLink = ({
 //   href,
@@ -42,7 +43,7 @@ const MainMenuComponent = ({
   session: any;
 }) => {
   const { productsData, favoritesData } = useSelector(
-    (state: any) => state.compras
+    (state: any) => state.compras,
   );
 
   return (
@@ -76,12 +77,9 @@ const MainMenuComponent = ({
 
           {/* <span className="text-[13px] maxmd:hidden">Mis Compras</span> */}
           <Link href={"/carrito"}>
-            <div className="rounded-full text-salte-100  flex items-center justify-center  cursor-pointer">
-              <ShoppingCart size={20} />
-              <span className=" text-white rounded-full text-[10px] relative right-1  -top-2 flex items-center justify-center w-4 h-4 shadow-xl p-0">
-                {productsData ? productsData?.length : 0}
-              </span>
-            </div>
+            <CartBadgeAnimation
+              cartCount={productsData ? productsData?.length : 0}
+            />
           </Link>
           <LocationConcent />
         </div>

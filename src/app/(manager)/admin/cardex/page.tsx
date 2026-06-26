@@ -43,12 +43,15 @@ interface Movement {
   unitPrice: number;
   total: number;
   details?: string;
+  authorizedBy?: string;
+  branches?: string[];
 }
 interface CardexData {
   product: ProductResult;
   inventoryRecords: InventoryRecord[];
   movements: Movement[];
   storeName: string;
+  storeStockMap?: { [storeName: string]: { [variationId: string]: number } };
 }
 
 /* ─── Helpers ─────────────────────────────────────────────────────── */
@@ -260,8 +263,6 @@ export default function AdminCardexPage() {
   const canAccess = userRole === "manager" || userRole === "super_admin";
 
   const [stores, setStores] = useState<Store[]>([]);
-  const [storeId, setStoreId] = useState("");
-  const [storeName, setStoreName] = useState("");
 
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ProductResult[]>([]);
@@ -288,7 +289,7 @@ export default function AdminCardexPage() {
 
   /* ── Debounced product search ── */
   useEffect(() => {
-    if (!storeId || query.trim().length < 2) {
+    if (query.trim().length < 2) {
       setSearchResults([]);
       return;
     }
@@ -297,7 +298,7 @@ export default function AdminCardexPage() {
       setSearching(true);
       try {
         const res = await fetch(
-          `/api/pos/cardex?storeId=${storeId}&q=${encodeURIComponent(query.trim())}`,
+          `/api/pos/cardex?q=${encodeURIComponent(query.trim())}`,
         );
         const data = await res.json();
         setSearchResults(data.products ?? []);
@@ -305,30 +306,26 @@ export default function AdminCardexPage() {
         setSearching(false);
       }
     }, 350);
-  }, [query, storeId]);
+  }, [query]);
 
   /* ── Load cardex ── */
-  const loadCardex = useCallback(
-    async (productId: string, varId = "") => {
-      if (!storeId) return;
-      setLoadingCardex(true);
-      setCardexError("");
-      setCardex(null);
-      try {
-        const p = new URLSearchParams({ storeId, productId });
-        if (varId) p.set("variationId", varId);
-        const res = await fetch(`/api/pos/cardex?${p}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Error al cargar cardex");
-        setCardex(data);
-      } catch (e: any) {
-        setCardexError(e.message);
-      } finally {
-        setLoadingCardex(false);
-      }
-    },
-    [storeId],
-  );
+  const loadCardex = useCallback(async (productId: string, varId = "") => {
+    setLoadingCardex(true);
+    setCardexError("");
+    setCardex(null);
+    try {
+      const p = new URLSearchParams({ productId });
+      if (varId) p.set("variationId", varId);
+      const res = await fetch(`/api/pos/cardex?${p}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Error al cargar cardex");
+      setCardex(data);
+    } catch (e: any) {
+      setCardexError(e.message);
+    } finally {
+      setLoadingCardex(false);
+    }
+  }, []);
 
   function selectProduct(p: ProductResult) {
     setSelectedProduct(p);
@@ -350,13 +347,6 @@ export default function AdminCardexPage() {
     setSearchResults([]);
     setCardex(null);
     setCardexError("");
-  }
-
-  function handleStoreChange(id: string) {
-    setStoreId(id);
-    const s = stores.find((s) => s._id === id);
-    setStoreName(s?.name ?? "");
-    clearSearch();
   }
 
   const filteredMovements = cardex
@@ -415,7 +405,7 @@ export default function AdminCardexPage() {
               <CardexPrintView
                 data={cardex}
                 variationId={selectedVariationId}
-                storeName={storeName}
+                storeName="Todas las sucursales"
               />
             </div>
           </div>
@@ -426,10 +416,11 @@ export default function AdminCardexPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2">
-            <MdInventory2 size={22} /> Cardex de Producto
+            <MdInventory2 size={22} /> Cardex de Producto (Global)
           </h1>
           <p className="text-xs text-muted-foreground">
-            Historial de movimientos por producto y sucursal
+            Historial de movimientos de todos los productos en todas las
+            sucursales
           </p>
         </div>
         {cardex && (
@@ -442,83 +433,53 @@ export default function AdminCardexPage() {
         )}
       </div>
 
-      {/* Store selector */}
-      <div className="mb-5">
-        <label className="text-xs text-muted-foreground mb-2 block font-medium uppercase tracking-wide">
-          Sucursal
-        </label>
-        <div className="flex items-center gap-2 bg-card border border-muted rounded-xl px-4 py-3 max-w-xs">
-          <MdStorefront
-            size={18}
-            className="text-muted-foreground flex-shrink-0"
-          />
-          <select
-            value={storeId}
-            onChange={(e) => handleStoreChange(e.target.value)}
-            className="flex-1 bg-transparent outline-none text-sm"
-          >
-            <option value="">Selecciona una sucursal…</option>
-            {stores.map((s) => (
-              <option key={s._id} value={s._id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
       {/* Product search */}
-      {storeId && (
-        <div className="relative mb-6">
-          <div className="flex items-center gap-2 bg-card border border-muted rounded-xl px-4 py-3">
-            <MdSearch
-              size={18}
-              className="text-muted-foreground flex-shrink-0"
-            />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                if (!e.target.value) clearSearch();
-              }}
-              placeholder="Buscar producto por nombre, ASIN o marca…"
-              className="flex-1 bg-transparent outline-none text-sm"
-            />
-            {query && (
-              <button
-                onClick={clearSearch}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <MdClose size={18} />
-              </button>
-            )}
-            {searching && (
-              <span className="text-xs text-muted-foreground animate-pulse">
-                Buscando…
-              </span>
-            )}
-          </div>
-          {searchResults.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1 bg-card border border-muted rounded-xl shadow-xl z-30 max-h-72 overflow-y-auto">
-              {searchResults.map((p) => (
-                <button
-                  key={p._id}
-                  onClick={() => selectProduct(p)}
-                  className="w-full text-left px-4 py-3 hover:bg-muted border-b border-muted last:border-0 transition-colors"
-                >
-                  <p className="text-sm font-medium truncate">{p.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {p.brand && `${p.brand} · `}
-                    {p.ASIN && `ASIN: ${p.ASIN} · `}
-                    {p.variations.length} variación(es)
-                  </p>
-                </button>
-              ))}
-            </div>
+      <div className="relative mb-6">
+        <div className="flex items-center gap-2 bg-card border border-muted rounded-xl px-4 py-3">
+          <MdSearch size={18} className="text-muted-foreground flex-shrink-0" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              if (!e.target.value) clearSearch();
+            }}
+            placeholder="Buscar producto por nombre, ASIN o marca…"
+            className="flex-1 bg-transparent outline-none text-sm"
+          />
+          {query && (
+            <button
+              onClick={clearSearch}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <MdClose size={18} />
+            </button>
+          )}
+          {searching && (
+            <span className="text-xs text-muted-foreground animate-pulse">
+              Buscando…
+            </span>
           )}
         </div>
-      )}
+        {searchResults.length > 0 && (
+          <div className="absolute left-0 right-0 top-full mt-1 bg-card border border-muted rounded-xl shadow-xl z-30 max-h-72 overflow-y-auto">
+            {searchResults.map((p) => (
+              <button
+                key={p._id}
+                onClick={() => selectProduct(p)}
+                className="w-full text-left px-4 py-3 hover:bg-muted border-b border-muted last:border-0 transition-colors"
+              >
+                <p className="text-sm font-medium truncate">{p.title}</p>
+                <p className="text-xs text-muted-foreground">
+                  {p.brand && `${p.brand} · `}
+                  {p.ASIN && `ASIN: ${p.ASIN} · `}
+                  {p.variations.length} variación(es)
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Variation pills */}
       {selectedProduct && selectedProduct.variations.length > 1 && (
@@ -557,19 +518,19 @@ export default function AdminCardexPage() {
       {cardex && !loadingCardex && (
         <>
           <div className="bg-card border border-muted rounded-xl px-5 py-4 mb-5 flex items-start gap-4">
-            {cardex.product.images?.[0]?.url && (
+            {cardex!.product.images?.[0]?.url && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={cardex.product.images[0].url}
-                alt={cardex.product.title}
+                src={cardex!.product.images?.[0]?.url!}
+                alt={cardex!.product.title}
                 className="w-16 h-16 object-contain rounded-lg border border-muted flex-shrink-0"
               />
             )}
             <div>
-              <h2 className="font-bold text-base">{cardex.product.title}</h2>
+              <h2 className="font-bold text-base">{cardex!.product.title}</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {cardex.product.brand && `${cardex.product.brand} · `}
-                {cardex.product.ASIN && `ASIN: ${cardex.product.ASIN}`}
+                {cardex!.product.brand && `${cardex!.product.brand} · `}
+                {cardex!.product.ASIN && `ASIN: ${cardex!.product.ASIN}`}
               </p>
             </div>
           </div>
@@ -613,46 +574,56 @@ export default function AdminCardexPage() {
             ))}
           </div>
 
-          {/* Stock per variation */}
-          {cardex.inventoryRecords.length > 1 && (
-            <div className="mb-6">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                Stock por variación
-              </h3>
-              <div className="overflow-x-auto rounded-xl border border-muted">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/30 text-xs text-muted-foreground uppercase">
-                    <tr>
-                      <th className="px-4 py-3 text-left">Variación</th>
-                      <th className="px-4 py-3 text-right">Stock</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cardex.inventoryRecords.map((r) => {
-                      const v = cardex.product.variations.find(
-                        (vv) => vv._id === r.variationId,
-                      );
-                      return (
-                        <tr
-                          key={r.variationId}
-                          className="border-t border-muted"
-                        >
-                          <td className="px-4 py-3 text-sm">
-                            {v?.title ?? r.variationId}
-                          </td>
-                          <td
-                            className={`px-4 py-3 text-right font-bold ${r.quantity <= 0 ? "text-red-500" : r.quantity <= 3 ? "text-amber-500" : "text-green-600"}`}
-                          >
-                            {r.quantity}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+          {/* Stock per store */}
+          {cardex!.storeStockMap &&
+            Object.keys(
+              cardex!.storeStockMap as Record<string, Record<string, number>>,
+            ).length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                  Stock por sucursal
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Object.entries(
+                    cardex!.storeStockMap as Record<
+                      string,
+                      Record<string, number>
+                    >,
+                  ).map(([storeName, variationStocks]) => (
+                    <div
+                      key={storeName}
+                      className="bg-card border border-muted rounded-lg p-4"
+                    >
+                      <h4 className="font-semibold text-sm mb-3">
+                        {storeName}
+                      </h4>
+                      <div className="space-y-2">
+                        {Object.entries(variationStocks).map(([varId, qty]) => {
+                          const v = cardex!.product.variations.find(
+                            (vv) => vv._id === varId,
+                          );
+                          return (
+                            <div
+                              key={varId}
+                              className="flex justify-between items-center text-xs"
+                            >
+                              <span className="text-muted-foreground">
+                                {v?.title || varId}
+                              </span>
+                              <span
+                                className={`font-semibold ${qty <= 0 ? "text-red-500" : qty <= 3 ? "text-amber-500" : "text-green-600"}`}
+                              >
+                                {qty}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Movement history */}
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
@@ -673,6 +644,8 @@ export default function AdminCardexPage() {
                     <th className="px-4 py-3 text-left">Referencia</th>
                     <th className="px-4 py-3 text-left">Detalle</th>
                     <th className="px-4 py-3 text-left">Variación</th>
+                    <th className="px-4 py-3 text-left">Autorizado por</th>
+                    <th className="px-4 py-3 text-left">Sucursales</th>
                     <th className="px-4 py-3 text-right">Cant.</th>
                     <th className="px-4 py-3 text-right">Impacto</th>
                     <th className="px-4 py-3 text-right">Precio unit.</th>
@@ -687,7 +660,7 @@ export default function AdminCardexPage() {
                       m.type === "sale"
                         ? `${m.customerName || "—"} · ${payLabel(m.payMethod)} · ${m.orderStatus || "—"}`
                         : m.details || "—";
-                    const v = cardex.product.variations.find(
+                    const v = cardex!.product.variations.find(
                       (vv) => vv._id === m.variationId,
                     );
                     const impact = Number(m.stockImpact ?? 0);
@@ -713,6 +686,14 @@ export default function AdminCardexPage() {
                         <td className="px-4 py-3 text-xs">{detail}</td>
                         <td className="px-4 py-3 text-xs">
                           {v?.title ?? m.variationName ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 text-xs font-medium">
+                          {m.authorizedBy || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          {m.branches && m.branches.length > 0
+                            ? m.branches.join(", ")
+                            : "—"}
                         </td>
                         <td className="px-4 py-3 text-right font-bold">
                           {m.quantity}
@@ -747,7 +728,7 @@ export default function AdminCardexPage() {
                 <tfoot className="bg-muted/30 font-bold text-sm">
                   <tr className="border-t-2 border-muted">
                     <td
-                      colSpan={6}
+                      colSpan={8}
                       className="px-4 py-3 text-right text-xs text-muted-foreground"
                     >
                       TOTALES
@@ -766,16 +747,10 @@ export default function AdminCardexPage() {
       )}
 
       {/* Empty state */}
-      {!storeId && (
-        <div className="flex flex-col items-center justify-center gap-3 mt-16 text-muted-foreground">
-          <MdStorefront size={48} />
-          <p className="text-sm">Selecciona una sucursal para comenzar</p>
-        </div>
-      )}
-      {storeId && !selectedProduct && !loadingCardex && (
+      {!selectedProduct && !loadingCardex && (
         <div className="flex flex-col items-center justify-center gap-3 mt-12 text-muted-foreground">
           <MdInventory2 size={48} />
-          <p className="text-sm">Busca un producto para ver su cardex</p>
+          <p className="text-sm">Busca un producto para ver su cardex global</p>
         </div>
       )}
     </div>

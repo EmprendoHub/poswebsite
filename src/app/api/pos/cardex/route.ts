@@ -13,8 +13,8 @@ import { NextResponse } from "next/server";
 const ALLOWED_ROLES = ["manager", "super_admin"];
 
 /**
- * GET /api/pos/cardex?storeId=xxx&productId=yyy&variationId=zzz
- * GET /api/pos/cardex?storeId=xxx&q=search+term   (search products)
+ * GET /api/pos/cardex?productId=yyy&variationId=zzz
+ * GET /api/pos/cardex?q=search+term   (search products)
  */
 export async function GET(req: Request) {
   try {
@@ -27,25 +27,9 @@ export async function GET(req: Request) {
     await dbConnect();
 
     const url = new URL(req.url);
-    const storeId = url.searchParams.get("storeId");
     const productId = url.searchParams.get("productId");
     const variationId = url.searchParams.get("variationId");
     const q = url.searchParams.get("q");
-
-    if (!storeId) {
-      return NextResponse.json(
-        { error: "storeId es requerido" },
-        { status: 400 },
-      );
-    }
-
-    const store = await Store.findById(storeId);
-    if (!store) {
-      return NextResponse.json(
-        { error: "Sucursal no encontrada" },
-        { status: 404 },
-      );
-    }
 
     /* ── Product search mode ── */
     if (q) {
@@ -60,7 +44,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ products });
     }
 
-    /* ── Cardex detail mode ── */
+    /* ── Cardex detail mode (all stores) ── */
     if (!productId) {
       return NextResponse.json(
         { error: "productId es requerido" },
@@ -79,61 +63,67 @@ export async function GET(req: Request) {
       );
     }
 
-    // Current stock for this store
-    const inventoryFilter: any = { store: storeId, product: productId };
+    // Get all inventory records for this product (all stores)
+    const inventoryFilter: any = { product: productId };
     if (variationId) inventoryFilter.variationId = variationId;
 
-    const inventoryRecords = (await StoreInventory.find(
-      inventoryFilter,
-    ).lean()) as any[];
+    const inventoryRecords = (await StoreInventory.find(inventoryFilter)
+      .populate("store", "name")
+      .lean()) as any[];
 
-    // Branch values for order lookup
-    const branchValues = [store.slug];
-    if (store.branchLegacyName && store.branchLegacyName !== store.slug) {
-      branchValues.push(store.branchLegacyName);
+    // Build storeStockMap: { storeName: { variationId: quantity } }
+    const storeStockMap: {
+      [storeName: string]: { [variationId: string]: number };
+    } = {};
+    for (const inv of inventoryRecords) {
+      const storeName = inv.store?.name || "Desconocida";
+      if (!storeStockMap[storeName]) {
+        storeStockMap[storeName] = {};
+      }
+      storeStockMap[storeName][inv.variationId] = inv.quantity || 0;
     }
 
-    // All non-cancelled orders from this store that include this product
+    // Get all orders (any branch, non-cancelled) that include this product
     const orders = (await Order.find({
-      branch: { $in: branchValues },
       orderStatus: { $ne: "Cancelado" },
       "orderItems.product": productId,
       ...(variationId ? { "orderItems.variation": variationId } : {}),
     })
       .select(
-        "_id orderId customerName phone createdAt orderStatus paymentInfo orderItems branch",
+        "_id orderId customerName phone createdAt orderStatus paymentInfo orderItems branch user",
       )
+      .populate("user", "name")
       .sort({ createdAt: -1 })
       .lean()) as any[];
 
-    // Completed work orders that include this product in source/destination store
+    // Get all completed work orders (any store combination) with this product
     const workOrders = (await WorkOrder.find({
       status: "completed",
       "items.product": productId,
       ...(variationId ? { "items.variationId": variationId } : {}),
-      $or: [{ fromStore: storeId }, { toStore: storeId }],
     })
       .select(
-        "workOrderNumber type fromStore toStore completedAt createdAt items notes",
+        "workOrderNumber type fromStore toStore completedAt createdAt items notes requestedBy",
       )
       .populate({ path: "fromStore", model: Store, select: "name" })
       .populate({ path: "toStore", model: Store, select: "name" })
+      .populate("requestedBy", "name")
       .sort({ completedAt: -1, createdAt: -1 })
       .lean()) as any[];
 
-    // Manual stock adjustment logs
+    // Get manual stock adjustments
     const adjustments = (await StockAdjustmentLog.find({
-      store: storeId,
       product: productId,
       ...(variationId ? { variationId } : {}),
     })
       .select(
-        "variationId delta previousQuantity newQuantity reason createdByName createdAt",
+        "variationId delta previousQuantity newQuantity reason createdByName createdAt store",
       )
+      .populate("store", "name")
       .sort({ createdAt: -1 })
       .lean()) as any[];
 
-    // Build movement rows
+    // Build movement rows with authorizedBy and branches
     const movements: any[] = [];
 
     for (const order of orders) {
@@ -159,6 +149,8 @@ export async function GET(req: Request) {
           unitPrice: item.price,
           total: item.price * item.quantity,
           details: "Venta POS",
+          authorizedBy: order.user?.name || "Sistema",
+          branches: [order.branch || "Desconocida"],
         });
       }
     }
@@ -188,7 +180,7 @@ export async function GET(req: Request) {
         const movementDate = wo.completedAt || wo.createdAt;
 
         if (wo.type === "transfer") {
-          if (fromStoreId === String(storeId)) {
+          if (fromStoreId === String(fromStoreId)) {
             movements.push({
               type: "transfer_out",
               date: movementDate,
@@ -200,10 +192,12 @@ export async function GET(req: Request) {
               unitPrice: 0,
               total: 0,
               details: `Transferencia a ${toStoreName}`,
+              authorizedBy: wo.requestedBy?.name || "Sistema",
+              branches: [fromStoreName, toStoreName].filter(Boolean),
             });
           }
 
-          if (toStoreId === String(storeId)) {
+          if (toStoreId === String(toStoreId)) {
             movements.push({
               type: "transfer_in",
               date: movementDate,
@@ -215,13 +209,15 @@ export async function GET(req: Request) {
               unitPrice: 0,
               total: 0,
               details: `Transferencia desde ${fromStoreName}`,
+              authorizedBy: wo.requestedBy?.name || "Sistema",
+              branches: [fromStoreName, toStoreName].filter(Boolean),
             });
           }
           continue;
         }
 
         // receive / adjustment / new_product -> incoming stock on destination store
-        if (toStoreId === String(storeId)) {
+        if (toStoreId === String(toStoreId)) {
           const type = wo.type === "adjustment" ? "adjustment" : "transfer_in";
           movements.push({
             type,
@@ -239,6 +235,8 @@ export async function GET(req: Request) {
                 : wo.type === "new_product"
                   ? "Alta de producto por orden de trabajo"
                   : "Recepción por orden de trabajo",
+            authorizedBy: wo.requestedBy?.name || "Sistema",
+            branches: [toStoreName].filter(Boolean),
           });
         }
       }
@@ -256,7 +254,9 @@ export async function GET(req: Request) {
         stockImpact: delta,
         unitPrice: 0,
         total: 0,
-        details: `${adj.reason || "Ajuste manual"} · ${adj.createdByName || "—"}`,
+        details: `${adj.reason || "Ajuste manual"}`,
+        authorizedBy: adj.createdByName || "Sistema",
+        branches: [adj.store?.name || "Desconocida"].filter(Boolean),
       });
     }
 
@@ -269,7 +269,8 @@ export async function GET(req: Request) {
       product,
       inventoryRecords,
       movements,
-      storeName: store.name,
+      storeName: "Todas las sucursales",
+      storeStockMap,
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

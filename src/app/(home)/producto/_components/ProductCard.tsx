@@ -8,10 +8,12 @@ import { IoMdCart, IoMdCheckmark } from "react-icons/io";
 import { calculatePercentage } from "@/backend/helpers";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { addToCart } from "@/redux/shoppingSlice";
 
 const ProductCard = ({ item, index }: { item: any; index: number }) => {
   const dispatch = useDispatch();
+  const router = useRouter();
   const { productsData } = useSelector((state: any) => state?.compras);
   const [alreadyCart, setAlreadyCart] = useState(false);
   const [added, setAdded] = useState(false);
@@ -40,7 +42,10 @@ const ProductCard = ({ item, index }: { item: any; index: number }) => {
     dispatch(addToCart(v));
     toast(`${item?.title.substring(0, 15)}... se agrego al carrito`);
     setAdded(true);
-    setTimeout(() => setAdded(false), 1600);
+    setTimeout(() => {
+      setAdded(false);
+      router.push("/carrito");
+    }, 1600);
   };
 
   useEffect(() => {
