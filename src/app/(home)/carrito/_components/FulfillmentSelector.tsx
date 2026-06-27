@@ -14,7 +14,10 @@ interface Store {
 }
 
 interface FulfillmentSelectorProps {
-  onFulfillmentChange?: (fulfillmentType: string, pickupStore?: string) => void;
+  onFulfillmentChange?: (
+    fulfillmentType: "shipping" | "pickup",
+    pickupStore?: string,
+  ) => void;
 }
 
 const FulfillmentSelector = ({

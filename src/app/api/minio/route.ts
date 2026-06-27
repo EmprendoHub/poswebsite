@@ -39,7 +39,10 @@ export async function POST(request: any, res: any) {
         await writeFile(path, buffer);
         const fileName = "/posts/" + String(file.name);
         await uploadToBucket("supercollectibles", fileName, path);
-        const imageUrl = { url: `${process.env.MINIO_URL}${fileName}` };
+        // Build correct URL with supercollectibles bucket
+        const imageUrl = {
+          url: `https://minio.salvawebpro.com:9000/supercollectibles${fileName}`,
+        };
         savedImagesResults.push(imageUrl);
       }
       const response = NextResponse.json({

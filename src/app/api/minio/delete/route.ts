@@ -29,9 +29,19 @@ export async function DELETE(req: NextRequest) {
 
     // Extract bucket and object name from the URL
     // Expected format: https://minio.salvawebpro.com:9000/supercollectibles/filename.jpg
-    const urlParts = imageUrl.split("/");
-    const bucket = urlParts[urlParts.length - 2]; // supercollectibles
-    const objectName = urlParts[urlParts.length - 1]; // filename.jpg
+    // or: https://minio.salvawebpro.com:9000/supercollectibles/path/to/filename.jpg
+    const urlObj = new URL(imageUrl);
+    const pathparts = urlObj.pathname.split("/").filter(Boolean); // Remove empty strings
+
+    if (pathparts.length < 2) {
+      return NextResponse.json(
+        { error: "Invalid image URL format" },
+        { status: 400 },
+      );
+    }
+
+    const bucket = pathparts[0]; // supercollectibles
+    const objectName = pathparts.slice(1).join("/"); // filename.jpg or path/to/filename.jpg
 
     if (!bucket || !objectName) {
       return NextResponse.json(

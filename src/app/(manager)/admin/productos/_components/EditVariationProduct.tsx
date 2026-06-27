@@ -214,6 +214,20 @@ const EditVariationProduct = ({
     }
   };
 
+  // Make a secondary image the main image (with swap)
+  const makeImageMain = (index: number) => {
+    const secondaryImage = secondaryImages[index];
+    if (secondaryImage?.url) {
+      // Create new secondary images array with the swap
+      const newSecondaryImages = [...secondaryImages];
+      // Put current main image in the secondary position
+      newSecondaryImages[index] = { url: mainImage };
+      // Update state
+      setMainImage(secondaryImage.url);
+      setSecondaryImages(newSecondaryImages);
+    }
+  };
+
   // generate a pre-signed URL for use in uploading that file:
   async function retrieveNewURL(
     file: File,
@@ -606,82 +620,119 @@ const EditVariationProduct = ({
   }
 
   return (
-    <main className="w-full p-4 maxsm:p-2 bg-background">
+    <main className="w-full min-h-screen bg-gradient-to-b from-background to-muted/5">
       {!isSending ? (
-        <div className="flex flex-col items-start gap-5 justify-start w-full">
-          <section className="w-full ">
-            <div className="flex flex-row maxmd:flex-col items-center justify-between">
-              <h1 className="w-full text-2xl font-semibold text-foreground mb-8 font-EB_Garamond">
-                Actualizar Producto
-              </h1>
-              {/* Availability */}
-              <div className="mb-4 w-full flex flex-row gap-4 items-center uppercase">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header with Status */}
+          <div className="mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-3xl sm:text-4xl font-bold text-foreground font-EB_Garamond">
+                  Editar Producto
+                </h1>
+                <p className="text-muted-foreground mt-2">
+                  Última actualización: {updatedAt}
+                </p>
+              </div>
+              {/* Status Toggles */}
+              <div className="flex flex-wrap gap-4 items-center">
                 <ToggleSwitch
                   label="Destacado"
                   enabled={featured}
                   setEnabled={setFeatured}
                 />
-
                 <ToggleSwitch
                   label="Activo"
                   enabled={active}
                   setEnabled={setActive}
                 />
-
                 <ToggleSwitch
-                  label="WWW"
+                  label="En Línea"
                   enabled={onlineAvailability}
                   setEnabled={setOnlineAvailability}
                 />
               </div>
             </div>
+          </div>
 
-            {/* Display general errors */}
-            {validationError?.general && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                {validationError.general._errors.join(", ")}
-              </div>
-            )}
+          {/* Display general errors */}
+          {validationError?.general && (
+            <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg">
+              {validationError.general._errors.join(", ")}
+            </div>
+          )}
 
-            <div className="flex flex-row maxmd:flex-col items-start gap-3 justify-between w-full">
-              <div className="gap-y-1 flex-col flex px-2 w-full">
-                {/*  Imagen principal del Producto */}
-                <Loader loading={isProcessing}>{""}</Loader>
-                <div
-                  className={`relative aspect-video ${
-                    isProcessing ? "opacity-10 " : "hover:opacity-80 "
-                  } bg-background border-2 border-gray-300`}
-                >
-                  {/* X button to remove main image */}
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-10">
+            {/* Left: Image Gallery */}
+            <div className="lg:col-span-2">
+              <Loader loading={isProcessing}>{""}</Loader>
+
+              {/* Main Image Display */}
+              <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-border overflow-hidden mb-6">
+                <div className="relative aspect-square bg-muted flex items-center justify-center overflow-hidden group">
+                  {/* Remove Button */}
                   {mainImage &&
                     mainImage !==
                       "/images/product-placeholder-minimalist.jpg" && (
                       <button
                         onClick={removeMainImage}
-                        className="absolute top-2 right-2 z-30 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600 transition-colors"
+                        className="absolute top-4 right-4 z-20 bg-destructive/90 hover:bg-destructive text-white rounded-full w-10 h-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
                         type="button"
+                        title="Eliminar imagen"
                       >
-                        ×
+                        <svg
+                          className="w-6 h-6"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
                       </button>
                     )}
 
                   <label
                     htmlFor="selectorMain"
-                    className={`${
-                      isProcessing ? "cursor-not-allowed" : "cursor-pointer"
-                    } `}
+                    className={`w-full h-full flex flex-col items-center justify-center cursor-pointer relative ${
+                      isProcessing ? "cursor-not-allowed opacity-50" : ""
+                    }`}
                   >
                     <Image
                       id="blogImage"
-                      alt="blogBanner"
+                      alt="Imagen principal del producto"
                       src={
                         mainImage ||
                         "/images/product-placeholder-minimalist.jpg"
                       }
-                      width={1280}
-                      height={1280}
-                      className="w-full h-full object-cover z-20"
+                      width={600}
+                      height={600}
+                      className="w-full h-full object-cover"
                     />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                      <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-center">
+                        <svg
+                          className="w-12 h-12 mx-auto mb-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 4v16m8-8H4"
+                          />
+                        </svg>
+                        <p className="text-sm font-semibold">Cambiar imagen</p>
+                      </div>
+                    </div>
+
                     <input
                       id="selectorMain"
                       type="file"
@@ -692,399 +743,509 @@ const EditVariationProduct = ({
                     />
 
                     {validationError?.mainImage && (
-                      <p className="text-sm text-red-400">
+                      <p className="text-sm text-destructive mt-2">
                         {validationError.mainImage._errors.join(", ")}
                       </p>
                     )}
                   </label>
                 </div>
-                <div className="flex flex-row gap-2 items-center justify-start w-full">
+              </div>
+
+              {/* Secondary Images Gallery */}
+              <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-border p-4">
+                <h3 className="text-lg font-semibold text-foreground mb-4">
+                  Galería de Imágenes
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {secondaryImages?.map((image: any, index: number) => (
                     <div
                       key={index}
-                      className={`relative aspect-video h-32 w-32 ${
-                        isProcessing ? "opacity-10 " : "hover:opacity-80 "
-                      } bg-background border-2 border-gray-300`}
+                      className="relative aspect-square bg-muted rounded-lg overflow-hidden group"
                     >
-                      {/* X button to remove secondary image */}
+                      {/* Remove Button */}
                       <button
-                        onClick={() => removeSecondaryImage(index)}
-                        className="absolute top-1 right-1 z-30 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 transition-colors text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeSecondaryImage(index);
+                        }}
+                        className="absolute top-1 right-1 z-10 bg-destructive/90 hover:bg-destructive text-white rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
                         type="button"
+                        title="Eliminar imagen"
                       >
-                        ×
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
                       </button>
 
+                      {/* Change/Upload Button */}
                       <label
                         htmlFor={`selectorSecondary${index}`}
-                        className={`${
-                          isProcessing ? "cursor-not-allowed" : "cursor-pointer"
-                        } `}
+                        className="absolute bottom-1 right-1 z-10 bg-primary/90 hover:bg-primary text-primary-foreground rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md cursor-pointer"
+                        title="Cambiar esta imagen"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 4v16m8-8H4"
+                          />
+                        </svg>
+                      </label>
+
+                      {/* Clickable Image Area - Makes it main */}
+                      <div
+                        onClick={() => makeImageMain(index)}
+                        className="w-full h-full cursor-pointer relative block overflow-hidden"
                       >
                         <Image
                           src={image.url}
-                          width={250}
-                          height={250}
-                          alt="producto"
+                          width={200}
+                          height={200}
+                          alt={`Imagen ${index + 1}`}
                           className="w-full h-full object-cover"
                         />
-                        <input
-                          id={`selectorSecondary${index}`}
-                          type="file"
-                          accept=".png, .jpg, .jpeg, .webp"
-                          hidden
-                          onChange={(e) =>
-                            handleMainSecondaryImagesChange(e, index)
-                          }
-                          disabled={isProcessing}
-                        />
-                      </label>
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex flex-col items-center justify-center gap-1">
+                          <svg
+                            className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                          <p className="text-xs font-semibold text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                            Principal
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Hidden File Input */}
+                      <input
+                        id={`selectorSecondary${index}`}
+                        type="file"
+                        accept=".png, .jpg, .jpeg, .webp"
+                        hidden
+                        onChange={(e) =>
+                          handleMainSecondaryImagesChange(e, index)
+                        }
+                        disabled={isProcessing}
+                      />
                     </div>
                   ))}
+
+                  {/* Add More Images Button */}
+                  <label className="relative aspect-square bg-muted rounded-lg overflow-hidden group border-2 border-dashed border-border hover:border-primary cursor-pointer flex items-center justify-center">
+                    <div className="text-center">
+                      <svg
+                        className="w-8 h-8 text-muted-foreground group-hover:text-primary mx-auto mb-1 transition-colors"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 4v16m8-8H4"
+                        />
+                      </svg>
+                      <p className="text-xs text-muted-foreground group-hover:text-primary transition-colors">
+                        Agregar
+                      </p>
+                    </div>
+                    <input
+                      type="file"
+                      accept=".png, .jpg, .jpeg, .webp"
+                      hidden
+                      multiple
+                      onChange={(e) =>
+                        handleMainSecondaryImagesChange(
+                          e,
+                          secondaryImages.length,
+                        )
+                      }
+                      disabled={isProcessing}
+                    />
+                  </label>
                 </div>
               </div>
+            </div>
 
-              <div className="w-full flex-col flex justify-start px-2 gap-y-2">
+            {/* Right: Product Info Form */}
+            <div className="lg:col-span-1">
+              <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-border p-6 space-y-6">
                 <div className="mb-1">
-                  <label className="block mb-1  font-EB_Garamond">
-                    Titulo del Producto
+                  <label className="block mb-2 font-semibold text-foreground">
+                    Título del Producto
                   </label>
                   <input
                     type="text"
-                    className="appearance-none border bg-background rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
-                    placeholder="Nombre de Producto"
+                    className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    placeholder="Nombre del producto"
                     value={title || ""}
                     onChange={(e) => setTitle(e.target.value)}
                     name="title"
                   />
                   {validationError?.title && (
-                    <p className="text-sm text-red-400">
+                    <p className="text-xs text-destructive mt-1">
                       {validationError.title._errors.join(", ")}
                     </p>
                   )}
                 </div>
+
                 <div className="mb-1">
-                  <label className="block mb-1  font-EB_Garamond">
-                    {" "}
-                    Description Corta
+                  <label className="block mb-2 font-semibold text-foreground">
+                    Descripción Corta
                   </label>
                   <textarea
-                    rows={2}
-                    className="appearance-none border  bg-background rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
-                    placeholder="Descripción del Producto"
+                    rows={3}
+                    className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    placeholder="Descripción del producto"
                     value={description || ""}
                     onChange={(e) => setDescription(e.target.value)}
                     name="description"
-                  ></textarea>
+                  />
                   {validationError?.description && (
-                    <p className="text-sm text-red-400">
+                    <p className="text-xs text-destructive mt-1">
                       {validationError.description._errors.join(", ")}
                     </p>
                   )}
                 </div>
 
-                {/* Marca y genero */}
-                <div className=" flex flex-col items-center gap-3">
-                  <div className="flex  gap-3">
-                    <div className="flex w-60 flex-col items-start">
-                      <label className="block mb-1 font-EB_Garamond  text-xs">
+                {/* Certificador & Grado */}
+                <div className="border-t border-border pt-6">
+                  <h3 className="text-sm font-semibold text-foreground mb-4">
+                    Detalles de Certificación
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block mb-2 text-xs font-medium text-muted-foreground">
                         Certificador
                       </label>
-                      <div className="mb-1  ">
-                        <input
-                          type="text"
-                          className="appearance-none border bg-card text-card-foreground rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
-                          placeholder="Cert. ej. PSA"
-                          value={brand || ""}
-                          onChange={(e) => setBrand(e.target.value)}
-                          name="brand"
-                        />
-                        {validationError?.brand && (
-                          <p className="text-sm text-red-400">
-                            {validationError.brand._errors.join(", ")}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex w-20 flex-col items-start">
-                      <label className="block mb-1 font-EB_Garamond  text-xs">
-                        Grado
-                      </label>
-                      <div className="mb-1  w-full">
-                        <input
-                          type="number"
-                          step="any" // Allows decimal values
-                          className="appearance-none border bg-card text-card-foreground rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
-                          placeholder="Grado ej. 9.5"
-                          value={grade || ""}
-                          onChange={(e: any) => setGrade(e.target.value)}
-                          name="grade"
-                          inputMode="decimal" // Enhances mobile keyboard for decimal input
-                          style={{
-                            MozAppearance: "textfield", // For Firefox
-                          }}
-                        />
-                        {validationError?.grade && (
-                          <p className="text-sm text-red-400">
-                            {validationError.grade._errors.join(", ")}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    {/* Main Variation - Removed size and image */}
-                    <div className="w-full main-variation flex flex-col items-center">
-                      <div className="flex flex-row items-center gap-3 w-full">
-                        <div className="mb-4 w-full">
-                          <label className="block mb-1 font-EB_Garamond text-xs">
-                            Precio
-                          </label>
-                          <div className="relative">
-                            <div className="col-span-2">
-                              <input
-                                type="number"
-                                className="appearance-none border bg-input rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
-                                placeholder="0.00"
-                                min="1"
-                                value={variations?.[0]?.price || ""}
-                                onChange={(e) =>
-                                  handlePriceChange(0, e.target.value)
-                                }
-                                name="price"
-                              />
-                              {validationError?.price && (
-                                <p className="text-sm text-red-400">
-                                  {validationError.price._errors.join(", ")}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Peso y Dimensiones para Cálculo de Envío */}
-                      <div className="mb-4 border-t pt-4">
-                        <label className="block mb-1 font-EB_Garamond text-xs font-semibold">
-                          Información de Envío
-                        </label>
-                        <p className="text-xs text-gray-500 mb-3">
-                          Para cálculo automático de costos de envío
-                        </p>
-
-                        <div className="grid grid-cols-4 gap-3">
-                          <div>
-                            <label className="block mb-1 font-EB_Garamond text-xs">
-                              Peso (kg)
-                            </label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              className="appearance-none border bg-input rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
-                              placeholder="0.5"
-                              min="0.01"
-                              value={weight}
-                              onChange={(e) =>
-                                setWeight(parseFloat(e.target.value) || 0.5)
-                              }
-                              name="weight"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block mb-1 font-EB_Garamond text-xs">
-                              Largo (cm)
-                            </label>
-                            <input
-                              type="number"
-                              step="0.1"
-                              className="appearance-none border bg-input rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
-                              placeholder="15"
-                              min="0.1"
-                              value={dimensions.length}
-                              onChange={(e) =>
-                                setDimensions({
-                                  ...dimensions,
-                                  length: parseFloat(e.target.value) || 15,
-                                })
-                              }
-                              name="length"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block mb-1 font-EB_Garamond text-xs">
-                              Ancho (cm)
-                            </label>
-                            <input
-                              type="number"
-                              step="0.1"
-                              className="appearance-none border bg-input rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
-                              placeholder="15"
-                              min="0.1"
-                              value={dimensions.width}
-                              onChange={(e) =>
-                                setDimensions({
-                                  ...dimensions,
-                                  width: parseFloat(e.target.value) || 15,
-                                })
-                              }
-                              name="width"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block mb-1 font-EB_Garamond text-xs">
-                              Alto (cm)
-                            </label>
-                            <input
-                              type="number"
-                              step="0.1"
-                              className="appearance-none border bg-input rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
-                              placeholder="10"
-                              min="0.1"
-                              value={dimensions.height}
-                              onChange={(e) =>
-                                setDimensions({
-                                  ...dimensions,
-                                  height: parseFloat(e.target.value) || 10,
-                                })
-                              }
-                              name="height"
-                            />
-                          </div>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-2">
-                          Defaults: 0.5 kg, 15×15×10 cm
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Changed Gender from dropdown to input */}
-                  <div className="mb-1 w-full">
-                    <label className="block mb-1 font-EB_Garamond  text-xs">
-                      Genero
-                    </label>
-                    <input
-                      type="text"
-                      className="appearance-none border bg-card text-card-foreground rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
-                      placeholder="Ej. Pokémon, NFL, Nascar, etc."
-                      value={gender || ""}
-                      onChange={(e) => setGender(e.target.value)}
-                      name="gender"
-                    />
-                    {validationError?.gender && (
-                      <p className="text-sm text-red-400">
-                        {validationError.gender._errors.join(", ")}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Changed Category from dropdown to input */}
-                  <div className="mb-1 w-full">
-                    <label className="block mb-1 font-EB_Garamond  text-xs">
-                      Categoría
-                    </label>
-                    <input
-                      type="text"
-                      className="appearance-none border bg-card text-card-foreground rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
-                      placeholder="Ej. Tarjetas, Guantes, Balones, etc."
-                      value={category || ""}
-                      onChange={(e) => setCategory(e.target.value)}
-                      name="category"
-                    />
-                    {validationError?.category && (
-                      <p className="text-sm text-red-400">
-                        {validationError.category._errors.join(", ")}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* ASIN */}
-                  <div className="mb-1 w-full">
-                    <label className="block mb-1 font-EB_Garamond text-xs">
-                      Codigo de Barras/QR
-                    </label>
-                    <div className="flex gap-2">
                       <input
                         type="text"
-                        className="appearance-none border bg-card text-card-foreground rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full uppercase"
-                        placeholder="Ej. B08N5WRWNW"
-                        value={asin}
-                        onChange={(e) => setAsin(e.target.value.toUpperCase())}
-                        name="asin"
+                        className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
+                        placeholder="PSA, BGS, etc."
+                        value={brand || ""}
+                        onChange={(e) => setBrand(e.target.value)}
+                        name="brand"
                       />
-                      <button
-                        type="button"
-                        onClick={() => setShowScanner(true)}
-                        className="flex-shrink-0 flex items-center gap-1 px-3 py-2 bg-muted hover:bg-primary hover:text-primary-foreground rounded-xl transition-colors text-sm"
-                        title="Escanear código"
-                      >
-                        <MdQrCodeScanner size={20} />
-                      </button>
+                      {validationError?.brand && (
+                        <p className="text-xs text-destructive mt-1">
+                          {validationError.brand._errors.join(", ")}
+                        </p>
+                      )}
                     </div>
+
+                    <div>
+                      <label className="block mb-2 text-xs font-medium text-muted-foreground">
+                        Grado
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
+                        placeholder="9.5"
+                        value={grade || ""}
+                        onChange={(e) => setGrade(e.target.value)}
+                        name="grade"
+                      />
+                      {validationError?.grade && (
+                        <p className="text-xs text-destructive mt-1">
+                          {validationError.grade._errors.join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pricing */}
+                <div className="border-t border-border pt-6">
+                  <h3 className="text-sm font-semibold text-foreground mb-4">
+                    Precio
+                  </h3>
+                  <div>
+                    <label className="block mb-2 text-xs font-medium text-muted-foreground">
+                      Precio de Venta
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        $
+                      </span>
+                      <input
+                        type="number"
+                        className="w-full pl-7 pr-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                        placeholder="0.00"
+                        min="0"
+                        step="0.01"
+                        value={variations?.[0]?.price || ""}
+                        onChange={(e) => handlePriceChange(0, e.target.value)}
+                        name="price"
+                      />
+                    </div>
+                    {validationError?.price && (
+                      <p className="text-xs text-destructive mt-1">
+                        {validationError.price._errors.join(", ")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Categorización */}
+                <div className="border-t border-border pt-6">
+                  <h3 className="text-sm font-semibold text-foreground mb-4">
+                    Categorización
+                  </h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block mb-2 text-xs font-medium text-muted-foreground">
+                        Género/Tema
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
+                        placeholder="Pokémon, NFL, etc."
+                        value={gender || ""}
+                        onChange={(e) => setGender(e.target.value)}
+                        name="gender"
+                      />
+                      {validationError?.gender && (
+                        <p className="text-xs text-destructive mt-1">
+                          {validationError.gender._errors.join(", ")}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block mb-2 text-xs font-medium text-muted-foreground">
+                        Categoría
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
+                        placeholder="Tarjetas, Guantes, etc."
+                        value={category || ""}
+                        onChange={(e) => setCategory(e.target.value)}
+                        name="category"
+                      />
+                      {validationError?.category && (
+                        <p className="text-xs text-destructive mt-1">
+                          {validationError.category._errors.join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Código de Barras */}
+                <div className="border-t border-border pt-6">
+                  <h3 className="text-sm font-semibold text-foreground mb-4">
+                    Identificación
+                  </h3>
+                  <label className="block mb-2 text-xs font-medium text-muted-foreground">
+                    Código de Barras/QR
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      className="flex-1 px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all uppercase text-sm"
+                      placeholder="B08N5WRWNW"
+                      value={asin}
+                      onChange={(e) => setAsin(e.target.value.toUpperCase())}
+                      name="asin"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowScanner(true)}
+                      className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
+                      title="Escanear código"
+                    >
+                      <MdQrCodeScanner size={18} />
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Render additional variations - Removed size and image */}
-            {variations?.slice(1)?.map(
-              (
-                variation: {
-                  color: string | number | readonly string[] | undefined;
-                  price: string | number | readonly string[] | undefined;
-                },
-                index: number,
-              ) => (
-                <div
-                  key={index + 1}
-                  className={`w-full variation-${
-                    index + 1
-                  } flex maxsm:flex-col items-center`}
-                >
-                  <div className="relative flex flex-row items-center gap-3 maxsm:gap-1 w-full">
-                    <div
-                      onClick={() => removeVariation(index + 1)}
-                      className="absolute top-0 -left-5 px-1 bg-red-500 text-white rounded-full cursor-pointer z-50 text-xs"
-                    >
-                      X
-                    </div>
+            {/* Shipping Information */}
+            <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-border p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">
+                Información de Envío
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Estos valores se usan para calcular los costos de envío
+                automáticamente
+              </p>
 
-                    <div className="flex flex-row items-center gap-3 w-full">
-                      <div className="mb-4 w-full">
-                        <label className="block mb-1 font-EB_Garamond text-xs">
-                          Precio
-                        </label>
-                        <div className="relative">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-foreground">
+                    Peso (kg)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    placeholder="0.5"
+                    min="0.01"
+                    value={weight}
+                    onChange={(e) =>
+                      setWeight(parseFloat(e.target.value) || 0.5)
+                    }
+                    name="weight"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-foreground">
+                    Largo (cm)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    placeholder="15"
+                    min="0.1"
+                    value={dimensions.length}
+                    onChange={(e) =>
+                      setDimensions({
+                        ...dimensions,
+                        length: parseFloat(e.target.value) || 15,
+                      })
+                    }
+                    name="length"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-foreground">
+                    Ancho (cm)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    placeholder="15"
+                    min="0.1"
+                    value={dimensions.width}
+                    onChange={(e) =>
+                      setDimensions({
+                        ...dimensions,
+                        width: parseFloat(e.target.value) || 15,
+                      })
+                    }
+                    name="width"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-foreground">
+                    Alto (cm)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    placeholder="10"
+                    min="0.1"
+                    value={dimensions.height}
+                    onChange={(e) =>
+                      setDimensions({
+                        ...dimensions,
+                        height: parseFloat(e.target.value) || 10,
+                      })
+                    }
+                    name="height"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">
+                Valores por defecto: 0.5 kg, 15×15×10 cm
+              </p>
+            </div>
+
+            {/* Additional Variations */}
+            {variations?.slice(1).length > 0 && (
+              <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-border p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-4">
+                  Variaciones Adicionales
+                </h3>
+                <div className="space-y-3">
+                  {variations
+                    ?.slice(1)
+                    ?.map((variation: any, index: number) => (
+                      <div
+                        key={index + 1}
+                        className="flex items-end gap-3 pb-3 border-b border-border last:border-b-0"
+                      >
+                        <div className="flex-1">
+                          <label className="block mb-2 text-xs font-medium text-muted-foreground">
+                            Precio - Variación {index + 2}
+                          </label>
                           <input
                             type="number"
                             min="0"
+                            step="0.01"
                             value={variation.price || ""}
                             name={`price-${index + 1}`}
                             onChange={(e) =>
                               handlePriceChange(index + 1, e.target.value)
                             }
-                            className="appearance-none border bg-input rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
+                            className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                           />
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => removeVariation(index + 1)}
+                          className="flex-shrink-0 px-3 py-2 bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg transition-colors text-sm font-medium"
+                        >
+                          Eliminar
+                        </button>
                       </div>
-                    </div>
-                  </div>
+                    ))}
                 </div>
-              ),
+              </div>
             )}
 
-            <button
-              disabled={isSending || isProcessing}
-              onClick={hanldeFormSubmit}
-              className={`${
-                isSending ? "cursor-wait" : ""
-              } my-2 cursor-pointer px-4 py-2 text-center inline-block text-white bg-black border border-transparent rounded-xl hover:bg-slate-800 w-full disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              {isSending ? "Actualizando..." : "Actualizar"}
-            </button>
-          </section>
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-6">
+              <button
+                disabled={isSending || isProcessing}
+                onClick={hanldeFormSubmit}
+                className="flex-1 px-6 py-3 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-primary-foreground rounded-lg font-semibold transition-all disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+              >
+                {isSending ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="inline-block w-4 h-4 border-2 border-primary-foreground border-r-transparent rounded-full animate-spin"></span>
+                    Actualizando...
+                  </div>
+                ) : (
+                  "Actualizar Producto"
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       ) : (
         <section className="w-full min-h-screen">

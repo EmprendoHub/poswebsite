@@ -33,7 +33,7 @@ const ToggleSwitch = ({
               <FaStore />
               <p className="text-[10px]">{label}</p>
             </div>
-          ) : label === "WWW" ? (
+          ) : label === "En Línea" ? (
             <div className="flex flex-col items-center justify-center">
               <TbWorldWww />
               <p className="text-[10px]">{label}</p>
