@@ -60,9 +60,9 @@ export async function GET(request: Request) {
       ).distinct("store");
 
       // Filter stores to only those with stock
-      stores = stores.filter((store) =>
-        availableInventory.some(
-          (storeId) => storeId.toString() === store._id.toString(),
+      stores = stores.filter((store: any) =>
+        (availableInventory as any[]).some(
+          (storeId: any) => storeId.toString() === store._id?.toString(),
         ),
       );
     }
