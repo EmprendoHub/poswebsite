@@ -103,6 +103,12 @@ const EditVariationProduct = ({
   const [uploadingSecondaryIndices, setUploadingSecondaryIndices] = useState<
     number[]
   >([]);
+  const [processingImageType, setProcessingImageType] = useState<
+    "main" | "secondary" | null
+  >(null);
+  const [processingImageIndex, setProcessingImageIndex] = useState<
+    number | null
+  >(null);
 
   const [variations, setVariations] = useState(product?.variations);
   const [secondaryImages, setSecondaryImages] = useState(
@@ -495,6 +501,15 @@ const EditVariationProduct = ({
       console.log("🔗 Original image URL:", originalUrl);
       console.log("📋 Is secondary:", isSecondary, "Index:", secondaryIndex);
 
+      // Set processing state
+      if (isSecondary) {
+        setProcessingImageType("secondary");
+        setProcessingImageIndex(secondaryIndex);
+      } else {
+        setProcessingImageType("main");
+        setProcessingImageIndex(null);
+      }
+
       const originalResponse = await fetch(originalUrl);
       if (!originalResponse.ok) {
         throw new Error(
@@ -587,11 +602,14 @@ const EditVariationProduct = ({
           prev.filter((i) => i !== secondaryIndex),
         );
       }
+      setProcessingImageType(null);
+      setProcessingImageIndex(null);
       setIsProcessing(false);
     }
   };
 
   const reprocessMainImage = async () => {
+    if (isProcessing || processingImageType) return;
     console.log("🖱️ Reprocess main image button clicked");
     console.log("📋 Current mainImage:", mainImage);
     await processExistingImage({
@@ -608,6 +626,7 @@ const EditVariationProduct = ({
   };
 
   const reprocessSecondaryImage = async (index: number) => {
+    if (isProcessing || processingImageType) return;
     console.log("🖱️ Reprocess secondary image button clicked, index:", index);
     const targetImage = secondaryImages[index]?.url;
     console.log("📋 Current secondary image URL:", targetImage);
@@ -1148,11 +1167,28 @@ const EditVariationProduct = ({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-10">
             {/* Left: Image Gallery */}
             <div className="lg:col-span-2">
-              <Loader loading={isProcessing}>{""}</Loader>
-
               {/* Main Image Display */}
               <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-border overflow-hidden mb-6">
                 <div className="relative aspect-square bg-muted flex items-center justify-center overflow-hidden group">
+                  {/* Dimming overlay when processing ANY image */}
+                  {processingImageType && (
+                    <div className="absolute inset-0 bg-black/30 z-15 pointer-events-none"></div>
+                  )}
+
+                  {/* Processing Overlay */}
+                  {processingImageType === "main" && (
+                    <div className="absolute inset-0 bg-black/60 z-30 flex flex-col items-center justify-center backdrop-blur-sm">
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="w-12 h-12 border-4 border-white border-t-amber-500 rounded-full animate-spin"></div>
+                        <p className="text-white font-semibold text-center px-4">
+                          Removiendo fondo y optimizando
+                          <br />
+                          por favor espera...
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Reprocess Button */}
                   {mainImage &&
                     mainImage !==
@@ -1166,7 +1202,7 @@ const EditVariationProduct = ({
                         className="absolute top-4 left-4 z-20 bg-amber-500/90 hover:bg-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg disabled:opacity-60"
                         type="button"
                         title="Reprocesar imagen actual"
-                        disabled={isProcessing}
+                        disabled={isProcessing || processingImageType !== null}
                       >
                         <svg
                           className="w-5 h-5"
@@ -1190,9 +1226,10 @@ const EditVariationProduct = ({
                       "/images/product-placeholder-minimalist.jpg" && (
                       <button
                         onClick={removeMainImage}
-                        className="absolute top-4 right-4 z-20 bg-destructive/90 hover:bg-destructive text-white rounded-full w-10 h-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                        className="absolute top-4 right-4 z-20 bg-destructive/90 hover:bg-destructive text-white rounded-full w-10 h-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg disabled:opacity-60"
                         type="button"
                         title="Eliminar imagen"
+                        disabled={isProcessing || processingImageType !== null}
                       >
                         <svg
                           className="w-6 h-6"
@@ -1262,7 +1299,7 @@ const EditVariationProduct = ({
                       accept=".png, .jpg, .jpeg, .webp"
                       hidden
                       onChange={upload}
-                      disabled={isProcessing}
+                      disabled={isProcessing || processingImageType !== null}
                     />
 
                     {validationError?.mainImage && (
@@ -1285,6 +1322,30 @@ const EditVariationProduct = ({
                       key={`${image.url}-${index}`}
                       className="relative aspect-square bg-muted rounded-lg overflow-hidden group"
                     >
+                      {/* Dimming overlay when processing ANY image (not this one) */}
+                      {processingImageType &&
+                        !(
+                          processingImageType === "secondary" &&
+                          processingImageIndex === index
+                        ) && (
+                          <div className="absolute inset-0 bg-black/30 z-15 pointer-events-none"></div>
+                        )}
+
+                      {/* Processing Overlay */}
+                      {processingImageType === "secondary" &&
+                        processingImageIndex === index && (
+                          <div className="absolute inset-0 bg-black/60 z-20 flex flex-col items-center justify-center backdrop-blur-sm">
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="w-8 h-8 border-2 border-white border-t-amber-500 rounded-full animate-spin"></div>
+                              <p className="text-white font-semibold text-center px-2 text-xs leading-tight">
+                                Procesando
+                                <br />
+                                imagen...
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
                       {/* Reprocess Button */}
                       <button
                         onClick={(e) => {
@@ -1294,7 +1355,7 @@ const EditVariationProduct = ({
                         className="absolute top-1 left-1 z-10 bg-amber-500/90 hover:bg-amber-500 text-white rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md disabled:opacity-60"
                         type="button"
                         title="Reprocesar esta imagen"
-                        disabled={isProcessing}
+                        disabled={isProcessing || processingImageType !== null}
                       >
                         <svg
                           className="w-4 h-4"
@@ -1317,9 +1378,10 @@ const EditVariationProduct = ({
                           e.stopPropagation();
                           removeSecondaryImage(index);
                         }}
-                        className="absolute top-1 right-1 z-10 bg-destructive/90 hover:bg-destructive text-white rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                        className="absolute top-1 right-1 z-10 bg-destructive/90 hover:bg-destructive text-white rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md disabled:opacity-60"
                         type="button"
                         title="Eliminar imagen"
+                        disabled={isProcessing || processingImageType !== null}
                       >
                         <svg
                           className="w-4 h-4"
@@ -1339,8 +1401,22 @@ const EditVariationProduct = ({
                       {/* Change/Upload Button */}
                       <label
                         htmlFor={`selectorSecondary${index}`}
-                        className="absolute bottom-1 right-1 z-10 bg-primary/90 hover:bg-primary text-primary-foreground rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md cursor-pointer"
+                        className="absolute bottom-1 right-1 z-10 bg-primary/90 hover:bg-primary text-primary-foreground rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md cursor-pointer disabled:opacity-60"
                         title="Cambiar esta imagen"
+                        style={{
+                          opacity:
+                            isProcessing || processingImageType
+                              ? 0.6
+                              : undefined,
+                          pointerEvents:
+                            isProcessing || processingImageType
+                              ? "none"
+                              : "auto",
+                          cursor:
+                            isProcessing || processingImageType
+                              ? "not-allowed"
+                              : "pointer",
+                        }}
                       >
                         <svg
                           className="w-4 h-4"
@@ -1359,8 +1435,20 @@ const EditVariationProduct = ({
 
                       {/* Clickable Image Area - Makes it main */}
                       <div
-                        onClick={() => makeImageMain(index)}
+                        onClick={() =>
+                          !isProcessing &&
+                          !processingImageType &&
+                          makeImageMain(index)
+                        }
                         className="w-full h-full cursor-pointer relative block overflow-hidden"
+                        style={{
+                          opacity:
+                            isProcessing || processingImageType ? 0.7 : 1,
+                          pointerEvents:
+                            isProcessing || processingImageType
+                              ? "none"
+                              : "auto",
+                        }}
                       >
                         <Image
                           src={image.url}
@@ -1411,13 +1499,24 @@ const EditVariationProduct = ({
                         onChange={(e) =>
                           handleMainSecondaryImagesChange(e, index)
                         }
-                        disabled={isProcessing}
+                        disabled={isProcessing || processingImageType !== null}
                       />
                     </div>
                   ))}
 
                   {/* Add More Images Button */}
-                  <label className="relative aspect-square bg-muted rounded-lg overflow-hidden group border-2 border-dashed border-border hover:border-primary cursor-pointer flex items-center justify-center">
+                  <label
+                    className="relative aspect-square bg-muted rounded-lg overflow-hidden group border-2 border-dashed border-border hover:border-primary cursor-pointer flex items-center justify-center"
+                    style={{
+                      opacity: isProcessing || processingImageType ? 0.6 : 1,
+                      pointerEvents:
+                        isProcessing || processingImageType ? "none" : "auto",
+                      cursor:
+                        isProcessing || processingImageType
+                          ? "not-allowed"
+                          : "pointer",
+                    }}
+                  >
                     <div className="text-center">
                       <svg
                         className="w-8 h-8 text-muted-foreground group-hover:text-primary mx-auto mb-1 transition-colors"
@@ -1447,7 +1546,7 @@ const EditVariationProduct = ({
                           secondaryImages.length,
                         )
                       }
-                      disabled={isProcessing}
+                      disabled={isProcessing || processingImageType !== null}
                     />
                   </label>
                 </div>
