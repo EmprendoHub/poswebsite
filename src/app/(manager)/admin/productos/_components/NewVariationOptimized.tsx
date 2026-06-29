@@ -11,6 +11,16 @@ import { Loader } from "@/components/loader";
 import BarcodeScannerModal from "@/components/modals/BarcodeScannerModal";
 import { MdQrCodeScanner } from "react-icons/md";
 
+// =====================================================
+// REMOTE IMAGE API CONFIGURATION
+// =====================================================
+const REMOTE_API_BASE = "https://api.salvawebpro.com";
+const REMOTE_API_KEY =
+  "B5VvOGo4cnNldjJjMzZucmJmc32YyaThxM2h0MzRhZmpzZGpmYXNkamZhc2RmYWpmc4RmamFzZGpmYXNkZmFzZGY=";
+const REMOTE_PROCESS_URL = `${REMOTE_API_BASE}/api/process-image`;
+const REMOTE_DELETE_URL = (filename: string) =>
+  `${REMOTE_API_BASE}/api/image/${filename}`;
+
 // Modify the extractImageName function to handle potential errors
 function extractImageName(url: string | undefined): string {
   if (!url || typeof url !== "string") {
@@ -56,6 +66,9 @@ const NewVariationOptimized = ({
     "/images/product-placeholder-minimalist.jpg",
   );
   const [secondaryImages, setSecondaryImages] = useState<{ url: string }[]>([]);
+  const [uploadingSecondaryIndices, setUploadingSecondaryIndices] = useState<
+    number[]
+  >([]);
 
   // Inventory section
   const [stores, setStores] = useState<{ _id: string; name: string }[]>([]);
@@ -99,29 +112,696 @@ const NewVariationOptimized = ({
     setVariations(newVariations);
   };
 
+  // Function to delete image from MinIO
+  const deleteImageFromMinio = async (imageUrl: string) => {
+    try {
+      console.group("🗑️ DELETE IMAGE REQUEST");
+      console.log("🔗 Original URL:", imageUrl);
+
+      const response = await fetch("/api/minio/delete", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: currentCookies,
+        },
+        body: JSON.stringify({ imageUrl }),
+      });
+
+      console.log("📊 Response status:", response.status, response.statusText);
+
+      if (!response.ok) {
+        const responseText = await response.text();
+        console.error("❌ Response body:", responseText);
+        throw new Error(
+          `Failed to delete image: ${response.status} ${response.statusText}`,
+        );
+      }
+
+      const result = await response.json();
+      console.log("✅ Deletion successful:", result);
+      console.groupEnd();
+      return true;
+    } catch (error) {
+      console.error("❌ ERROR deleting image:", error);
+      if (error instanceof Error) {
+        console.log("📋 Error message:", error.message);
+        console.log("📍 Error stack:", error.stack);
+      }
+      console.groupEnd();
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la imagen",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  // Remove main image
+  const removeMainImage = async () => {
+    if (
+      mainImage &&
+      mainImage !== "/images/product-placeholder-minimalist.jpg"
+    ) {
+      const confirmed = window.confirm(
+        "¿Estás seguro de que quieres eliminar la imagen principal?",
+      );
+      if (confirmed) {
+        const deleted = await deleteImageFromMinio(mainImage);
+        if (deleted) {
+          setMainImage("/images/product-placeholder-minimalist.jpg");
+        }
+      }
+    }
+  };
+
+  // Remove secondary image
+  const removeSecondaryImage = async (index: number) => {
+    const imageToDelete = secondaryImages[index];
+    if (imageToDelete?.url) {
+      const confirmed = window.confirm(
+        "¿Estás seguro de que quieres eliminar esta imagen?",
+      );
+      if (confirmed) {
+        const deleted = await deleteImageFromMinio(imageToDelete.url);
+        if (deleted) {
+          const newSecondaryImages = secondaryImages.filter(
+            (_: any, i: number) => i !== index,
+          );
+          setSecondaryImages(newSecondaryImages);
+        }
+      }
+    }
+  };
+
+  // Make a secondary image the main image (with swap)
+  const makeImageMain = (index: number) => {
+    console.group("🔄 PROMOTING SECONDARY IMAGE");
+    console.log("📍 Index to promote:", index);
+    console.log("📊 All secondary images:", secondaryImages);
+    console.log("📊 Still uploading indices:", uploadingSecondaryIndices);
+    console.log("📸 Secondary image data:", secondaryImages[index]);
+    console.log("🎯 Current main image in state:", mainImage);
+
+    // Check if this image is still uploading
+    if (uploadingSecondaryIndices.includes(index)) {
+      console.warn("⏳ Image is still uploading, please wait...");
+      toast({
+        title: "Espera",
+        description:
+          "La imagen aún se está subiendo. Por favor espera a que termine.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const secondaryImage = secondaryImages[index];
+    if (!secondaryImage) {
+      console.error("❌ No secondary image found at index", index);
+      toast({
+        title: "Error",
+        description: "No image data found at this position",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!secondaryImage.url) {
+      console.error("❌ No URL found in secondary image:", secondaryImage);
+      toast({
+        title: "Error",
+        description: "Image URL is missing",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if URL is a blob (not yet uploaded)
+    if (secondaryImage.url.startsWith("blob:")) {
+      console.warn("⏳ Image preview not yet uploaded to server");
+      toast({
+        title: "Espera",
+        description: "La imagen aún se está procesando. Por favor espera.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log("🎯 Current main image:", mainImage);
+    console.log("✅ Swapping images. New main URL:", secondaryImage.url);
+
+    // Create new secondary images array with the swap
+    const newSecondaryImages = [...secondaryImages];
+    // Put current main image in the secondary position
+    newSecondaryImages[index] = { url: mainImage };
+
+    // Update state
+    console.log("📝 About to update state with:");
+    console.log("   - mainImage:", secondaryImage.url);
+    console.log("   - secondaryImages[" + index + "]:", mainImage);
+    setMainImage(secondaryImage.url);
+    setSecondaryImages(newSecondaryImages);
+
+    // Log after update for debugging (will show in next render)
+    console.log("✨ Swap complete! State updated.");
+    console.log("📍 New main image URL set to:", secondaryImage.url);
+    console.log("📍 Secondary at index", index, "set to:", mainImage);
+
+    // Verify the URLs are correct
+    if (secondaryImage.url.includes("minio")) {
+      console.log("✅ Secondary URL is an S3/MinIO URL (processed image)");
+    }
+    if (mainImage.includes("blob:")) {
+      console.warn("⚠️ Main image being moved to secondary is a blob URL");
+    }
+    console.groupEnd();
+  };
+
+  // Advanced Image Processing Functions (based on Python script logic)
+
+  // Load image from blob and return canvas
+  const loadImageToCanvas = (file: Blob): Promise<HTMLCanvasElement> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = document.createElement("img");
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) reject(new Error("Failed to get canvas context"));
+          ctx?.drawImage(img, 0, 0);
+          resolve(canvas);
+        };
+        img.onerror = () => reject(new Error("Failed to load image"));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Crop image to content (remove empty transparent space)
+  const cropToContent = (imageData: ImageData): ImageData => {
+    const data = imageData.data;
+    const width = imageData.width;
+    const height = imageData.height;
+
+    // Find non-empty rows and columns (alpha channel > 0)
+    const nonEmptyRows: number[] = [];
+    const nonEmptyColumns: number[] = [];
+
+    for (let i = 0; i < height; i++) {
+      let rowHasContent = false;
+      for (let j = 0; j < width; j++) {
+        const alpha = data[(i * width + j) * 4 + 3];
+        if (alpha > 0) {
+          rowHasContent = true;
+          if (!nonEmptyColumns.includes(j)) nonEmptyColumns.push(j);
+        }
+      }
+      if (rowHasContent) nonEmptyRows.push(i);
+    }
+
+    if (nonEmptyRows.length === 0 || nonEmptyColumns.length === 0) {
+      return imageData; // No content detected
+    }
+
+    const minRow = Math.max(0, Math.min(...nonEmptyRows) - 200);
+    const maxRow = Math.min(height, Math.max(...nonEmptyRows) + 200);
+    const minCol = Math.max(0, Math.min(...nonEmptyColumns) - 50);
+    const maxCol = Math.min(width, Math.max(...nonEmptyColumns) + 50);
+
+    const cropWidth = maxCol - minCol;
+    const cropHeight = Math.max(400, maxRow - minRow);
+
+    const croppedData = new ImageData(cropWidth, cropHeight);
+    for (let i = 0; i < cropHeight; i++) {
+      for (let j = 0; j < cropWidth; j++) {
+        const srcIdx = ((minRow + i) * width + (minCol + j)) * 4;
+        const dstIdx = (i * cropWidth + j) * 4;
+        croppedData.data[dstIdx] = data[srcIdx];
+        croppedData.data[dstIdx + 1] = data[srcIdx + 1];
+        croppedData.data[dstIdx + 2] = data[srcIdx + 2];
+        croppedData.data[dstIdx + 3] = data[srcIdx + 3];
+      }
+    }
+    return croppedData;
+  };
+
+  // Resize and add padding to create square image (1080x1080)
+  const resizeAndPad = (
+    canvas: HTMLCanvasElement,
+    desiredSize: number = 1080,
+    addWhiteBg: boolean = false,
+  ): Promise<HTMLCanvasElement> => {
+    return new Promise((resolve) => {
+      const img = document.createElement("img");
+      img.onload = () => {
+        const ratio = Math.min(
+          desiredSize / img.width,
+          desiredSize / img.height,
+        );
+        const newWidth = Math.round(img.width * ratio);
+        const newHeight = Math.round(img.height * ratio);
+
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = newWidth;
+        tempCanvas.height = newHeight;
+        const tempCtx = tempCanvas.getContext("2d");
+        if (!tempCtx) return;
+
+        tempCtx.drawImage(img, 0, 0, newWidth, newHeight);
+
+        // Create final canvas with padding
+        const finalCanvas = document.createElement("canvas");
+        finalCanvas.width = desiredSize;
+        finalCanvas.height = desiredSize;
+        const finalCtx = finalCanvas.getContext("2d");
+        if (!finalCtx) return;
+
+        // Draw background
+        if (addWhiteBg) {
+          finalCtx.fillStyle = "white";
+          finalCtx.fillRect(0, 0, desiredSize, desiredSize);
+        } else {
+          finalCtx.clearRect(0, 0, desiredSize, desiredSize);
+        }
+
+        // Draw resized image centered
+        const offsetX = (desiredSize - newWidth) / 2;
+        const offsetY = (desiredSize - newHeight) / 2;
+        finalCtx.drawImage(tempCanvas, offsetX, offsetY);
+
+        resolve(finalCanvas);
+      };
+      img.src = canvas.toDataURL("image/png");
+    });
+  };
+
+  // Alternative: Process image using Python API (requires Python with rembg)
+  const processImagePython = async (
+    file: Blob,
+    removeBackground: boolean = false,
+    optimizeForWeb: boolean = true,
+  ): Promise<Blob> => {
+    try {
+      console.group("🖼️ PROCESS IMAGE REQUEST");
+      console.log(
+        "📁 Input file size:",
+        `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+      );
+      console.log("📝 File type:", file.type);
+      console.log("⚙️ Processing parameters:", {
+        removeBackground,
+        optimizeForWeb,
+        width: 1080,
+        height: 1080,
+        quality: optimizeForWeb ? 85 : 95,
+      });
+
+      const formData = new FormData();
+      formData.append("file", file, "image.jpg");
+      formData.append("remove_background", removeBackground.toString());
+      formData.append("crop", "true");
+      formData.append("white_background", "false");
+      formData.append("width", "1080");
+      formData.append("height", "1080");
+      formData.append("quality", optimizeForWeb ? "85" : "95");
+
+      console.log("🎯 API endpoint:", REMOTE_PROCESS_URL);
+      console.log("🔑 API Key configured:", !!REMOTE_API_KEY);
+      const startTime = performance.now();
+      console.log("📤 Sending POST request...");
+
+      const response = await fetch(REMOTE_PROCESS_URL, {
+        method: "POST",
+        headers: {
+          "x-api-key": REMOTE_API_KEY,
+        },
+        body: formData,
+      });
+
+      const elapsedTime = performance.now() - startTime;
+      console.log(
+        "📥 Response received in:",
+        `${(elapsedTime / 1000).toFixed(2)}s`,
+      );
+      console.log("📊 Response status:", response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData: any = {};
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          errorData = { rawResponse: errorText };
+        }
+        console.error("❌ API Error Response:", errorData);
+        console.warn(
+          "⚠️ Remote API processing failed - Falling back to browser processing",
+        );
+        console.groupEnd();
+        // Fall back to browser processing
+        return await processImageOptimized(
+          file,
+          removeBackground,
+          optimizeForWeb,
+        );
+      }
+
+      const responseData = await response.json();
+      console.log("📊 Response data:", responseData);
+
+      const imageUrl = `${REMOTE_API_BASE}${responseData.url}`;
+      console.log("🔗 Processing image URL:", imageUrl);
+      console.log("📥 Downloading processed image...");
+
+      const downloadStart = performance.now();
+      const blob = await fetch(imageUrl).then((r) => r.blob());
+      const downloadTime = performance.now() - downloadStart;
+
+      console.log("✅ Processing successful!");
+      console.log("📊 File size reduction:", {
+        before: `${(file.size / 1024).toFixed(2)}KB`,
+        after: `${(blob.size / 1024).toFixed(2)}KB`,
+        reduction: `${((1 - blob.size / file.size) * 100).toFixed(1)}%`,
+      });
+      console.log("⏱️ Download time:", `${(downloadTime / 1000).toFixed(2)}s`);
+      console.log(
+        "⏱️ Total processing time:",
+        `${((elapsedTime + downloadTime) / 1000).toFixed(2)}s`,
+      );
+      console.groupEnd();
+
+      return blob;
+    } catch (error) {
+      console.error("❌ ERROR during image processing:", error);
+      if (error instanceof Error) {
+        console.log("📋 Error message:", error.message);
+        console.log("📍 Error stack:", error.stack);
+      }
+      console.warn("⚠️ Using browser processing as fallback");
+      console.groupEnd();
+      // Fall back to browser processing
+      return await processImageOptimized(
+        file,
+        removeBackground,
+        optimizeForWeb,
+      );
+    }
+  };
+
+  // Remove background using browser-based color detection (no third-party service)
+  const removeBackgroundBrowser = (imageData: ImageData): ImageData => {
+    const data = imageData.data;
+    const width = imageData.width;
+    const height = imageData.height;
+
+    // Detect dominant background color by sampling image edges
+    const edgeSamples: { r: number; g: number; b: number; count: number }[] =
+      [];
+
+    // Sample top, bottom, left, right edges
+    const sampleSize = 20;
+
+    // Top edge
+    for (let x = 0; x < width; x += Math.ceil(width / sampleSize)) {
+      for (let y = 0; y < Math.min(sampleSize, height); y++) {
+        const idx = (y * width + x) * 4;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        edgeSamples.push({ r, g, b, count: 1 });
+      }
+    }
+
+    // Bottom edge
+    for (let x = 0; x < width; x += Math.ceil(width / sampleSize)) {
+      for (let y = Math.max(0, height - sampleSize); y < height; y++) {
+        const idx = (y * width + x) * 4;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        edgeSamples.push({ r, g, b, count: 1 });
+      }
+    }
+
+    // Left edge
+    for (let y = 0; y < height; y += Math.ceil(height / sampleSize)) {
+      for (let x = 0; x < Math.min(sampleSize, width); x++) {
+        const idx = (y * width + x) * 4;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        edgeSamples.push({ r, g, b, count: 1 });
+      }
+    }
+
+    // Right edge
+    for (let y = 0; y < height; y += Math.ceil(height / sampleSize)) {
+      for (let x = Math.max(0, width - sampleSize); x < width; x++) {
+        const idx = (y * width + x) * 4;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        edgeSamples.push({ r, g, b, count: 1 });
+      }
+    }
+
+    // Find most common edge color (likely background)
+    const colorMap = new Map<
+      string,
+      { r: number; g: number; b: number; count: number }
+    >();
+    edgeSamples.forEach((sample) => {
+      const key = `${sample.r},${sample.g},${sample.b}`;
+      if (colorMap.has(key)) {
+        const existing = colorMap.get(key)!;
+        existing.count++;
+      } else {
+        colorMap.set(key, { ...sample });
+      }
+    });
+
+    let bgColor = { r: 255, g: 255, b: 255, count: 0 };
+    colorMap.forEach((color) => {
+      if (color.count > bgColor.count) {
+        bgColor = color;
+      }
+    });
+
+    // Threshold for color similarity (0-255)
+    const colorThreshold = 30;
+
+    // Process each pixel
+    const processedData = new ImageData(width, height);
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const a = data[i + 3];
+
+      // Calculate color distance from background color
+      const distance = Math.sqrt(
+        Math.pow(r - bgColor.r, 2) +
+          Math.pow(g - bgColor.g, 2) +
+          Math.pow(b - bgColor.b, 2),
+      );
+
+      // If color is similar to background, make transparent
+      if (distance < colorThreshold) {
+        processedData.data[i] = r;
+        processedData.data[i + 1] = g;
+        processedData.data[i + 2] = b;
+        processedData.data[i + 3] = 0; // Transparent
+      } else {
+        // Keep foreground pixel
+        processedData.data[i] = r;
+        processedData.data[i + 1] = g;
+        processedData.data[i + 2] = b;
+        processedData.data[i + 3] = a; // Original alpha
+      }
+    }
+
+    return processedData;
+  };
+
+  // Canvas to Blob
+  const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> => {
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+      }, "image/png");
+    });
+  };
+
+  // Complete image optimization pipeline
+  const processImageOptimized = async (
+    file: Blob,
+    removeBackground: boolean = false,
+    optimizeForWeb: boolean = true,
+  ): Promise<Blob> => {
+    try {
+      // Step 1: Load image to canvas
+      const canvas = await loadImageToCanvas(file);
+
+      // Step 2: Get image data
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Failed to get canvas context");
+
+      let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      // Step 3: Remove background (optional, browser-based)
+      if (removeBackground) {
+        imageData = removeBackgroundBrowser(imageData);
+      }
+
+      // Step 4: Crop to content
+      const croppedImageData = cropToContent(imageData);
+
+      // Step 5: Create canvas from cropped data
+      const croppedCanvas = document.createElement("canvas");
+      croppedCanvas.width = croppedImageData.width;
+      croppedCanvas.height = croppedImageData.height;
+      const croppedCtx = croppedCanvas.getContext("2d");
+      if (!croppedCtx) throw new Error("Failed to get canvas context");
+
+      croppedCtx.putImageData(croppedImageData, 0, 0);
+
+      // Step 6: Resize and add padding
+      const paddedCanvas = await resizeAndPad(croppedCanvas, 1080, false);
+
+      // Step 7: Convert to blob with optimization
+      let finalBlob = await canvasToBlob(paddedCanvas);
+
+      // Step 8: Further compression if needed
+      if (optimizeForWeb && finalBlob.size > 500000) {
+        // If over 500KB, use WebP compression
+        finalBlob = await new Promise((resolve) => {
+          const img = document.createElement("img");
+          img.onload = async () => {
+            const compCanvas = document.createElement("canvas");
+            compCanvas.width = 1080;
+            compCanvas.height = 1080;
+            const compCtx = compCanvas.getContext("2d");
+            if (compCtx) {
+              compCtx.drawImage(img, 0, 0);
+              compCanvas.toBlob(
+                (blob) => {
+                  resolve(blob || finalBlob);
+                },
+                "image/webp",
+                0.85,
+              );
+            } else {
+              resolve(finalBlob);
+            }
+          };
+          img.src = paddedCanvas.toDataURL("image/png");
+        });
+      }
+
+      console.log(
+        `Image optimized: ${(file.size / 1024).toFixed(2)}KB → ${(finalBlob.size / 1024).toFixed(2)}KB`,
+      );
+      return finalBlob;
+    } catch (error) {
+      console.error("Error in image optimization:", error);
+      // Return original if processing fails
+      return file;
+    }
+  };
+
   const handleMainSecondaryImagesChange = async (e: any, index: number) => {
     let files = e?.target.files;
     if (files) {
       for (var i = 0; i < files?.length; i++) {
         var file = files[i];
         try {
-          // Retrieve a URL from our server and process the image
-          await new Promise<void>((resolve, reject) => {
-            retrieveNewURL(file, async (file, url) => {
+          setIsProcessing(true);
+          // Mark this index as uploading
+          setUploadingSecondaryIndices((prev) => [...prev, index]);
+
+          // Process image before preview (uses remote API with browser fallback)
+          const processedBlob = await processImagePython(file, true, true);
+
+          // Create preview URL from processed image
+          const previewUrl = URL.createObjectURL(processedBlob);
+          console.log("📸 Secondary image preview created:", previewUrl);
+
+          // Show preview immediately
+          setSecondaryImages((prev) => {
+            const updated = [...prev];
+            updated[index] = { url: previewUrl };
+            return updated;
+          });
+
+          // Retrieve a URL from our server and upload the processed image
+          const uploadUrl = await new Promise<string>((resolve, reject) => {
+            retrieveNewURL(file, (file, url) => {
               try {
                 const parsed = JSON.parse(url);
-                url = parsed.url;
-                console.log("file, url", file, url);
-                await compressAndOptimizeSecondaryImage(file, url, index);
-                resolve();
+                resolve(parsed.url);
               } catch (error) {
+                console.error("❌ Error parsing MinIO response:", error);
                 reject(error);
               }
+            }).catch((error) => {
+              console.error("❌ Error getting MinIO URL:", error);
+              reject(error);
             });
           });
+
+          // Upload the processed blob
+          const uploadResponse = await fetch(uploadUrl, {
+            method: "PUT",
+            body: processedBlob,
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error("Upload failed: " + uploadResponse.statusText);
+          }
+
+          // Update with final URL
+          const cleanUrl = uploadUrl.split("?")[0];
+          console.log("✅ Secondary image uploaded. Final URL:", cleanUrl);
+          console.log("🔍 Full upload response:", {
+            uploadedUrl: cleanUrl,
+            status: uploadResponse.status,
+          });
+
+          setSecondaryImages((prev) => {
+            const updated = [...prev];
+            updated[index] = { url: cleanUrl };
+            console.log(
+              "🔄 Updated secondary image at index",
+              index,
+              "with S3 URL:",
+              cleanUrl,
+            );
+            console.log("📋 Complete secondary images array:", updated);
+            return updated;
+          });
+
+          // Mark this index as done uploading
+          setUploadingSecondaryIndices((prev) =>
+            prev.filter((i) => i !== index),
+          );
         } catch (error) {
           console.error("Error during variation image upload:", error);
-          // Handle the error appropriately, maybe show a user-friendly message
+          toast({
+            title: "Error",
+            description: "Failed to process and upload secondary image",
+            variant: "destructive",
+          });
+          // Mark as done uploading on error
+          setUploadingSecondaryIndices((prev) =>
+            prev.filter((i) => i !== index),
+          );
+        } finally {
+          setIsProcessing(false);
         }
       }
     }
@@ -195,21 +875,24 @@ const NewVariationOptimized = ({
     },
   ) {
     const endpoint = `/api/minio/`;
-    fetch(endpoint, {
-      method: "PUT",
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        Name: file.name,
-      },
-    })
-      .then((response) => {
-        response.text().then((url) => {
-          cb(file, url);
-        });
-      })
-      .catch((e) => {
-        console.error(e);
+    try {
+      const response = await fetch(endpoint, {
+        method: "PUT",
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          Name: file.name,
+        },
       });
+      if (!response.ok) {
+        throw new Error(`Failed to get MinIO URL: ${response.statusText}`);
+      }
+      const url = await response.text();
+      console.log("✅ Got MinIO URL:", url);
+      cb(file, url);
+    } catch (e) {
+      console.error("❌ Error in retrieveNewURL:", e);
+      throw e;
+    }
   }
 
   // *******main images**********  //
@@ -223,24 +906,69 @@ const NewVariationOptimized = ({
         try {
           setIsProcessing(true);
 
-          // Retrieve a URL from our server and process the image
-          await new Promise<void>((resolve, reject) => {
-            retrieveNewURL(file, async (file, url) => {
+          // Process image before preview (uses remote API with browser fallback)
+          const processedBlob = await processImagePython(file, true, true);
+
+          // Create preview URL from processed image
+          const previewUrl = URL.createObjectURL(processedBlob);
+          console.log("📸 Main image preview created:", previewUrl);
+
+          if (section === "selectorMain") {
+            setMainImage(previewUrl);
+          }
+
+          // Retrieve a URL from our server and then upload the processed image
+          const uploadUrl = await new Promise<string>((resolve, reject) => {
+            retrieveNewURL(file, (file, url) => {
               try {
                 const parsed = JSON.parse(url);
-                url = parsed.url;
-
-                await compressAndOptimizeMainImage(file, url, section);
-                resolve();
+                resolve(parsed.url);
               } catch (error) {
+                console.error("❌ Error parsing MinIO response:", error);
                 reject(error);
               }
+            }).catch((error) => {
+              console.error("❌ Error getting MinIO URL:", error);
+              reject(error);
             });
           });
+
+          // Upload the processed blob instead of original
+          const uploadResponse = await fetch(uploadUrl, {
+            method: "PUT",
+            body: processedBlob,
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error("Upload failed: " + uploadResponse.statusText);
+          }
+
+          // Update with final S3 URL
+          const cleanUrl = uploadUrl.split("?")[0];
+          console.log("✅ Main image uploaded. Final URL:", cleanUrl);
+          console.log("🔍 Full upload response:", {
+            uploadedUrl: cleanUrl,
+            status: uploadResponse.status,
+          });
+
+          if (section === "selectorMain") {
+            console.log(
+              "📍 Setting main image from preview URL to S3 URL:",
+              cleanUrl,
+            );
+            setMainImage(cleanUrl);
+            console.log("✨ Main image state updated to S3 URL");
+          }
         } catch (error) {
           console.error("Error during upload:", error);
+          toast({
+            title: "Error",
+            description: "Failed to process and upload image",
+            variant: "destructive",
+          });
           setIsProcessing(false);
-          // Handle the error appropriately, maybe show a user-friendly message
+        } finally {
+          setIsProcessing(false);
         }
       }
     }
@@ -437,7 +1165,7 @@ const NewVariationOptimized = ({
                   setEnabled={setActive}
                 />
                 <ToggleSwitch
-                  label="WWW"
+                  label="En Línea"
                   enabled={onlineAvailability}
                   setEnabled={setOnlineAvailability}
                 />
@@ -469,7 +1197,17 @@ const NewVariationOptimized = ({
                       src={mainImage}
                       width={1280}
                       height={1280}
-                      className="w-full h-full object-cover z-20"
+                      className="w-full h-full object-contain z-20"
+                      key={`main-img-${mainImage}`}
+                      onError={(e) => {
+                        console.error(
+                          "❌ Error loading main image:",
+                          mainImage,
+                        );
+                      }}
+                      onLoad={() => {
+                        console.log("✅ Main image loaded:", mainImage);
+                      }}
                     />
                     <input
                       id="selectorMain"
@@ -490,12 +1228,62 @@ const NewVariationOptimized = ({
                 <div className="flex flex-row gap-2 items-center justify-start w-full mt-2">
                   {secondaryImages.map((image, index) => (
                     <div
-                      key={index}
-                      className="relative aspect-video h-32 w-32 hover:opacity-80 bg-background border-2 border-gray-300"
+                      key={`${image.url}-${index}`}
+                      className="relative aspect-video h-32 w-32 bg-background border-2 border-gray-300 rounded overflow-hidden group"
                     >
+                      {/* Remove Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeSecondaryImage(index);
+                        }}
+                        className="absolute top-1 right-1 z-10 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                        type="button"
+                        title="Eliminar imagen"
+                      >
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+
+                      {/* Promote to Main Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          makeImageMain(index);
+                        }}
+                        className="absolute bottom-1 right-1 z-10 bg-primary hover:bg-primary/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                        type="button"
+                        title="Hacer imagen principal"
+                      >
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 4v16m8-8H4"
+                          />
+                        </svg>
+                      </button>
+
                       <label
                         htmlFor={`selectorSecondary${index}`}
-                        className="cursor-pointer"
+                        className="cursor-pointer w-full h-full flex items-center justify-center"
                       >
                         <Image
                           src={image.url}
@@ -503,6 +1291,19 @@ const NewVariationOptimized = ({
                           height={250}
                           alt="producto"
                           className="w-full h-full object-cover"
+                          key={`img-${index}-${image.url}`}
+                          onError={(e) => {
+                            console.error(
+                              `❌ Error loading secondary image at index ${index}:`,
+                              image.url,
+                            );
+                          }}
+                          onLoad={() => {
+                            console.log(
+                              `✅ Secondary image loaded at index ${index}:`,
+                              image.url,
+                            );
+                          }}
                         />
                         <input
                           id={`selectorSecondary${index}`}

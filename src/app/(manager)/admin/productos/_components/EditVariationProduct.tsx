@@ -22,6 +22,16 @@ import BarcodeScannerModal from "@/components/modals/BarcodeScannerModal";
 import { MdQrCodeScanner } from "react-icons/md";
 import { ValidationError } from "@/types";
 
+// =====================================================
+// REMOTE IMAGE API CONFIGURATION
+// =====================================================
+const REMOTE_API_BASE = "https://api.salvawebpro.com";
+const REMOTE_API_KEY =
+  "B5VvOGo4cnNldjJjMzZucmJmc32YyaThxM2h0MzRhZmpzZGpmYXNkamZhc2RmYWpmc4RmamFzZGpmYXNkZmFzZGY=";
+const REMOTE_PROCESS_URL = `${REMOTE_API_BASE}/api/process-image`;
+const REMOTE_DELETE_URL = (filename: string) =>
+  `${REMOTE_API_BASE}/api/image/${filename}`;
+
 // Modify the extractImageName function to handle potential errors
 function extractImageName(url: string | undefined): string {
   if (!url || typeof url !== "string") {
@@ -90,6 +100,9 @@ const EditVariationProduct = ({
     useState<ValidationError | null>(null);
 
   const [mainImage, setMainImage] = useState(product?.images[0]?.url || "");
+  const [uploadingSecondaryIndices, setUploadingSecondaryIndices] = useState<
+    number[]
+  >([]);
 
   const [variations, setVariations] = useState(product?.variations);
   const [secondaryImages, setSecondaryImages] = useState(
@@ -147,8 +160,14 @@ const EditVariationProduct = ({
   };
 
   // Function to delete image from MinIO
-  const deleteImageFromMinio = async (imageUrl: string) => {
+  const deleteImageFromMinio = async (
+    imageUrl: string,
+    options?: { silent?: boolean },
+  ) => {
     try {
+      console.group("🗑️ DELETE IMAGE REQUEST");
+      console.log("🔗 Original URL:", imageUrl);
+
       const response = await fetch("/api/minio/delete", {
         method: "DELETE",
         headers: {
@@ -158,14 +177,34 @@ const EditVariationProduct = ({
         body: JSON.stringify({ imageUrl }),
       });
 
+      console.log("📊 Response status:", response.status, response.statusText);
+
       if (!response.ok) {
-        throw new Error("Failed to delete image from MinIO");
+        const responseText = await response.text();
+        console.error("❌ Response body:", responseText);
+        throw new Error(
+          `Failed to delete image: ${response.status} ${response.statusText}`,
+        );
       }
 
-      console.log("Image deleted from MinIO:", imageUrl);
+      const result = await response.json();
+      console.log("✅ Deletion successful:", result);
+      console.groupEnd();
       return true;
     } catch (error) {
-      console.error("Error deleting image from MinIO:", error);
+      console.error("❌ ERROR deleting image:", error);
+      if (error instanceof Error) {
+        console.log("📋 Error message:", error.message);
+        console.log("📍 Error stack:", error.stack);
+      }
+      console.groupEnd();
+      if (!options?.silent) {
+        toast({
+          title: "Error",
+          description: "No se pudo eliminar la imagen",
+          variant: "destructive",
+        });
+      }
       return false;
     }
   };
@@ -216,16 +255,403 @@ const EditVariationProduct = ({
 
   // Make a secondary image the main image (with swap)
   const makeImageMain = (index: number) => {
-    const secondaryImage = secondaryImages[index];
-    if (secondaryImage?.url) {
-      // Create new secondary images array with the swap
-      const newSecondaryImages = [...secondaryImages];
-      // Put current main image in the secondary position
-      newSecondaryImages[index] = { url: mainImage };
-      // Update state
-      setMainImage(secondaryImage.url);
-      setSecondaryImages(newSecondaryImages);
+    console.group("🔄 PROMOTING SECONDARY IMAGE");
+    console.log("📍 Index to promote:", index);
+    console.log("📊 All secondary images:", secondaryImages);
+    console.log("📊 Still uploading indices:", uploadingSecondaryIndices);
+    console.log("📸 Secondary image data:", secondaryImages[index]);
+    console.log("🎯 Current main image in state:", mainImage);
+
+    // Check if this image is still uploading
+    if (uploadingSecondaryIndices.includes(index)) {
+      console.warn("⏳ Image is still uploading, please wait...");
+      toast({
+        title: "Espera",
+        description:
+          "La imagen aún se está subiendo. Por favor espera a que termine.",
+        variant: "destructive",
+      });
+      console.groupEnd();
+      return;
     }
+
+    const secondaryImage = secondaryImages[index];
+    if (!secondaryImage) {
+      console.error("❌ No secondary image found at index", index);
+      toast({
+        title: "Error",
+        description: "No image data found at this position",
+        variant: "destructive",
+      });
+      console.groupEnd();
+      return;
+    }
+
+    if (!secondaryImage.url) {
+      console.error("❌ No URL found in secondary image:", secondaryImage);
+      toast({
+        title: "Error",
+        description: "Image URL is missing",
+        variant: "destructive",
+      });
+      console.groupEnd();
+      return;
+    }
+
+    // Check if URL is a blob (not yet uploaded)
+    if (secondaryImage.url.startsWith("blob:")) {
+      console.warn("⏳ Image preview not yet uploaded to server");
+      toast({
+        title: "Espera",
+        description: "La imagen aún se está procesando. Por favor espera.",
+        variant: "destructive",
+      });
+      console.groupEnd();
+      return;
+    }
+
+    console.log("🎯 Current main image:", mainImage);
+    console.log("✅ Swapping images. New main URL:", secondaryImage.url);
+
+    // Create new secondary images array with the swap
+    const newSecondaryImages = [...secondaryImages];
+    // Put current main image in the secondary position
+    newSecondaryImages[index] = { url: mainImage };
+
+    // Update state
+    console.log("📝 About to update state with:");
+    console.log("   - mainImage:", secondaryImage.url);
+    console.log("   - secondaryImages[" + index + "]:", mainImage);
+    setMainImage(secondaryImage.url);
+    setSecondaryImages(newSecondaryImages);
+
+    // Log after update for debugging (will show in next render)
+    console.log("✨ Swap complete! State updated.");
+    console.log("📍 New main image URL set to:", secondaryImage.url);
+    console.log("📍 Secondary at index", index, "set to:", mainImage);
+
+    // Verify the URLs are correct
+    if (secondaryImage.url.includes("minio")) {
+      console.log("✅ Secondary URL is an S3/MinIO URL (processed image)");
+    }
+    if (mainImage.includes("blob:")) {
+      console.warn("⚠️ Main image being moved to secondary is a blob URL");
+    }
+    console.groupEnd();
+  };
+
+  // Alternative: Process image using Python API (requires Python with rembg)
+  const processImagePython = async (
+    file: Blob,
+    removeBackground: boolean = false,
+    optimizeForWeb: boolean = true,
+  ): Promise<Blob> => {
+    try {
+      console.group("🖼️ PROCESS IMAGE REQUEST");
+      console.log(
+        "📁 Input file size:",
+        `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+      );
+      console.log("📝 File type:", file.type);
+      console.log("⚙️ Processing parameters:", {
+        removeBackground,
+        optimizeForWeb,
+        width: 1080,
+        height: 1080,
+        quality: optimizeForWeb ? 85 : 95,
+      });
+
+      const formData = new FormData();
+      formData.append("file", file, "image.jpg");
+      formData.append("remove_background", removeBackground.toString());
+      formData.append("crop", "true");
+      formData.append("white_background", "false");
+      formData.append("width", "1080");
+      formData.append("height", "1080");
+      formData.append("quality", optimizeForWeb ? "85" : "95");
+
+      console.log("🎯 API endpoint:", REMOTE_PROCESS_URL);
+      console.log("🔑 API Key configured:", !!REMOTE_API_KEY);
+      const startTime = performance.now();
+      console.log("📤 Sending POST request...");
+
+      const response = await fetch(REMOTE_PROCESS_URL, {
+        method: "POST",
+        headers: {
+          "x-api-key": REMOTE_API_KEY,
+        },
+        body: formData,
+      });
+
+      const elapsedTime = performance.now() - startTime;
+      console.log(
+        "📥 Response received in:",
+        `${(elapsedTime / 1000).toFixed(2)}s`,
+      );
+      console.log("📊 Response status:", response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData: any = {};
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          errorData = { rawResponse: errorText };
+        }
+        console.error("❌ API Error Response:", errorData);
+        console.warn("⚠️ Remote API processing failed - returning original");
+        console.groupEnd();
+        return file;
+      }
+
+      const responseData = await response.json();
+      console.log("📊 Response data:", responseData);
+
+      const imageUrl = `${REMOTE_API_BASE}${responseData.url}`;
+      console.log("🔗 Processing image URL:", imageUrl);
+      console.log("📥 Downloading processed image...");
+
+      const downloadStart = performance.now();
+      const blob = await fetch(imageUrl).then((r) => r.blob());
+      const downloadTime = performance.now() - downloadStart;
+
+      console.log("✅ Processing successful!");
+      console.log("📊 File size reduction:", {
+        before: `${(file.size / 1024).toFixed(2)}KB`,
+        after: `${(blob.size / 1024).toFixed(2)}KB`,
+        reduction: `${((1 - blob.size / file.size) * 100).toFixed(1)}%`,
+      });
+      console.log("⏱️ Download time:", `${(downloadTime / 1000).toFixed(2)}s`);
+      console.log(
+        "⏱️ Total processing time:",
+        `${((elapsedTime + downloadTime) / 1000).toFixed(2)}s`,
+      );
+      console.groupEnd();
+
+      return blob;
+    } catch (error) {
+      console.error("❌ ERROR during image processing:", error);
+      if (error instanceof Error) {
+        console.log("📋 Error message:", error.message);
+        console.log("📍 Error stack:", error.stack);
+      }
+      console.groupEnd();
+      return file;
+    }
+  };
+
+  const getUploadUrlForFile = async (file: File): Promise<string> => {
+    return await new Promise<string>((resolve, reject) => {
+      retrieveNewURL(file, (_file, url) => {
+        try {
+          const parsed = JSON.parse(url);
+          resolve(parsed.url);
+        } catch (error) {
+          console.error("❌ Error parsing MinIO response:", error);
+          reject(error);
+        }
+      }).catch((error) => {
+        console.error("❌ Error getting MinIO URL:", error);
+        reject(error);
+      });
+    });
+  };
+
+  const processExistingImage = async ({
+    imageUrl,
+    onPreview,
+    onSuccess,
+    secondaryIndex,
+  }: {
+    imageUrl: string;
+    onPreview: (previewUrl: string) => void;
+    onSuccess: (finalUrl: string) => void;
+    secondaryIndex?: number;
+  }) => {
+    if (
+      !imageUrl ||
+      imageUrl === "/images/product-placeholder-minimalist.jpg" ||
+      imageUrl.startsWith("blob:")
+    ) {
+      toast({
+        title: "No disponible",
+        description: "Esta imagen todavía no se puede reprocesar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const originalUrl = imageUrl;
+    const isSecondary = typeof secondaryIndex === "number";
+
+    try {
+      setIsProcessing(true);
+
+      if (isSecondary) {
+        setUploadingSecondaryIndices((prev) => [...prev, secondaryIndex]);
+      }
+
+      console.group("♻️ REPROCESS EXISTING IMAGE");
+      console.log("🔗 Original image URL:", originalUrl);
+      console.log("📋 Is secondary:", isSecondary, "Index:", secondaryIndex);
+
+      const originalResponse = await fetch(originalUrl);
+      if (!originalResponse.ok) {
+        throw new Error(
+          `Failed to download original image: ${originalResponse.statusText}`,
+        );
+      }
+
+      const originalBlob = await originalResponse.blob();
+      console.log("✅ Original downloaded, size:", originalBlob.size);
+
+      // Create unique filename with timestamp so we get a new URL
+      const originalFileName =
+        extractImageName(originalUrl).split("?")[0] || "image.png";
+      const fileNameWithoutExt = originalFileName.substring(
+        0,
+        originalFileName.lastIndexOf("."),
+      );
+      const uniqueSuffix = `_processed_${Date.now()}`;
+      const fileName = `${fileNameWithoutExt}${uniqueSuffix}.webp`;
+      const fileType = "image/webp";
+      const file = new File([originalBlob], fileName, { type: fileType });
+      console.log("📄 Original file:", originalFileName);
+      console.log("📄 New file with unique name:", fileName, "Type:", fileType);
+
+      console.log("⚙️ Processing image through API...");
+      const processedBlob = await processImagePython(file, true, true);
+      console.log("✅ Image processed, new size:", processedBlob.size);
+
+      const previewUrl = URL.createObjectURL(processedBlob);
+      console.log("🎨 Preview blob URL created:", previewUrl);
+      console.log("📤 Calling onPreview callback with blob URL...");
+      onPreview(previewUrl);
+      console.log("✅ onPreview callback executed");
+
+      const uploadUrl = await getUploadUrlForFile(file);
+      console.log("✅ Got MinIO URL:", uploadUrl);
+
+      console.log("📤 Uploading processed image...");
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "PUT",
+        body: processedBlob,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+      }
+      console.log("✅ Upload successful");
+
+      const cleanUrl = uploadUrl.split("?")[0];
+      console.log("🔗 Clean final URL:", cleanUrl);
+      console.log("📤 Calling onSuccess callback with final URL...");
+      onSuccess(cleanUrl);
+      console.log("✅ onSuccess callback executed");
+
+      console.log("🗑️ Deleting original image...");
+      const deleted = await deleteImageFromMinio(originalUrl, { silent: true });
+      if (!deleted) {
+        console.warn("⚠️ Could not delete original image");
+        toast({
+          title: "Procesada con aviso",
+          description:
+            "La nueva imagen se guardó, pero no se pudo borrar la original.",
+          variant: "destructive",
+        });
+      } else {
+        console.log("✅ Original image deleted successfully");
+        toast({
+          title: "Imagen reprocesada",
+          description: "La imagen fue reprocesada y la original eliminada.",
+        });
+      }
+
+      console.log("✅ Reprocess complete. Final URL:", cleanUrl);
+      console.groupEnd();
+    } catch (error) {
+      console.error("❌ Error reprocessing current image:", error);
+      if (error instanceof Error) {
+        console.error("📋 Error details:", error.message);
+        console.error("📍 Stack:", error.stack);
+      }
+      console.groupEnd();
+      toast({
+        title: "Error",
+        description: "No se pudo reprocesar la imagen actual.",
+        variant: "destructive",
+      });
+    } finally {
+      if (isSecondary) {
+        setUploadingSecondaryIndices((prev) =>
+          prev.filter((i) => i !== secondaryIndex),
+        );
+      }
+      setIsProcessing(false);
+    }
+  };
+
+  const reprocessMainImage = async () => {
+    console.log("🖱️ Reprocess main image button clicked");
+    console.log("📋 Current mainImage:", mainImage);
+    await processExistingImage({
+      imageUrl: mainImage,
+      onPreview: (previewUrl) => {
+        console.log("👀 Setting main image preview to blob URL:", previewUrl);
+        setMainImage(previewUrl);
+      },
+      onSuccess: (finalUrl) => {
+        console.log("🖼️ Setting main image final URL to:", finalUrl);
+        setMainImage(finalUrl);
+      },
+    });
+  };
+
+  const reprocessSecondaryImage = async (index: number) => {
+    console.log("🖱️ Reprocess secondary image button clicked, index:", index);
+    const targetImage = secondaryImages[index]?.url;
+    console.log("📋 Current secondary image URL:", targetImage);
+    if (!targetImage) {
+      toast({
+        title: "Error",
+        description: "No se encontró la imagen para reprocesar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    await processExistingImage({
+      imageUrl: targetImage,
+      secondaryIndex: index,
+      onPreview: (previewUrl) => {
+        console.log(
+          "👀 Setting secondary image preview at index",
+          index,
+          "to blob URL:",
+          previewUrl,
+        );
+        setSecondaryImages((prev: any[]) => {
+          const updated = [...prev];
+          updated[index] = { ...updated[index], url: previewUrl };
+          console.log("📝 Secondary images after preview update:", updated);
+          return updated;
+        });
+      },
+      onSuccess: (finalUrl) => {
+        console.log(
+          "🖼️ Setting secondary image final URL at index",
+          index,
+          "to:",
+          finalUrl,
+        );
+        setSecondaryImages((prev: any[]) => {
+          const updated = [...prev];
+          updated[index] = { ...updated[index], url: finalUrl };
+          console.log("📝 Secondary images after final URL update:", updated);
+          return updated;
+        });
+      },
+    });
   };
 
   // generate a pre-signed URL for use in uploading that file:
@@ -238,21 +664,24 @@ const EditVariationProduct = ({
     },
   ) {
     const endpoint = `/api/minio/`;
-    fetch(endpoint, {
-      method: "PUT",
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        Name: file.name,
-      },
-    })
-      .then((response) => {
-        response.text().then((url) => {
-          cb(file, url);
-        });
-      })
-      .catch((e) => {
-        console.error(e);
+    try {
+      const response = await fetch(endpoint, {
+        method: "PUT",
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          Name: file.name,
+        },
       });
+      if (!response.ok) {
+        throw new Error(`Failed to get MinIO URL: ${response.statusText}`);
+      }
+      const url = await response.text();
+      console.log("✅ Got MinIO URL:", url);
+      cb(file, url);
+    } catch (e) {
+      console.error("❌ Error in retrieveNewURL:", e);
+      throw e;
+    }
   }
 
   // ***************** main images //
@@ -266,25 +695,69 @@ const EditVariationProduct = ({
         try {
           setIsProcessing(true);
 
-          // Retrieve a URL from our server and process the image
-          await new Promise<void>((resolve, reject) => {
-            retrieveNewURL(file, async (file, url) => {
+          // Process image before preview (uses remote API)
+          const processedBlob = await processImagePython(file, true, true);
+
+          // Create preview URL from processed image
+          const previewUrl = URL.createObjectURL(processedBlob);
+          console.log("📸 Main image preview created:", previewUrl);
+
+          if (section === "selectorMain") {
+            setMainImage(previewUrl);
+          }
+
+          // Retrieve a URL from our server and then upload the processed image
+          const uploadUrl = await new Promise<string>((resolve, reject) => {
+            retrieveNewURL(file, (file, url) => {
               try {
                 const parsed = JSON.parse(url);
-                url = parsed.url;
-
-                await compressAndOptimizeMainImage(file, url, section);
-                resolve();
+                resolve(parsed.url);
               } catch (error) {
+                console.error("❌ Error parsing MinIO response:", error);
                 reject(error);
               }
+            }).catch((error) => {
+              console.error("❌ Error getting MinIO URL:", error);
+              reject(error);
             });
           });
-          setIsProcessing(false);
+
+          // Upload the processed blob instead of original
+          const uploadResponse = await fetch(uploadUrl, {
+            method: "PUT",
+            body: processedBlob,
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error("Upload failed: " + uploadResponse.statusText);
+          }
+
+          // Update with final S3 URL
+          const cleanUrl = uploadUrl.split("?")[0];
+          console.log("✅ Main image uploaded. Final URL:", cleanUrl);
+          console.log("🔍 Full upload response:", {
+            uploadedUrl: cleanUrl,
+            status: uploadResponse.status,
+          });
+
+          if (section === "selectorMain") {
+            console.log(
+              "📍 Setting main image from preview URL to S3 URL:",
+              cleanUrl,
+            );
+            setMainImage(cleanUrl);
+            console.log("✨ Main image state updated to S3 URL");
+          }
         } catch (error) {
           console.error("Error during upload:", error);
+          toast({
+            title: "Error",
+            description: "Failed to process and upload image",
+            variant: "destructive",
+          });
           setIsProcessing(false);
-          // Handle the error appropriately, maybe show a user-friendly message
+        } finally {
+          setIsProcessing(false);
         }
       }
     }
@@ -369,83 +842,92 @@ const EditVariationProduct = ({
       for (var i = 0; i < files?.length; i++) {
         var file = files[i];
         try {
-          // Retrieve a URL from our server and process the image
-          await new Promise<void>((resolve, reject) => {
-            retrieveNewURL(file, async (file, url) => {
+          setIsProcessing(true);
+          // Mark this index as uploading
+          setUploadingSecondaryIndices((prev) => [...prev, index]);
+
+          // Process image before preview (uses remote API)
+          const processedBlob = await processImagePython(file, true, true);
+
+          // Create preview URL from processed image
+          const previewUrl = URL.createObjectURL(processedBlob);
+          console.log("📸 Secondary image preview created:", previewUrl);
+
+          // Show preview immediately
+          setSecondaryImages((prev: any[]) => {
+            const updated = [...prev];
+            updated[index] = { url: previewUrl };
+            return updated;
+          });
+
+          // Retrieve a URL from our server and upload the processed image
+          const uploadUrl = await new Promise<string>((resolve, reject) => {
+            retrieveNewURL(file, (file, url) => {
               try {
                 const parsed = JSON.parse(url);
-                url = parsed.url;
-                console.log("file, url", file, url, index);
-                await compressAndOptimizeSecondaryImage(file, url, index);
-                resolve();
+                resolve(parsed.url);
               } catch (error) {
+                console.error("❌ Error parsing MinIO response:", error);
                 reject(error);
               }
+            }).catch((error) => {
+              console.error("❌ Error getting MinIO URL:", error);
+              reject(error);
             });
           });
+
+          // Upload the processed blob
+          const uploadResponse = await fetch(uploadUrl, {
+            method: "PUT",
+            body: processedBlob,
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error("Upload failed: " + uploadResponse.statusText);
+          }
+
+          // Update with final URL
+          const cleanUrl = uploadUrl.split("?")[0];
+          console.log("✅ Secondary image uploaded. Final URL:", cleanUrl);
+          console.log("🔍 Full upload response:", {
+            uploadedUrl: cleanUrl,
+            status: uploadResponse.status,
+          });
+
+          setSecondaryImages((prev: any[]) => {
+            const updated = [...prev];
+            updated[index] = { url: cleanUrl };
+            console.log(
+              "🔄 Updated secondary image at index",
+              index,
+              "with S3 URL:",
+              cleanUrl,
+            );
+            console.log("📋 Complete secondary images array:", updated);
+            return updated;
+          });
+
+          // Mark this index as done uploading
+          setUploadingSecondaryIndices((prev) =>
+            prev.filter((i) => i !== index),
+          );
         } catch (error) {
           console.error("Error during variation image upload:", error);
-          // Handle the error appropriately, maybe show a user-friendly message
+          toast({
+            title: "Error",
+            description: "Failed to process and upload secondary image",
+            variant: "destructive",
+          });
+          // Mark as done uploading on error
+          setUploadingSecondaryIndices((prev) =>
+            prev.filter((i) => i !== index),
+          );
+        } finally {
+          setIsProcessing(false);
         }
       }
     }
   };
-
-  async function compressAndOptimizeSecondaryImage(
-    file: Blob | MediaSource,
-    url: string,
-    index: number,
-  ) {
-    const loadImage = (imageUrl: string): Promise<HTMLImageElement> => {
-      return new Promise((resolve, reject) => {
-        const img = document.createElement("img");
-        img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = imageUrl;
-      });
-    };
-
-    const imageUrl = URL.createObjectURL(file);
-    const img = await loadImage(imageUrl);
-
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Failed to get canvas context");
-
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx.drawImage(img, 0, 0);
-
-    const quality = 0.9;
-    const compressedImageData = canvas.toDataURL("image/webp", quality);
-    const blobData = await fetch(compressedImageData).then((res) => res.blob());
-
-    await uploadSecondaryFiles(blobData, url, index);
-  }
-
-  async function uploadSecondaryFiles(
-    blobData: Blob,
-    url: any | URL | Request,
-    index: number,
-  ) {
-    return fetch(url, {
-      method: "PUT",
-      body: blobData,
-    })
-      .then(() => {
-        const newUrl = url?.split("?");
-        setSecondaryImages((prev: any[]) => {
-          const updated = [...prev];
-          if (updated[index]) {
-            updated[index] = { ...updated[index], url: newUrl[0] };
-          }
-          return updated;
-        });
-      })
-      .catch((e) => {
-        console.error(e);
-      });
-  }
 
   async function hanldeFormSubmit(e: any) {
     e.preventDefault();
@@ -671,6 +1153,37 @@ const EditVariationProduct = ({
               {/* Main Image Display */}
               <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-border overflow-hidden mb-6">
                 <div className="relative aspect-square bg-muted flex items-center justify-center overflow-hidden group">
+                  {/* Reprocess Button */}
+                  {mainImage &&
+                    mainImage !==
+                      "/images/product-placeholder-minimalist.jpg" && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          reprocessMainImage();
+                        }}
+                        className="absolute top-4 left-4 z-20 bg-amber-500/90 hover:bg-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg disabled:opacity-60"
+                        type="button"
+                        title="Reprocesar imagen actual"
+                        disabled={isProcessing}
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 4v5h5M20 20v-5h-5M5.64 18.36A9 9 0 103.51 9M18.36 5.64A9 9 0 0120.49 15"
+                          />
+                        </svg>
+                      </button>
+                    )}
+
                   {/* Remove Button */}
                   {mainImage &&
                     mainImage !==
@@ -713,6 +1226,16 @@ const EditVariationProduct = ({
                       width={600}
                       height={600}
                       className="w-full h-full object-cover"
+                      key={`main-img-${mainImage}`}
+                      onError={(e) => {
+                        console.error(
+                          "❌ Error loading main image:",
+                          mainImage,
+                        );
+                      }}
+                      onLoad={() => {
+                        console.log("✅ Main image loaded:", mainImage);
+                      }}
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
                       <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-center">
@@ -759,9 +1282,35 @@ const EditVariationProduct = ({
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {secondaryImages?.map((image: any, index: number) => (
                     <div
-                      key={index}
+                      key={`${image.url}-${index}`}
                       className="relative aspect-square bg-muted rounded-lg overflow-hidden group"
                     >
+                      {/* Reprocess Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          reprocessSecondaryImage(index);
+                        }}
+                        className="absolute top-1 left-1 z-10 bg-amber-500/90 hover:bg-amber-500 text-white rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md disabled:opacity-60"
+                        type="button"
+                        title="Reprocesar esta imagen"
+                        disabled={isProcessing}
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 4v5h5M20 20v-5h-5M5.64 18.36A9 9 0 103.51 9M18.36 5.64A9 9 0 0120.49 15"
+                          />
+                        </svg>
+                      </button>
+
                       {/* Remove Button */}
                       <button
                         onClick={(e) => {
@@ -819,6 +1368,19 @@ const EditVariationProduct = ({
                           height={200}
                           alt={`Imagen ${index + 1}`}
                           className="w-full h-full object-cover"
+                          key={`img-${index}-${image.url}`}
+                          onError={(e) => {
+                            console.error(
+                              `❌ Error loading secondary image at index ${index}:`,
+                              image.url,
+                            );
+                          }}
+                          onLoad={() => {
+                            console.log(
+                              `✅ Secondary image loaded at index ${index}:`,
+                              image.url,
+                            );
+                          }}
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex flex-col items-center justify-center gap-1">
                           <svg

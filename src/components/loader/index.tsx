@@ -18,7 +18,7 @@ export const Loader = ({
   return loading ? (
     <div
       className={cn(
-        className || "w-full h-full relative flex justify-center items-center"
+        className || "w-full h-full relative flex justify-center items-center",
       )}
     >
       <SpinnerLoading />
