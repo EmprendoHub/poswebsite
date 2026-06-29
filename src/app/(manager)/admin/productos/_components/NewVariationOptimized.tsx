@@ -767,7 +767,6 @@ const NewVariationOptimized = ({
         console.error(e);
       });
   }
-
   // generate a pre-signed URL for use in uploading that file:
   async function retrieveNewURL(
     file: File,
