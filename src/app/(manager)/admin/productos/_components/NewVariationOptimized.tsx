@@ -115,9 +115,6 @@ const NewVariationOptimized = ({
   // Function to delete image from MinIO
   const deleteImageFromMinio = async (imageUrl: string) => {
     try {
-      console.group("🗑️ DELETE IMAGE REQUEST");
-      console.log("🔗 Original URL:", imageUrl);
-
       const response = await fetch("/api/minio/delete", {
         method: "DELETE",
         headers: {
@@ -127,8 +124,6 @@ const NewVariationOptimized = ({
         body: JSON.stringify({ imageUrl }),
       });
 
-      console.log("📊 Response status:", response.status, response.statusText);
-
       if (!response.ok) {
         const responseText = await response.text();
         console.error("❌ Response body:", responseText);
@@ -137,16 +132,9 @@ const NewVariationOptimized = ({
         );
       }
 
-      const result = await response.json();
-      console.log("✅ Deletion successful:", result);
-      console.groupEnd();
       return true;
     } catch (error) {
       console.error("❌ ERROR deleting image:", error);
-      if (error instanceof Error) {
-        console.log("📋 Error message:", error.message);
-        console.log("📍 Error stack:", error.stack);
-      }
       console.groupEnd();
       toast({
         title: "Error",
@@ -196,13 +184,6 @@ const NewVariationOptimized = ({
 
   // Make a secondary image the main image (with swap)
   const makeImageMain = (index: number) => {
-    console.group("🔄 PROMOTING SECONDARY IMAGE");
-    console.log("📍 Index to promote:", index);
-    console.log("📊 All secondary images:", secondaryImages);
-    console.log("📊 Still uploading indices:", uploadingSecondaryIndices);
-    console.log("📸 Secondary image data:", secondaryImages[index]);
-    console.log("🎯 Current main image in state:", mainImage);
-
     // Check if this image is still uploading
     if (uploadingSecondaryIndices.includes(index)) {
       console.warn("⏳ Image is still uploading, please wait...");
@@ -247,34 +228,14 @@ const NewVariationOptimized = ({
       return;
     }
 
-    console.log("🎯 Current main image:", mainImage);
-    console.log("✅ Swapping images. New main URL:", secondaryImage.url);
-
     // Create new secondary images array with the swap
     const newSecondaryImages = [...secondaryImages];
     // Put current main image in the secondary position
     newSecondaryImages[index] = { url: mainImage };
 
     // Update state
-    console.log("📝 About to update state with:");
-    console.log("   - mainImage:", secondaryImage.url);
-    console.log("   - secondaryImages[" + index + "]:", mainImage);
     setMainImage(secondaryImage.url);
     setSecondaryImages(newSecondaryImages);
-
-    // Log after update for debugging (will show in next render)
-    console.log("✨ Swap complete! State updated.");
-    console.log("📍 New main image URL set to:", secondaryImage.url);
-    console.log("📍 Secondary at index", index, "set to:", mainImage);
-
-    // Verify the URLs are correct
-    if (secondaryImage.url.includes("minio")) {
-      console.log("✅ Secondary URL is an S3/MinIO URL (processed image)");
-    }
-    if (mainImage.includes("blob:")) {
-      console.warn("⚠️ Main image being moved to secondary is a blob URL");
-    }
-    console.groupEnd();
   };
 
   // Advanced Image Processing Functions (based on Python script logic)
@@ -407,20 +368,6 @@ const NewVariationOptimized = ({
     optimizeForWeb: boolean = true,
   ): Promise<Blob> => {
     try {
-      console.group("🖼️ PROCESS IMAGE REQUEST");
-      console.log(
-        "📁 Input file size:",
-        `${(file.size / 1024 / 1024).toFixed(2)}MB`,
-      );
-      console.log("📝 File type:", file.type);
-      console.log("⚙️ Processing parameters:", {
-        removeBackground,
-        optimizeForWeb,
-        width: 1080,
-        height: 1080,
-        quality: optimizeForWeb ? 85 : 95,
-      });
-
       const formData = new FormData();
       formData.append("file", file, "image.jpg");
       formData.append("remove_background", removeBackground.toString());
@@ -430,10 +377,7 @@ const NewVariationOptimized = ({
       formData.append("height", "1080");
       formData.append("quality", optimizeForWeb ? "85" : "95");
 
-      console.log("🎯 API endpoint:", REMOTE_PROCESS_URL);
-      console.log("🔑 API Key configured:", !!REMOTE_API_KEY);
       const startTime = performance.now();
-      console.log("📤 Sending POST request...");
 
       const response = await fetch(REMOTE_PROCESS_URL, {
         method: "POST",
@@ -444,11 +388,6 @@ const NewVariationOptimized = ({
       });
 
       const elapsedTime = performance.now() - startTime;
-      console.log(
-        "📥 Response received in:",
-        `${(elapsedTime / 1000).toFixed(2)}s`,
-      );
-      console.log("📊 Response status:", response.status, response.statusText);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -462,7 +401,6 @@ const NewVariationOptimized = ({
         console.warn(
           "⚠️ Remote API processing failed - Falling back to browser processing",
         );
-        console.groupEnd();
         // Fall back to browser processing
         return await processImageOptimized(
           file,
@@ -472,38 +410,19 @@ const NewVariationOptimized = ({
       }
 
       const responseData = await response.json();
-      console.log("📊 Response data:", responseData);
 
       const imageUrl = `${REMOTE_API_BASE}${responseData.url}`;
-      console.log("🔗 Processing image URL:", imageUrl);
-      console.log("📥 Downloading processed image...");
 
       const downloadStart = performance.now();
       const blob = await fetch(imageUrl).then((r) => r.blob());
       const downloadTime = performance.now() - downloadStart;
 
-      console.log("✅ Processing successful!");
-      console.log("📊 File size reduction:", {
-        before: `${(file.size / 1024).toFixed(2)}KB`,
-        after: `${(blob.size / 1024).toFixed(2)}KB`,
-        reduction: `${((1 - blob.size / file.size) * 100).toFixed(1)}%`,
-      });
-      console.log("⏱️ Download time:", `${(downloadTime / 1000).toFixed(2)}s`);
-      console.log(
-        "⏱️ Total processing time:",
-        `${((elapsedTime + downloadTime) / 1000).toFixed(2)}s`,
-      );
-      console.groupEnd();
-
       return blob;
     } catch (error) {
       console.error("❌ ERROR during image processing:", error);
       if (error instanceof Error) {
-        console.log("📋 Error message:", error.message);
-        console.log("📍 Error stack:", error.stack);
       }
       console.warn("⚠️ Using browser processing as fallback");
-      console.groupEnd();
       // Fall back to browser processing
       return await processImageOptimized(
         file,
@@ -703,9 +622,6 @@ const NewVariationOptimized = ({
         });
       }
 
-      console.log(
-        `Image optimized: ${(file.size / 1024).toFixed(2)}KB → ${(finalBlob.size / 1024).toFixed(2)}KB`,
-      );
       return finalBlob;
     } catch (error) {
       console.error("Error in image optimization:", error);
@@ -729,7 +645,6 @@ const NewVariationOptimized = ({
 
           // Create preview URL from processed image
           const previewUrl = URL.createObjectURL(processedBlob);
-          console.log("📸 Secondary image preview created:", previewUrl);
 
           // Show preview immediately
           setSecondaryImages((prev) => {
@@ -766,22 +681,10 @@ const NewVariationOptimized = ({
 
           // Update with final URL
           const cleanUrl = uploadUrl.split("?")[0];
-          console.log("✅ Secondary image uploaded. Final URL:", cleanUrl);
-          console.log("🔍 Full upload response:", {
-            uploadedUrl: cleanUrl,
-            status: uploadResponse.status,
-          });
 
           setSecondaryImages((prev) => {
             const updated = [...prev];
             updated[index] = { url: cleanUrl };
-            console.log(
-              "🔄 Updated secondary image at index",
-              index,
-              "with S3 URL:",
-              cleanUrl,
-            );
-            console.log("📋 Complete secondary images array:", updated);
             return updated;
           });
 
@@ -887,8 +790,6 @@ const NewVariationOptimized = ({
         throw new Error(`Failed to get MinIO URL: ${response.statusText}`);
       }
       const url = await response.text();
-      console.log("✅ Got MinIO URL:", url);
-      cb(file, url);
     } catch (e) {
       console.error("❌ Error in retrieveNewURL:", e);
       throw e;
@@ -911,7 +812,6 @@ const NewVariationOptimized = ({
 
           // Create preview URL from processed image
           const previewUrl = URL.createObjectURL(processedBlob);
-          console.log("📸 Main image preview created:", previewUrl);
 
           if (section === "selectorMain") {
             setMainImage(previewUrl);
@@ -945,19 +845,9 @@ const NewVariationOptimized = ({
 
           // Update with final S3 URL
           const cleanUrl = uploadUrl.split("?")[0];
-          console.log("✅ Main image uploaded. Final URL:", cleanUrl);
-          console.log("🔍 Full upload response:", {
-            uploadedUrl: cleanUrl,
-            status: uploadResponse.status,
-          });
 
           if (section === "selectorMain") {
-            console.log(
-              "📍 Setting main image from preview URL to S3 URL:",
-              cleanUrl,
-            );
             setMainImage(cleanUrl);
-            console.log("✨ Main image state updated to S3 URL");
           }
         } catch (error) {
           console.error("Error during upload:", error);
@@ -1205,9 +1095,6 @@ const NewVariationOptimized = ({
                           mainImage,
                         );
                       }}
-                      onLoad={() => {
-                        console.log("✅ Main image loaded:", mainImage);
-                      }}
                     />
                     <input
                       id="selectorMain"
@@ -1295,12 +1182,6 @@ const NewVariationOptimized = ({
                           onError={(e) => {
                             console.error(
                               `❌ Error loading secondary image at index ${index}:`,
-                              image.url,
-                            );
-                          }}
-                          onLoad={() => {
-                            console.log(
-                              `✅ Secondary image loaded at index ${index}:`,
                               image.url,
                             );
                           }}
