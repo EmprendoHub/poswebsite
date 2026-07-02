@@ -1072,347 +1072,92 @@ const EditVariationProduct = ({
   return (
     <main className="w-full min-h-screen bg-gradient-to-b from-background to-muted/5">
       {!isSending ? (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Header with Status */}
-          <div className="mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h1 className="text-3xl sm:text-4xl font-bold text-foreground font-EB_Garamond">
-                  Editar Producto
-                </h1>
-                <p className="text-muted-foreground mt-2">
-                  Última actualización: {updatedAt}
-                </p>
-              </div>
-              {/* Status Toggles */}
-              <div className="flex flex-wrap gap-4 items-center">
-                <ToggleSwitch
-                  label="Destacado"
-                  enabled={featured}
-                  setEnabled={setFeatured}
-                />
-                <ToggleSwitch
-                  label="Activo"
-                  enabled={active}
-                  setEnabled={setActive}
-                />
-                <ToggleSwitch
-                  label="En Línea"
-                  enabled={onlineAvailability}
-                  setEnabled={setOnlineAvailability}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Display general errors */}
-          {validationError?.general && (
-            <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg">
-              {validationError.general._errors.join(", ")}
-            </div>
-          )}
-
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-10">
-            {/* Left: Image Gallery */}
-            <div className="lg:col-span-2">
-              {/* Main Image Display */}
-              <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-border overflow-hidden mb-6">
-                <div className="relative aspect-square bg-muted flex items-center justify-center overflow-hidden group">
-                  {/* Dimming overlay when processing ANY image */}
-                  {processingImageType && (
-                    <div className="absolute inset-0 bg-black/30 z-15 pointer-events-none"></div>
-                  )}
-
-                  {/* Processing Overlay */}
-                  {processingImageType === "main" && (
-                    <div className="absolute inset-0 bg-black/60 z-30 flex flex-col items-center justify-center backdrop-blur-sm">
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="w-12 h-12 border-4 border-white border-t-amber-500 rounded-full animate-spin"></div>
-                        <p className="text-white font-semibold text-center px-4">
-                          Removiendo fondo y optimizando
-                          <br />
-                          por favor espera...
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Reprocess Button */}
-                  {mainImage &&
-                    mainImage !==
-                      "/images/product-placeholder-minimalist.jpg" && (
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          reprocessMainImage();
-                        }}
-                        className="absolute top-4 left-4 z-20 bg-amber-500/90 hover:bg-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg disabled:opacity-60"
-                        type="button"
-                        title="Reprocesar imagen actual"
-                        disabled={isProcessing || processingImageType !== null}
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4 4v5h5M20 20v-5h-5M5.64 18.36A9 9 0 103.51 9M18.36 5.64A9 9 0 0120.49 15"
-                          />
-                        </svg>
-                      </button>
-                    )}
-
-                  {/* Remove Button */}
-                  {mainImage &&
-                    mainImage !==
-                      "/images/product-placeholder-minimalist.jpg" && (
-                      <button
-                        onClick={removeMainImage}
-                        className="absolute top-4 right-4 z-20 bg-destructive/90 hover:bg-destructive text-white rounded-full w-10 h-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg disabled:opacity-60"
-                        type="button"
-                        title="Eliminar imagen"
-                        disabled={isProcessing || processingImageType !== null}
-                      >
-                        <svg
-                          className="w-6 h-6"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </button>
-                    )}
-
-                  <label
-                    htmlFor="selectorMain"
-                    className={`w-full h-full flex flex-col items-center justify-center cursor-pointer relative ${
-                      isProcessing ? "cursor-not-allowed opacity-50" : ""
-                    }`}
-                  >
-                    <Image
-                      id="blogImage"
-                      alt="Imagen principal del producto"
-                      src={
-                        mainImage ||
-                        "/images/product-placeholder-minimalist.jpg"
-                      }
-                      width={600}
-                      height={600}
-                      className="w-full h-full object-cover"
-                      key={`main-img-${mainImage}`}
-                      onError={(e) => {
-                        console.error(
-                          "❌ Error loading main image:",
-                          mainImage,
-                        );
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                      <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-center">
-                        <svg
-                          className="w-12 h-12 mx-auto mb-2"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 4v16m8-8H4"
-                          />
-                        </svg>
-                        <p className="text-sm font-semibold">Cambiar imagen</p>
-                      </div>
-                    </div>
-
-                    <input
-                      id="selectorMain"
-                      type="file"
-                      accept=".png, .jpg, .jpeg, .webp"
-                      hidden
-                      onChange={upload}
-                      disabled={isProcessing || processingImageType !== null}
-                    />
-
-                    {validationError?.mainImage && (
-                      <p className="text-sm text-destructive mt-2">
-                        {validationError.mainImage._errors.join(", ")}
-                      </p>
-                    )}
-                  </label>
+        <div className="w-full  bg-gradient-to-b from-background to-muted/5">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {/* Header with Status */}
+            <div className="mb-8">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h1 className="text-3xl sm:text-4xl font-bold text-foreground font-EB_Garamond">
+                    Editar Producto
+                  </h1>
+                  <p className="text-muted-foreground mt-2">
+                    Última actualización: {updatedAt}
+                  </p>
+                </div>
+                {/* Status Toggles */}
+                <div className="flex flex-wrap gap-4 items-center">
+                  <ToggleSwitch
+                    label="Destacado"
+                    enabled={featured}
+                    setEnabled={setFeatured}
+                  />
+                  <ToggleSwitch
+                    label="Activo"
+                    enabled={active}
+                    setEnabled={setActive}
+                  />
+                  <ToggleSwitch
+                    label="En Línea"
+                    enabled={onlineAvailability}
+                    setEnabled={setOnlineAvailability}
+                  />
                 </div>
               </div>
+            </div>
 
-              {/* Secondary Images Gallery */}
-              <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-border p-4">
-                <h3 className="text-lg font-semibold text-foreground mb-4">
-                  Galería de Imágenes
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {secondaryImages?.map((image: any, index: number) => (
-                    <div
-                      key={`${image.url}-${index}`}
-                      className="relative aspect-square bg-muted rounded-lg overflow-hidden group"
-                    >
-                      {/* Dimming overlay when processing ANY image (not this one) */}
-                      {processingImageType &&
-                        !(
-                          processingImageType === "secondary" &&
-                          processingImageIndex === index
-                        ) && (
-                          <div className="absolute inset-0 bg-black/30 z-15 pointer-events-none"></div>
-                        )}
+            {/* Display general errors */}
+            {validationError?.general && (
+              <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg">
+                {validationError.general._errors.join(", ")}
+              </div>
+            )}
 
-                      {/* Processing Overlay */}
-                      {processingImageType === "secondary" &&
-                        processingImageIndex === index && (
-                          <div className="absolute inset-0 bg-black/60 z-20 flex flex-col items-center justify-center backdrop-blur-sm">
-                            <div className="flex flex-col items-center gap-2">
-                              <div className="w-8 h-8 border-2 border-white border-t-amber-500 rounded-full animate-spin"></div>
-                              <p className="text-white font-semibold text-center px-2 text-xs leading-tight">
-                                Procesando
-                                <br />
-                                imagen...
-                              </p>
-                            </div>
-                          </div>
-                        )}
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-10">
+              {/* Left: Image Gallery */}
+              <div className="lg:col-span-2">
+                {/* Main Image Display */}
+                <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-border overflow-hidden mb-6">
+                  <div className="relative aspect-square bg-muted flex items-center justify-center overflow-hidden group">
+                    {/* Dimming overlay when processing ANY image */}
+                    {processingImageType && (
+                      <div className="absolute inset-0 bg-black/30 z-15 pointer-events-none"></div>
+                    )}
 
-                      {/* Reprocess Button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          reprocessSecondaryImage(index);
-                        }}
-                        className="absolute top-1 left-1 z-10 bg-amber-500/90 hover:bg-amber-500 text-white rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md disabled:opacity-60"
-                        type="button"
-                        title="Reprocesar esta imagen"
-                        disabled={isProcessing || processingImageType !== null}
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4 4v5h5M20 20v-5h-5M5.64 18.36A9 9 0 103.51 9M18.36 5.64A9 9 0 0120.49 15"
-                          />
-                        </svg>
-                      </button>
+                    {/* Processing Overlay */}
+                    {processingImageType === "main" && (
+                      <div className="absolute inset-0 bg-black/60 z-30 flex flex-col items-center justify-center backdrop-blur-sm">
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="w-12 h-12 border-4 border-white border-t-amber-500 rounded-full animate-spin"></div>
+                          <p className="text-white font-semibold text-center px-4">
+                            Removiendo fondo y optimizando
+                            <br />
+                            por favor espera...
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
-                      {/* Remove Button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeSecondaryImage(index);
-                        }}
-                        className="absolute top-1 right-1 z-10 bg-destructive/90 hover:bg-destructive text-white rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md disabled:opacity-60"
-                        type="button"
-                        title="Eliminar imagen"
-                        disabled={isProcessing || processingImageType !== null}
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </button>
-
-                      {/* Change/Upload Button */}
-                      <label
-                        htmlFor={`selectorSecondary${index}`}
-                        className="absolute bottom-1 right-1 z-10 bg-primary/90 hover:bg-primary text-primary-foreground rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md cursor-pointer disabled:opacity-60"
-                        title="Cambiar esta imagen"
-                        style={{
-                          opacity:
-                            isProcessing || processingImageType
-                              ? 0.6
-                              : undefined,
-                          pointerEvents:
-                            isProcessing || processingImageType
-                              ? "none"
-                              : "auto",
-                          cursor:
-                            isProcessing || processingImageType
-                              ? "not-allowed"
-                              : "pointer",
-                        }}
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 4v16m8-8H4"
-                          />
-                        </svg>
-                      </label>
-
-                      {/* Clickable Image Area - Makes it main */}
-                      <div
-                        onClick={() =>
-                          !isProcessing &&
-                          !processingImageType &&
-                          makeImageMain(index)
-                        }
-                        className="w-full h-full cursor-pointer relative block overflow-hidden"
-                        style={{
-                          opacity:
-                            isProcessing || processingImageType ? 0.7 : 1,
-                          pointerEvents:
-                            isProcessing || processingImageType
-                              ? "none"
-                              : "auto",
-                        }}
-                      >
-                        <Image
-                          src={image.url}
-                          width={200}
-                          height={200}
-                          alt={`Imagen ${index + 1}`}
-                          className="w-full h-full object-cover"
-                          key={`img-${index}-${image.url}`}
-                          onError={(e) => {
-                            console.error(
-                              `❌ Error loading secondary image at index ${index}:`,
-                              image.url,
-                            );
+                    {/* Reprocess Button */}
+                    {mainImage &&
+                      mainImage !==
+                        "/images/product-placeholder-minimalist.jpg" && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            reprocessMainImage();
                           }}
-                        />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex flex-col items-center justify-center gap-1">
+                          className="absolute top-4 left-4 z-20 bg-amber-500/90 hover:bg-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg disabled:opacity-60"
+                          type="button"
+                          title="Reprocesar imagen actual"
+                          disabled={
+                            isProcessing || processingImageType !== null
+                          }
+                        >
                           <svg
-                            className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="w-5 h-5"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -1421,341 +1166,796 @@ const EditVariationProduct = ({
                               strokeLinecap="round"
                               strokeLinejoin="round"
                               strokeWidth={2}
-                              d="M5 13l4 4L19 7"
+                              d="M4 4v5h5M20 20v-5h-5M5.64 18.36A9 9 0 103.51 9M18.36 5.64A9 9 0 0120.49 15"
                             />
                           </svg>
-                          <p className="text-xs font-semibold text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                            Principal
+                        </button>
+                      )}
+
+                    {/* Remove Button */}
+                    {mainImage &&
+                      mainImage !==
+                        "/images/product-placeholder-minimalist.jpg" && (
+                        <button
+                          onClick={removeMainImage}
+                          className="absolute top-4 right-4 z-20 bg-destructive/90 hover:bg-destructive text-white rounded-full w-10 h-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg disabled:opacity-60"
+                          type="button"
+                          title="Eliminar imagen"
+                          disabled={
+                            isProcessing || processingImageType !== null
+                          }
+                        >
+                          <svg
+                            className="w-6 h-6"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      )}
+
+                    <label
+                      htmlFor="selectorMain"
+                      className={`w-full h-full flex flex-col items-center justify-center cursor-pointer relative ${
+                        isProcessing ? "cursor-not-allowed opacity-50" : ""
+                      }`}
+                    >
+                      <Image
+                        id="blogImage"
+                        alt="Imagen principal del producto"
+                        src={
+                          mainImage ||
+                          "/images/product-placeholder-minimalist.jpg"
+                        }
+                        width={600}
+                        height={600}
+                        className="w-full h-full object-cover"
+                        key={`main-img-${mainImage}`}
+                        onError={(e) => {
+                          console.error(
+                            "❌ Error loading main image:",
+                            mainImage,
+                          );
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                        <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-center">
+                          <svg
+                            className="w-12 h-12 mx-auto mb-2"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 4v16m8-8H4"
+                            />
+                          </svg>
+                          <p className="text-sm font-semibold">
+                            Cambiar imagen
                           </p>
                         </div>
                       </div>
 
-                      {/* Hidden File Input */}
                       <input
-                        id={`selectorSecondary${index}`}
+                        id="selectorMain"
                         type="file"
                         accept=".png, .jpg, .jpeg, .webp"
                         hidden
+                        onChange={upload}
+                        disabled={isProcessing || processingImageType !== null}
+                      />
+
+                      {validationError?.mainImage && (
+                        <p className="text-sm text-destructive mt-2">
+                          {validationError.mainImage._errors.join(", ")}
+                        </p>
+                      )}
+                    </label>
+                  </div>
+                </div>
+
+                {/* Secondary Images Gallery */}
+                <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-border p-4">
+                  <h3 className="text-lg font-semibold text-foreground mb-4">
+                    Galería de Imágenes
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {secondaryImages?.map((image: any, index: number) => (
+                      <div
+                        key={`${image.url}-${index}`}
+                        className="relative aspect-square bg-muted rounded-lg overflow-hidden group"
+                      >
+                        {/* Dimming overlay when processing ANY image (not this one) */}
+                        {processingImageType &&
+                          !(
+                            processingImageType === "secondary" &&
+                            processingImageIndex === index
+                          ) && (
+                            <div className="absolute inset-0 bg-black/30 z-15 pointer-events-none"></div>
+                          )}
+
+                        {/* Processing Overlay */}
+                        {processingImageType === "secondary" &&
+                          processingImageIndex === index && (
+                            <div className="absolute inset-0 bg-black/60 z-20 flex flex-col items-center justify-center backdrop-blur-sm">
+                              <div className="flex flex-col items-center gap-2">
+                                <div className="w-8 h-8 border-2 border-white border-t-amber-500 rounded-full animate-spin"></div>
+                                <p className="text-white font-semibold text-center px-2 text-xs leading-tight">
+                                  Procesando
+                                  <br />
+                                  imagen...
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                        {/* Reprocess Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            reprocessSecondaryImage(index);
+                          }}
+                          className="absolute top-1 left-1 z-10 bg-amber-500/90 hover:bg-amber-500 text-white rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md disabled:opacity-60"
+                          type="button"
+                          title="Reprocesar esta imagen"
+                          disabled={
+                            isProcessing || processingImageType !== null
+                          }
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 4v5h5M20 20v-5h-5M5.64 18.36A9 9 0 103.51 9M18.36 5.64A9 9 0 0120.49 15"
+                            />
+                          </svg>
+                        </button>
+
+                        {/* Remove Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeSecondaryImage(index);
+                          }}
+                          className="absolute top-1 right-1 z-10 bg-destructive/90 hover:bg-destructive text-white rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md disabled:opacity-60"
+                          type="button"
+                          title="Eliminar imagen"
+                          disabled={
+                            isProcessing || processingImageType !== null
+                          }
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+
+                        {/* Change/Upload Button */}
+                        <label
+                          htmlFor={`selectorSecondary${index}`}
+                          className="absolute bottom-1 right-1 z-10 bg-primary/90 hover:bg-primary text-primary-foreground rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md cursor-pointer disabled:opacity-60"
+                          title="Cambiar esta imagen"
+                          style={{
+                            opacity:
+                              isProcessing || processingImageType
+                                ? 0.6
+                                : undefined,
+                            pointerEvents:
+                              isProcessing || processingImageType
+                                ? "none"
+                                : "auto",
+                            cursor:
+                              isProcessing || processingImageType
+                                ? "not-allowed"
+                                : "pointer",
+                          }}
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 4v16m8-8H4"
+                            />
+                          </svg>
+                        </label>
+
+                        {/* Clickable Image Area - Makes it main */}
+                        <div
+                          onClick={() =>
+                            !isProcessing &&
+                            !processingImageType &&
+                            makeImageMain(index)
+                          }
+                          className="w-full h-full cursor-pointer relative block overflow-hidden"
+                          style={{
+                            opacity:
+                              isProcessing || processingImageType ? 0.7 : 1,
+                            pointerEvents:
+                              isProcessing || processingImageType
+                                ? "none"
+                                : "auto",
+                          }}
+                        >
+                          <Image
+                            src={image.url}
+                            width={200}
+                            height={200}
+                            alt={`Imagen ${index + 1}`}
+                            className="w-full h-full object-cover"
+                            key={`img-${index}-${image.url}`}
+                            onError={(e) => {
+                              console.error(
+                                `❌ Error loading secondary image at index ${index}:`,
+                                image.url,
+                              );
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex flex-col items-center justify-center gap-1">
+                            <svg
+                              className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                            <p className="text-xs font-semibold text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                              Principal
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Hidden File Input */}
+                        <input
+                          id={`selectorSecondary${index}`}
+                          type="file"
+                          accept=".png, .jpg, .jpeg, .webp"
+                          hidden
+                          onChange={(e) =>
+                            handleMainSecondaryImagesChange(e, index)
+                          }
+                          disabled={
+                            isProcessing || processingImageType !== null
+                          }
+                        />
+                      </div>
+                    ))}
+
+                    {/* Add More Images Button */}
+                    <label
+                      className="relative aspect-square bg-muted rounded-lg overflow-hidden group border-2 border-dashed border-border hover:border-primary cursor-pointer flex items-center justify-center"
+                      style={{
+                        opacity: isProcessing || processingImageType ? 0.6 : 1,
+                        pointerEvents:
+                          isProcessing || processingImageType ? "none" : "auto",
+                        cursor:
+                          isProcessing || processingImageType
+                            ? "not-allowed"
+                            : "pointer",
+                      }}
+                    >
+                      <div className="text-center">
+                        <svg
+                          className="w-8 h-8 text-muted-foreground group-hover:text-primary mx-auto mb-1 transition-colors"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 4v16m8-8H4"
+                          />
+                        </svg>
+                        <p className="text-xs text-muted-foreground group-hover:text-primary transition-colors">
+                          Agregar
+                        </p>
+                      </div>
+                      <input
+                        type="file"
+                        accept=".png, .jpg, .jpeg, .webp"
+                        hidden
+                        multiple
                         onChange={(e) =>
-                          handleMainSecondaryImagesChange(e, index)
+                          handleMainSecondaryImagesChange(
+                            e,
+                            secondaryImages.length,
+                          )
                         }
                         disabled={isProcessing || processingImageType !== null}
                       />
-                    </div>
-                  ))}
-
-                  {/* Add More Images Button */}
-                  <label
-                    className="relative aspect-square bg-muted rounded-lg overflow-hidden group border-2 border-dashed border-border hover:border-primary cursor-pointer flex items-center justify-center"
-                    style={{
-                      opacity: isProcessing || processingImageType ? 0.6 : 1,
-                      pointerEvents:
-                        isProcessing || processingImageType ? "none" : "auto",
-                      cursor:
-                        isProcessing || processingImageType
-                          ? "not-allowed"
-                          : "pointer",
-                    }}
-                  >
-                    <div className="text-center">
-                      <svg
-                        className="w-8 h-8 text-muted-foreground group-hover:text-primary mx-auto mb-1 transition-colors"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 4v16m8-8H4"
-                        />
-                      </svg>
-                      <p className="text-xs text-muted-foreground group-hover:text-primary transition-colors">
-                        Agregar
-                      </p>
-                    </div>
-                    <input
-                      type="file"
-                      accept=".png, .jpg, .jpeg, .webp"
-                      hidden
-                      multiple
-                      onChange={(e) =>
-                        handleMainSecondaryImagesChange(
-                          e,
-                          secondaryImages.length,
-                        )
-                      }
-                      disabled={isProcessing || processingImageType !== null}
-                    />
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* Right: Product Info Form */}
-            <div className="lg:col-span-1">
-              <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-border p-6 space-y-6">
-                <div className="mb-1">
-                  <label className="block mb-2 font-semibold text-foreground">
-                    Título del Producto
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                    placeholder="Nombre del producto"
-                    value={title || ""}
-                    onChange={(e) => setTitle(e.target.value)}
-                    name="title"
-                  />
-                  {validationError?.title && (
-                    <p className="text-xs text-destructive mt-1">
-                      {validationError.title._errors.join(", ")}
-                    </p>
-                  )}
-                </div>
-
-                <div className="mb-1">
-                  <label className="block mb-2 font-semibold text-foreground">
-                    Descripción Corta
-                  </label>
-                  <textarea
-                    rows={3}
-                    className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                    placeholder="Descripción del producto"
-                    value={description || ""}
-                    onChange={(e) => setDescription(e.target.value)}
-                    name="description"
-                  />
-                  {validationError?.description && (
-                    <p className="text-xs text-destructive mt-1">
-                      {validationError.description._errors.join(", ")}
-                    </p>
-                  )}
-                </div>
-
-                {/* Certificador & Grado */}
-                <div className="border-t border-border pt-6">
-                  <h3 className="text-sm font-semibold text-foreground mb-4">
-                    Detalles de Certificación
-                  </h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block mb-2 text-xs font-medium text-muted-foreground">
-                        Certificador
-                      </label>
-                      <input
-                        type="text"
-                        className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
-                        placeholder="PSA, BGS, etc."
-                        value={brand || ""}
-                        onChange={(e) => setBrand(e.target.value)}
-                        name="brand"
-                      />
-                      {validationError?.brand && (
-                        <p className="text-xs text-destructive mt-1">
-                          {validationError.brand._errors.join(", ")}
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block mb-2 text-xs font-medium text-muted-foreground">
-                        Grado
-                      </label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
-                        placeholder="9.5"
-                        value={grade || ""}
-                        onChange={(e) => setGrade(e.target.value)}
-                        name="grade"
-                      />
-                      {validationError?.grade && (
-                        <p className="text-xs text-destructive mt-1">
-                          {validationError.grade._errors.join(", ")}
-                        </p>
-                      )}
-                    </div>
+                    </label>
                   </div>
                 </div>
+              </div>
 
-                {/* Pricing */}
-                <div className="border-t border-border pt-6">
-                  <h3 className="text-sm font-semibold text-foreground mb-4">
-                    Precio
-                  </h3>
-                  <div>
-                    <label className="block mb-3 text-sm font-semibold text-foreground">
-                      Precio de Venta
+              {/* Right: Product Info Form */}
+              <div className="lg:col-span-1">
+                <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-border p-6 space-y-6">
+                  <div className="mb-1">
+                    <label className="block mb-2 font-semibold text-foreground">
+                      Título del Producto
                     </label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-amber-500">
-                        $
-                      </span>
-                      <input
-                        type="number"
-                        className="w-full pl-9 pr-4 py-3 border-2 border-border rounded-xl bg-gradient-to-br from-amber-50/50 to-background text-foreground text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all hover:border-amber-300/50"
-                        placeholder="0.00"
-                        min="0"
-                        step="0.01"
-                        value={priceInputValue}
-                        onChange={(e) => {
-                          console.log(
-                            "📝 Price input changed:",
-                            e.target.value,
-                          );
-                          setPriceInputValue(e.target.value);
-                        }}
-                        onBlur={(e) => {
-                          const newPriceStr = e.target.value;
-                          console.log(
-                            "🔵 onBlur fired with value:",
-                            newPriceStr,
-                          );
-                          handlePriceChange(0, newPriceStr);
-                        }}
-                        name="price"
-                      />
-                    </div>
-                    {validationError?.price && (
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                      placeholder="Nombre del producto"
+                      value={title || ""}
+                      onChange={(e) => setTitle(e.target.value)}
+                      name="title"
+                    />
+                    {validationError?.title && (
                       <p className="text-xs text-destructive mt-1">
-                        {validationError.price._errors.join(", ")}
+                        {validationError.title._errors.join(", ")}
                       </p>
                     )}
                   </div>
-                </div>
 
-                {/* Categorización */}
-                <div className="border-t border-border pt-6">
-                  <h3 className="text-sm font-semibold text-foreground mb-4">
-                    Categorización
+                  <div className="mb-1">
+                    <label className="block mb-2 font-semibold text-foreground">
+                      Descripción Corta
+                    </label>
+                    <textarea
+                      rows={3}
+                      className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                      placeholder="Descripción del producto"
+                      value={description || ""}
+                      onChange={(e) => setDescription(e.target.value)}
+                      name="description"
+                    />
+                    {validationError?.description && (
+                      <p className="text-xs text-destructive mt-1">
+                        {validationError.description._errors.join(", ")}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Certificador & Grado */}
+                  <div className="border-t border-border pt-6">
+                    <h3 className="text-sm font-semibold text-foreground mb-4">
+                      Detalles de Certificación
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block mb-2 text-xs font-medium text-muted-foreground">
+                          Certificador
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
+                          placeholder="PSA, BGS, etc."
+                          value={brand || ""}
+                          onChange={(e) => setBrand(e.target.value)}
+                          name="brand"
+                        />
+                        {validationError?.brand && (
+                          <p className="text-xs text-destructive mt-1">
+                            {validationError.brand._errors.join(", ")}
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block mb-2 text-xs font-medium text-muted-foreground">
+                          Grado
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
+                          placeholder="9.5"
+                          value={grade || ""}
+                          onChange={(e) => setGrade(e.target.value)}
+                          name="grade"
+                        />
+                        {validationError?.grade && (
+                          <p className="text-xs text-destructive mt-1">
+                            {validationError.grade._errors.join(", ")}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pricing */}
+                  <div className="border-t border-border pt-6">
+                    <h3 className="text-sm font-semibold text-foreground mb-4">
+                      Precio
+                    </h3>
+                    <div>
+                      <label className="block mb-3 text-sm font-semibold text-foreground">
+                        Precio de Venta
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-amber-500">
+                          $
+                        </span>
+                        <input
+                          type="number"
+                          className="w-full pl-9 pr-4 py-3 border-2 border-border rounded-xl bg-gradient-to-br from-amber-50/50 to-background text-foreground text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all hover:border-amber-300/50"
+                          placeholder="0.00"
+                          min="0"
+                          step="0.01"
+                          value={priceInputValue}
+                          onChange={(e) => {
+                            console.log(
+                              "📝 Price input changed:",
+                              e.target.value,
+                            );
+                            setPriceInputValue(e.target.value);
+                          }}
+                          onBlur={(e) => {
+                            const newPriceStr = e.target.value;
+                            console.log(
+                              "🔵 onBlur fired with value:",
+                              newPriceStr,
+                            );
+                            handlePriceChange(0, newPriceStr);
+                          }}
+                          name="price"
+                        />
+                      </div>
+                      {validationError?.price && (
+                        <p className="text-xs text-destructive mt-1">
+                          {validationError.price._errors.join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Categorización */}
+                  <div className="border-t border-border pt-6">
+                    <h3 className="text-sm font-semibold text-foreground mb-4">
+                      Categorización
+                    </h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block mb-2 text-xs font-medium text-muted-foreground">
+                          Género/Tema
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
+                          placeholder="Pokémon, NFL, etc."
+                          value={gender || ""}
+                          onChange={(e) => setGender(e.target.value)}
+                          name="gender"
+                        />
+                        {validationError?.gender && (
+                          <p className="text-xs text-destructive mt-1">
+                            {validationError.gender._errors.join(", ")}
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block mb-2 text-xs font-medium text-muted-foreground">
+                          Categoría
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
+                          placeholder="Tarjetas, Guantes, etc."
+                          value={category || ""}
+                          onChange={(e) => setCategory(e.target.value)}
+                          name="category"
+                        />
+                        {validationError?.category && (
+                          <p className="text-xs text-destructive mt-1">
+                            {validationError.category._errors.join(", ")}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Código de Barras */}
+                  <div className="border-t border-border pt-6">
+                    <h3 className="text-sm font-semibold text-foreground mb-4">
+                      Identificación
+                    </h3>
+                    <label className="block mb-2 text-xs font-medium text-muted-foreground">
+                      Código de Barras/QR
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        className="flex-1 px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all uppercase text-sm"
+                        placeholder="B08N5WRWNW"
+                        value={asin}
+                        onChange={(e) => setAsin(e.target.value.toUpperCase())}
+                        name="asin"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowScanner(true)}
+                        className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
+                        title="Escanear código"
+                      >
+                        <MdQrCodeScanner size={18} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Variations */}
+              {variations?.slice(1).length > 0 && (
+                <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-border p-6">
+                  <h3 className="text-lg font-semibold text-foreground mb-4">
+                    Variaciones Adicionales
                   </h3>
                   <div className="space-y-3">
-                    <div>
-                      <label className="block mb-2 text-xs font-medium text-muted-foreground">
-                        Género/Tema
-                      </label>
-                      <input
-                        type="text"
-                        className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
-                        placeholder="Pokémon, NFL, etc."
-                        value={gender || ""}
-                        onChange={(e) => setGender(e.target.value)}
-                        name="gender"
-                      />
-                      {validationError?.gender && (
-                        <p className="text-xs text-destructive mt-1">
-                          {validationError.gender._errors.join(", ")}
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block mb-2 text-xs font-medium text-muted-foreground">
-                        Categoría
-                      </label>
-                      <input
-                        type="text"
-                        className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
-                        placeholder="Tarjetas, Guantes, etc."
-                        value={category || ""}
-                        onChange={(e) => setCategory(e.target.value)}
-                        name="category"
-                      />
-                      {validationError?.category && (
-                        <p className="text-xs text-destructive mt-1">
-                          {validationError.category._errors.join(", ")}
-                        </p>
-                      )}
-                    </div>
+                    {variations
+                      ?.slice(1)
+                      ?.map((variation: any, index: number) => (
+                        <div
+                          key={index + 1}
+                          className="flex items-end gap-3 pb-3 border-b border-border last:border-b-0"
+                        >
+                          <div className="flex-1">
+                            <label className="block mb-2 text-sm font-semibold text-foreground">
+                              Precio - Variación {index + 2}
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-bold text-amber-500">
+                                $
+                              </span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={variation.price || ""}
+                                name={`price-${index + 1}`}
+                                onChange={(e) => {
+                                  const newVariations = [...variations];
+                                  newVariations[index + 1].price =
+                                    parseFloat(e.target.value) || 0;
+                                  setVariations(newVariations);
+                                }}
+                                onBlur={(e) =>
+                                  handlePriceChange(index + 1, e.target.value)
+                                }
+                                className="w-full pl-8 pr-3 py-2.5 border-2 border-border rounded-lg bg-gradient-to-br from-amber-50/30 to-background text-foreground font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all hover:border-amber-300/50"
+                              />
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeVariation(index + 1)}
+                            className="flex-shrink-0 px-3 py-2 bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg transition-colors text-sm font-medium"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      ))}
                   </div>
                 </div>
-
-                {/* Código de Barras */}
-                <div className="border-t border-border pt-6">
-                  <h3 className="text-sm font-semibold text-foreground mb-4">
-                    Identificación
-                  </h3>
-                  <label className="block mb-2 text-xs font-medium text-muted-foreground">
-                    Código de Barras/QR
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      className="flex-1 px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all uppercase text-sm"
-                      placeholder="B08N5WRWNW"
-                      value={asin}
-                      onChange={(e) => setAsin(e.target.value.toUpperCase())}
-                      name="asin"
+              )}
+            </div>
+            {/* Shipping Information */}
+            <div className="bg-gradient-to-br from-blue-50 to-blue-50/50 dark:from-blue-950/20 dark:to-blue-950/10 rounded-xl shadow-sm border border-blue-200 dark:border-blue-900/50 p-6 w-full mt-8">
+              <div className="flex items-start gap-3 mb-5">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                  <svg
+                    className="w-5 h-5 text-blue-600 dark:text-blue-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowScanner(true)}
-                      className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
-                      title="Escanear código"
-                    >
-                      <MdQrCodeScanner size={18} />
-                    </button>
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">
+                    Información de Envío
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Usados para calcular automáticamente los costos de envío
+                  </p>
+                </div>
+              </div>
+
+              {/* Shipping Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
+                {/* Weight */}
+                <div className="bg-white dark:bg-background rounded-lg p-4 border border-blue-100 dark:border-blue-900/30 hover:border-blue-300 dark:hover:border-blue-800 transition-colors">
+                  <label className="flex items-center gap-2 mb-3">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                      Peso
+                    </span>
+                    <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                      kg
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-lg font-medium"
+                      placeholder="0.5"
+                      min="0.01"
+                      value={weight}
+                      onChange={(e) =>
+                        setWeight(parseFloat(e.target.value) || 0.5)
+                      }
+                      name="weight"
+                    />
                   </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Por defecto: 0.5 kg
+                  </p>
+                </div>
+
+                {/* Length */}
+                <div className="bg-white dark:bg-background rounded-lg p-4 border border-blue-100 dark:border-blue-900/30 hover:border-blue-300 dark:hover:border-blue-800 transition-colors">
+                  <label className="flex items-center gap-2 mb-3">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                      Largo
+                    </span>
+                    <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                      cm
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-lg font-medium"
+                      placeholder="15"
+                      min="0.1"
+                      value={dimensions.length}
+                      onChange={(e) =>
+                        setDimensions({
+                          ...dimensions,
+                          length: parseFloat(e.target.value) || 15,
+                        })
+                      }
+                      name="length"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Por defecto: 15 cm
+                  </p>
+                </div>
+
+                {/* Width */}
+                <div className="bg-white dark:bg-background rounded-lg p-4 border border-blue-100 dark:border-blue-900/30 hover:border-blue-300 dark:hover:border-blue-800 transition-colors">
+                  <label className="flex items-center gap-2 mb-3">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                      Ancho
+                    </span>
+                    <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                      cm
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-lg font-medium"
+                      placeholder="15"
+                      min="0.1"
+                      value={dimensions.width}
+                      onChange={(e) =>
+                        setDimensions({
+                          ...dimensions,
+                          width: parseFloat(e.target.value) || 15,
+                        })
+                      }
+                      name="width"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Por defecto: 15 cm
+                  </p>
+                </div>
+
+                {/* Height */}
+                <div className="bg-white dark:bg-background rounded-lg p-4 border border-blue-100 dark:border-blue-900/30 hover:border-blue-300 dark:hover:border-blue-800 transition-colors">
+                  <label className="flex items-center gap-2 mb-3">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                      Alto
+                    </span>
+                    <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                      cm
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-lg font-medium"
+                      placeholder="10"
+                      min="0.1"
+                      value={dimensions.height}
+                      onChange={(e) =>
+                        setDimensions({
+                          ...dimensions,
+                          height: parseFloat(e.target.value) || 10,
+                        })
+                      }
+                      name="height"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Por defecto: 10 cm
+                  </p>
+                </div>
+              </div>
+
+              {/* Summary Info */}
+              <div className="mt-5 p-4 bg-white dark:bg-background rounded-lg border border-blue-100 dark:border-blue-900/30">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">
+                    Dimensiones totales:
+                  </span>
+                  <span className="font-semibold text-foreground">
+                    {dimensions.length}L × {dimensions.width}W ×{" "}
+                    {dimensions.height}H cm · {weight} kg
+                  </span>
                 </div>
               </div>
             </div>
-
-            {/* Additional Variations */}
-            {variations?.slice(1).length > 0 && (
-              <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-border p-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">
-                  Variaciones Adicionales
-                </h3>
-                <div className="space-y-3">
-                  {variations
-                    ?.slice(1)
-                    ?.map((variation: any, index: number) => (
-                      <div
-                        key={index + 1}
-                        className="flex items-end gap-3 pb-3 border-b border-border last:border-b-0"
-                      >
-                        <div className="flex-1">
-                          <label className="block mb-2 text-sm font-semibold text-foreground">
-                            Precio - Variación {index + 2}
-                          </label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-bold text-amber-500">
-                              $
-                            </span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={variation.price || ""}
-                              name={`price-${index + 1}`}
-                              onChange={(e) => {
-                                const newVariations = [...variations];
-                                newVariations[index + 1].price =
-                                  parseFloat(e.target.value) || 0;
-                                setVariations(newVariations);
-                              }}
-                              onBlur={(e) =>
-                                handlePriceChange(index + 1, e.target.value)
-                              }
-                              className="w-full pl-8 pr-3 py-2.5 border-2 border-border rounded-lg bg-gradient-to-br from-amber-50/30 to-background text-foreground font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all hover:border-amber-300/50"
-                            />
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeVariation(index + 1)}
-                          className="flex-shrink-0 px-3 py-2 bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg transition-colors text-sm font-medium"
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-6">
+              <button
+                disabled={isSending || isProcessing}
+                onClick={hanldeFormSubmit}
+                className="flex-1 px-6 py-3 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-primary-foreground rounded-lg font-semibold transition-all disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+              >
+                {isSending ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="inline-block w-4 h-4 border-2 border-primary-foreground border-r-transparent rounded-full animate-spin"></span>
+                    Actualizando...
+                  </div>
+                ) : (
+                  "Actualizar Producto"
+                )}
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -1766,188 +1966,6 @@ const EditVariationProduct = ({
           </div>
         </section>
       )}
-      {/* Shipping Information */}
-      <div className="bg-gradient-to-br from-blue-50 to-blue-50/50 dark:from-blue-950/20 dark:to-blue-950/10 rounded-xl shadow-sm border border-blue-200 dark:border-blue-900/50 p-6 w-full">
-        <div className="flex items-start gap-3 mb-5">
-          <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
-            <svg
-              className="w-5 h-5 text-blue-600 dark:text-blue-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
-              />
-            </svg>
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">
-              Información de Envío
-            </h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              Usados para calcular automáticamente los costos de envío
-            </p>
-          </div>
-        </div>
-
-        {/* Shipping Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Weight */}
-          <div className="bg-white dark:bg-background rounded-lg p-4 border border-blue-100 dark:border-blue-900/30 hover:border-blue-300 dark:hover:border-blue-800 transition-colors">
-            <label className="flex items-center gap-2 mb-3">
-              <span className="text-xs font-semibold uppercase text-muted-foreground">
-                Peso
-              </span>
-              <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
-                kg
-              </span>
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                step="0.01"
-                className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-lg font-medium"
-                placeholder="0.5"
-                min="0.01"
-                value={weight}
-                onChange={(e) => setWeight(parseFloat(e.target.value) || 0.5)}
-                name="weight"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Por defecto: 0.5 kg
-            </p>
-          </div>
-
-          {/* Length */}
-          <div className="bg-white dark:bg-background rounded-lg p-4 border border-blue-100 dark:border-blue-900/30 hover:border-blue-300 dark:hover:border-blue-800 transition-colors">
-            <label className="flex items-center gap-2 mb-3">
-              <span className="text-xs font-semibold uppercase text-muted-foreground">
-                Largo
-              </span>
-              <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
-                cm
-              </span>
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                step="0.1"
-                className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-lg font-medium"
-                placeholder="15"
-                min="0.1"
-                value={dimensions.length}
-                onChange={(e) =>
-                  setDimensions({
-                    ...dimensions,
-                    length: parseFloat(e.target.value) || 15,
-                  })
-                }
-                name="length"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Por defecto: 15 cm
-            </p>
-          </div>
-
-          {/* Width */}
-          <div className="bg-white dark:bg-background rounded-lg p-4 border border-blue-100 dark:border-blue-900/30 hover:border-blue-300 dark:hover:border-blue-800 transition-colors">
-            <label className="flex items-center gap-2 mb-3">
-              <span className="text-xs font-semibold uppercase text-muted-foreground">
-                Ancho
-              </span>
-              <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
-                cm
-              </span>
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                step="0.1"
-                className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-lg font-medium"
-                placeholder="15"
-                min="0.1"
-                value={dimensions.width}
-                onChange={(e) =>
-                  setDimensions({
-                    ...dimensions,
-                    width: parseFloat(e.target.value) || 15,
-                  })
-                }
-                name="width"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Por defecto: 15 cm
-            </p>
-          </div>
-
-          {/* Height */}
-          <div className="bg-white dark:bg-background rounded-lg p-4 border border-blue-100 dark:border-blue-900/30 hover:border-blue-300 dark:hover:border-blue-800 transition-colors">
-            <label className="flex items-center gap-2 mb-3">
-              <span className="text-xs font-semibold uppercase text-muted-foreground">
-                Alto
-              </span>
-              <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
-                cm
-              </span>
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                step="0.1"
-                className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-lg font-medium"
-                placeholder="10"
-                min="0.1"
-                value={dimensions.height}
-                onChange={(e) =>
-                  setDimensions({
-                    ...dimensions,
-                    height: parseFloat(e.target.value) || 10,
-                  })
-                }
-                name="height"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Por defecto: 10 cm
-            </p>
-          </div>
-        </div>
-
-        {/* Summary Info */}
-        <div className="mt-5 p-4 bg-white dark:bg-background rounded-lg border border-blue-100 dark:border-blue-900/30">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Dimensiones totales:</span>
-            <span className="font-semibold text-foreground">
-              {dimensions.length}L × {dimensions.width}W × {dimensions.height}H
-              cm · {weight} kg
-            </span>
-          </div>
-        </div>
-      </div>
-      {/* Action Buttons */}
-      <div className="flex gap-3 pt-6">
-        <button
-          disabled={isSending || isProcessing}
-          onClick={hanldeFormSubmit}
-          className="flex-1 px-6 py-3 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-primary-foreground rounded-lg font-semibold transition-all disabled:cursor-not-allowed shadow-sm hover:shadow-md"
-        >
-          {isSending ? (
-            <div className="flex items-center justify-center gap-2">
-              <span className="inline-block w-4 h-4 border-2 border-primary-foreground border-r-transparent rounded-full animate-spin"></span>
-              Actualizando...
-            </div>
-          ) : (
-            "Actualizar Producto"
-          )}
-        </button>
-      </div>
 
       {showScanner && (
         <BarcodeScannerModal
