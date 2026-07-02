@@ -1703,103 +1703,6 @@ const EditVariationProduct = ({
               </div>
             </div>
 
-            {/* Shipping Information */}
-            <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-border p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">
-                Información de Envío
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Estos valores se usan para calcular los costos de envío
-                automáticamente
-              </p>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block mb-2 text-sm font-medium text-foreground">
-                    Peso (kg)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                    placeholder="0.5"
-                    min="0.01"
-                    value={weight}
-                    onChange={(e) =>
-                      setWeight(parseFloat(e.target.value) || 0.5)
-                    }
-                    name="weight"
-                  />
-                </div>
-
-                <div>
-                  <label className="block mb-2 text-sm font-medium text-foreground">
-                    Largo (cm)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                    placeholder="15"
-                    min="0.1"
-                    value={dimensions.length}
-                    onChange={(e) =>
-                      setDimensions({
-                        ...dimensions,
-                        length: parseFloat(e.target.value) || 15,
-                      })
-                    }
-                    name="length"
-                  />
-                </div>
-
-                <div>
-                  <label className="block mb-2 text-sm font-medium text-foreground">
-                    Ancho (cm)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                    placeholder="15"
-                    min="0.1"
-                    value={dimensions.width}
-                    onChange={(e) =>
-                      setDimensions({
-                        ...dimensions,
-                        width: parseFloat(e.target.value) || 15,
-                      })
-                    }
-                    name="width"
-                  />
-                </div>
-
-                <div>
-                  <label className="block mb-2 text-sm font-medium text-foreground">
-                    Alto (cm)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                    placeholder="10"
-                    min="0.1"
-                    value={dimensions.height}
-                    onChange={(e) =>
-                      setDimensions({
-                        ...dimensions,
-                        height: parseFloat(e.target.value) || 10,
-                      })
-                    }
-                    name="height"
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-3">
-                Valores por defecto: 0.5 kg, 15×15×10 cm
-              </p>
-            </div>
-
             {/* Additional Variations */}
             {variations?.slice(1).length > 0 && (
               <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-border p-6">
@@ -1853,24 +1756,6 @@ const EditVariationProduct = ({
                 </div>
               </div>
             )}
-
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-6">
-              <button
-                disabled={isSending || isProcessing}
-                onClick={hanldeFormSubmit}
-                className="flex-1 px-6 py-3 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-primary-foreground rounded-lg font-semibold transition-all disabled:cursor-not-allowed shadow-sm hover:shadow-md"
-              >
-                {isSending ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="inline-block w-4 h-4 border-2 border-primary-foreground border-r-transparent rounded-full animate-spin"></span>
-                    Actualizando...
-                  </div>
-                ) : (
-                  "Actualizar Producto"
-                )}
-              </button>
-            </div>
           </div>
         </div>
       ) : (
@@ -1881,6 +1766,188 @@ const EditVariationProduct = ({
           </div>
         </section>
       )}
+      {/* Shipping Information */}
+      <div className="bg-gradient-to-br from-blue-50 to-blue-50/50 dark:from-blue-950/20 dark:to-blue-950/10 rounded-xl shadow-sm border border-blue-200 dark:border-blue-900/50 p-6 w-full">
+        <div className="flex items-start gap-3 mb-5">
+          <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+            <svg
+              className="w-5 h-5 text-blue-600 dark:text-blue-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+              />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">
+              Información de Envío
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Usados para calcular automáticamente los costos de envío
+            </p>
+          </div>
+        </div>
+
+        {/* Shipping Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Weight */}
+          <div className="bg-white dark:bg-background rounded-lg p-4 border border-blue-100 dark:border-blue-900/30 hover:border-blue-300 dark:hover:border-blue-800 transition-colors">
+            <label className="flex items-center gap-2 mb-3">
+              <span className="text-xs font-semibold uppercase text-muted-foreground">
+                Peso
+              </span>
+              <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                kg
+              </span>
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                step="0.01"
+                className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-lg font-medium"
+                placeholder="0.5"
+                min="0.01"
+                value={weight}
+                onChange={(e) => setWeight(parseFloat(e.target.value) || 0.5)}
+                name="weight"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Por defecto: 0.5 kg
+            </p>
+          </div>
+
+          {/* Length */}
+          <div className="bg-white dark:bg-background rounded-lg p-4 border border-blue-100 dark:border-blue-900/30 hover:border-blue-300 dark:hover:border-blue-800 transition-colors">
+            <label className="flex items-center gap-2 mb-3">
+              <span className="text-xs font-semibold uppercase text-muted-foreground">
+                Largo
+              </span>
+              <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                cm
+              </span>
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                step="0.1"
+                className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-lg font-medium"
+                placeholder="15"
+                min="0.1"
+                value={dimensions.length}
+                onChange={(e) =>
+                  setDimensions({
+                    ...dimensions,
+                    length: parseFloat(e.target.value) || 15,
+                  })
+                }
+                name="length"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Por defecto: 15 cm
+            </p>
+          </div>
+
+          {/* Width */}
+          <div className="bg-white dark:bg-background rounded-lg p-4 border border-blue-100 dark:border-blue-900/30 hover:border-blue-300 dark:hover:border-blue-800 transition-colors">
+            <label className="flex items-center gap-2 mb-3">
+              <span className="text-xs font-semibold uppercase text-muted-foreground">
+                Ancho
+              </span>
+              <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                cm
+              </span>
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                step="0.1"
+                className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-lg font-medium"
+                placeholder="15"
+                min="0.1"
+                value={dimensions.width}
+                onChange={(e) =>
+                  setDimensions({
+                    ...dimensions,
+                    width: parseFloat(e.target.value) || 15,
+                  })
+                }
+                name="width"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Por defecto: 15 cm
+            </p>
+          </div>
+
+          {/* Height */}
+          <div className="bg-white dark:bg-background rounded-lg p-4 border border-blue-100 dark:border-blue-900/30 hover:border-blue-300 dark:hover:border-blue-800 transition-colors">
+            <label className="flex items-center gap-2 mb-3">
+              <span className="text-xs font-semibold uppercase text-muted-foreground">
+                Alto
+              </span>
+              <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                cm
+              </span>
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                step="0.1"
+                className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-lg font-medium"
+                placeholder="10"
+                min="0.1"
+                value={dimensions.height}
+                onChange={(e) =>
+                  setDimensions({
+                    ...dimensions,
+                    height: parseFloat(e.target.value) || 10,
+                  })
+                }
+                name="height"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Por defecto: 10 cm
+            </p>
+          </div>
+        </div>
+
+        {/* Summary Info */}
+        <div className="mt-5 p-4 bg-white dark:bg-background rounded-lg border border-blue-100 dark:border-blue-900/30">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Dimensiones totales:</span>
+            <span className="font-semibold text-foreground">
+              {dimensions.length}L × {dimensions.width}W × {dimensions.height}H
+              cm · {weight} kg
+            </span>
+          </div>
+        </div>
+      </div>
+      {/* Action Buttons */}
+      <div className="flex gap-3 pt-6">
+        <button
+          disabled={isSending || isProcessing}
+          onClick={hanldeFormSubmit}
+          className="flex-1 px-6 py-3 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-primary-foreground rounded-lg font-semibold transition-all disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+        >
+          {isSending ? (
+            <div className="flex items-center justify-center gap-2">
+              <span className="inline-block w-4 h-4 border-2 border-primary-foreground border-r-transparent rounded-full animate-spin"></span>
+              Actualizando...
+            </div>
+          ) : (
+            "Actualizar Producto"
+          )}
+        </button>
+      </div>
 
       {showScanner && (
         <BarcodeScannerModal
