@@ -34,7 +34,10 @@ export async function GET(req: Request) {
     const status = url.searchParams.get("status");
     const type = url.searchParams.get("type");
     const page = Number(url.searchParams.get("page")) || 1;
-    const perPage = Number(url.searchParams.get("perPage")) || 20;
+    const limit =
+      Number(url.searchParams.get("limit")) ||
+      Number(url.searchParams.get("perPage")) ||
+      20;
 
     const query: any = {};
     if (storeId) {
@@ -44,6 +47,7 @@ export async function GET(req: Request) {
     if (type) query.type = type;
 
     const total = await WorkOrder.countDocuments(query);
+    const totalPages = Math.ceil(total / limit);
     const workOrders = await WorkOrder.find(query)
       .populate({ path: "fromStore", model: Store, select: "name slug" })
       .populate({ path: "toStore", model: Store, select: "name slug" })
@@ -55,11 +59,11 @@ export async function GET(req: Request) {
         select: "title images",
       })
       .sort({ createdAt: -1 })
-      .skip((page - 1) * perPage)
-      .limit(perPage);
+      .skip((page - 1) * limit)
+      .limit(limit);
 
     return NextResponse.json(
-      { workOrders, total, page, perPage },
+      { workOrders, total, totalPages, page, limit },
       { status: 200 },
     );
   } catch (error: any) {

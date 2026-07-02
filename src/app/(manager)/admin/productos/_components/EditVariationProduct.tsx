@@ -19,6 +19,7 @@ import { StaticImport } from "next/dist/shared/lib/get-img-props";
 import { toast } from "@/components/ui/use-toast";
 import { Loader } from "@/components/loader";
 import BarcodeScannerModal from "@/components/modals/BarcodeScannerModal";
+import PriceVerificationModal from "@/components/modals/PriceVerificationModal";
 import { MdQrCodeScanner } from "react-icons/md";
 import { ValidationError } from "@/types";
 
@@ -115,6 +116,35 @@ const EditVariationProduct = ({
     product?.images?.slice(1) || [],
   );
 
+  // Local state for price input (to prevent immediate state updates)
+  const [priceInputValue, setPriceInputValue] = useState<string>(
+    variations?.[0]?.price?.toString() || "",
+  );
+
+  // Price verification state
+  const [showPriceVerification, setShowPriceVerification] = useState(false);
+  const [pendingPriceChange, setPendingPriceChange] = useState<{
+    variationIndex: number;
+    oldPrice: number;
+    newPrice: number;
+  } | null>(null);
+  const [priceChangeAuthorizedBy, setPriceChangeAuthorizedBy] = useState<
+    string | null
+  >(null);
+  const [priceChangeAuthorizedUserId, setPriceChangeAuthorizedUserId] =
+    useState<string | null>(null);
+  const [authorizedPriceChange, setAuthorizedPriceChange] = useState<{
+    oldPrice: number;
+    newPrice: number;
+  } | null>(null);
+
+  // Sync price input when price change is cancelled or modal closes
+  useEffect(() => {
+    if (!showPriceVerification && variations?.[0]?.price !== undefined) {
+      setPriceInputValue(variations[0].price.toString());
+    }
+  }, [showPriceVerification, variations]);
+
   const addVariation = () => {
     setVariations(
       (
@@ -142,9 +172,68 @@ const EditVariationProduct = ({
   };
 
   const handlePriceChange = (index: number, newPrice: string) => {
+    const numPrice = parseFloat(newPrice);
+    if (isNaN(numPrice) || numPrice < 0) return;
+
+    const oldPrice = variations[index]?.price;
+
+    console.log("🏷️ Price Change Triggered:", {
+      index,
+      oldPrice,
+      newPrice: numPrice,
+      isDifferent: oldPrice !== numPrice,
+      hasOldPrice: !!oldPrice,
+      oldPriceGtZero: oldPrice > 0,
+    });
+
+    // If price changed and there was a previous price, show verification modal
+    if (
+      oldPrice !== undefined &&
+      oldPrice !== null &&
+      oldPrice > 0 &&
+      oldPrice !== numPrice
+    ) {
+      console.log("✅ Showing price verification modal");
+      setPendingPriceChange({
+        variationIndex: index,
+        oldPrice,
+        newPrice: numPrice,
+      });
+      setShowPriceVerification(true);
+    } else {
+      // If no previous price (new variation) or same price, just update
+      console.log("📝 Updating price without verification");
+      const newVariations = [...variations];
+      newVariations[index].price = numPrice;
+      setVariations(newVariations);
+    }
+  };
+
+  const handlePriceVerificationAuthorized = (
+    userName: string,
+    userId: string,
+  ) => {
+    if (!pendingPriceChange) return;
+
+    setPriceChangeAuthorizedBy(userName);
+    setPriceChangeAuthorizedUserId(userId);
+    // Store the old and new prices for later use during form submission
+    setAuthorizedPriceChange({
+      oldPrice: pendingPriceChange.oldPrice,
+      newPrice: pendingPriceChange.newPrice,
+    });
     const newVariations = [...variations];
-    newVariations[index].price = newPrice;
+    newVariations[pendingPriceChange.variationIndex].price =
+      pendingPriceChange.newPrice;
     setVariations(newVariations);
+
+    setShowPriceVerification(false);
+    setPendingPriceChange(null);
+
+    toast({
+      title: "Cambio de precio autorizado",
+      description: "El precio ha sido actualizado correctamente.",
+    });
   };
 
   const handleStockChange = (index: number, newStock: string) => {
@@ -880,6 +969,64 @@ const EditVariationProduct = ({
       } else {
         setValidationError(null);
 
+        // Log price changes to price tracker
+        try {
+          console.log("💰 Price Tracker Check:", {
+            authorizedPriceChange,
+            priceChangeAuthorizedBy,
+            priceChangeAuthorizedUserId,
+            hasVariations: !!product?.variations,
+          });
+
+          // If price was authorized during this session, use the stored values
+          if (authorizedPriceChange && priceChangeAuthorizedBy) {
+            console.log("✅ Logging authorized price change to tracker");
+            await fetch("/api/price-tracker", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                productId: product._id,
+                productTitle: title,
+                price: authorizedPriceChange.newPrice,
+                label: "actualización de precio",
+                category: category,
+                brand: brand,
+                authorizedBy: priceChangeAuthorizedBy,
+                authorizedUserId: priceChangeAuthorizedUserId,
+              }),
+            });
+            // Reset after logging
+            setAuthorizedPriceChange(null);
+            setPriceChangeAuthorizedBy(null);
+            setPriceChangeAuthorizedUserId(null);
+          } else {
+            // Otherwise check if price changed naturally (without authorization modal)
+            const oldPrice = product?.variations?.[0]?.price;
+            const newPrice = variations?.[0]?.price;
+
+            if (oldPrice !== newPrice && !product?.variations) {
+              console.log("✅ Logging initial price for new product");
+              await fetch("/api/price-tracker", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  productId: product._id,
+                  productTitle: title,
+                  price: newPrice,
+                  label: "precio inicial",
+                  category: category,
+                  brand: brand,
+                }),
+              });
+            } else {
+              console.log("❌ Price change not logged - no authorization");
+            }
+          }
+        } catch (priceTrackerError) {
+          console.error("Error logging price change:", priceTrackerError);
+          // Don't fail the update if price tracking fails
+        }
+
         // Show success message
         toast({
           title: "Éxito",
@@ -1440,21 +1587,35 @@ const EditVariationProduct = ({
                     Precio
                   </h3>
                   <div>
-                    <label className="block mb-2 text-xs font-medium text-muted-foreground">
+                    <label className="block mb-3 text-sm font-semibold text-foreground">
                       Precio de Venta
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-amber-500">
                         $
                       </span>
                       <input
                         type="number"
-                        className="w-full pl-7 pr-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                        className="w-full pl-9 pr-4 py-3 border-2 border-border rounded-xl bg-gradient-to-br from-amber-50/50 to-background text-foreground text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all hover:border-amber-300/50"
                         placeholder="0.00"
                         min="0"
                         step="0.01"
-                        value={variations?.[0]?.price || ""}
-                        onChange={(e) => handlePriceChange(0, e.target.value)}
+                        value={priceInputValue}
+                        onChange={(e) => {
+                          console.log(
+                            "📝 Price input changed:",
+                            e.target.value,
+                          );
+                          setPriceInputValue(e.target.value);
+                        }}
+                        onBlur={(e) => {
+                          const newPriceStr = e.target.value;
+                          console.log(
+                            "🔵 onBlur fired with value:",
+                            newPriceStr,
+                          );
+                          handlePriceChange(0, newPriceStr);
+                        }}
                         name="price"
                       />
                     </div>
@@ -1654,20 +1815,31 @@ const EditVariationProduct = ({
                         className="flex items-end gap-3 pb-3 border-b border-border last:border-b-0"
                       >
                         <div className="flex-1">
-                          <label className="block mb-2 text-xs font-medium text-muted-foreground">
+                          <label className="block mb-2 text-sm font-semibold text-foreground">
                             Precio - Variación {index + 2}
                           </label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={variation.price || ""}
-                            name={`price-${index + 1}`}
-                            onChange={(e) =>
-                              handlePriceChange(index + 1, e.target.value)
-                            }
-                            className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                          />
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-bold text-amber-500">
+                              $
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={variation.price || ""}
+                              name={`price-${index + 1}`}
+                              onChange={(e) => {
+                                const newVariations = [...variations];
+                                newVariations[index + 1].price =
+                                  parseFloat(e.target.value) || 0;
+                                setVariations(newVariations);
+                              }}
+                              onBlur={(e) =>
+                                handlePriceChange(index + 1, e.target.value)
+                              }
+                              className="w-full pl-8 pr-3 py-2.5 border-2 border-border rounded-lg bg-gradient-to-br from-amber-50/30 to-background text-foreground font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all hover:border-amber-300/50"
+                            />
+                          </div>
                         </div>
                         <button
                           type="button"
@@ -1719,6 +1891,18 @@ const EditVariationProduct = ({
           onClose={() => setShowScanner(false)}
         />
       )}
+
+      {/* Price Verification Modal */}
+      <PriceVerificationModal
+        isOpen={showPriceVerification}
+        newPrice={pendingPriceChange?.newPrice || 0}
+        oldPrice={pendingPriceChange?.oldPrice}
+        onAuthorized={handlePriceVerificationAuthorized}
+        onCancel={() => {
+          setShowPriceVerification(false);
+          setPendingPriceChange(null);
+        }}
+      />
     </main>
   );
 };

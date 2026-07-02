@@ -47,18 +47,27 @@ export default function AdminWorkOrdersPage() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 10;
+
+  // Reset to page 1 when status filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter]);
 
   useEffect(() => {
     setLoading(true);
-    const url = `/api/work-orders${statusFilter ? `?status=${statusFilter}` : ""}`;
+    const url = `/api/work-orders?page=${currentPage}&limit=${itemsPerPage}${statusFilter ? `&status=${statusFilter}` : ""}`;
     fetch(url)
       .then((r) => r.json())
       .then((data) => {
         setWorkOrders(data?.workOrders ?? []);
+        setTotalPages(data?.totalPages ?? 1);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [statusFilter]);
+  }, [statusFilter, currentPage]);
 
   const pendingCount = workOrders.filter((w) => w.status === "pending").length;
 
@@ -114,63 +123,109 @@ export default function AdminWorkOrdersPage() {
       )}
 
       {!loading && workOrders.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-muted">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs text-muted-foreground uppercase">
-              <tr>
-                <th className="px-4 py-3 text-left">No.</th>
-                <th className="px-4 py-3 text-left">Tipo</th>
-                <th className="px-4 py-3 text-left">Origen → Destino</th>
-                <th className="px-4 py-3 text-left">Solicitado por</th>
-                <th className="px-4 py-3 text-center">Art.</th>
-                <th className="px-4 py-3 text-left">Estado</th>
-                <th className="px-4 py-3 text-left">Fecha</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {workOrders.map((wo) => (
-                <tr
-                  key={wo._id}
-                  className="border-t border-muted hover:bg-muted/30"
-                >
-                  <td className="px-4 py-3 font-bold">#{wo.workOrderNumber}</td>
-                  <td className="px-4 py-3 text-xs">
-                    {typeLabels[wo.type] ?? wo.type}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {wo.fromStore ? `${wo.fromStore.name} → ` : "— → "}
-                    {wo.toStore?.name}
-                  </td>
-                  <td className="px-4 py-3 text-xs">
-                    {wo.requestedBy?.name ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {wo.items.reduce((s, i) => s + i.quantity, 0)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColors[wo.status]}`}
-                    >
-                      {statusLabels[wo.status] ?? wo.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {new Date(wo.createdAt).toLocaleDateString("es-MX")}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/admin/ordenes-trabajo/${wo._id}`}
-                      className="text-primary hover:underline flex items-center gap-1 text-xs"
-                    >
-                      <MdOpenInNew size={14} /> Ver
-                    </Link>
-                  </td>
+        <>
+          <div className="overflow-x-auto rounded-xl border border-muted">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-xs text-muted-foreground uppercase">
+                <tr>
+                  <th className="px-4 py-3 text-left">No.</th>
+                  <th className="px-4 py-3 text-left">Tipo</th>
+                  <th className="px-4 py-3 text-left">Origen → Destino</th>
+                  <th className="px-4 py-3 text-left">Solicitado por</th>
+                  <th className="px-4 py-3 text-center">Art.</th>
+                  <th className="px-4 py-3 text-left">Estado</th>
+                  <th className="px-4 py-3 text-left">Fecha</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {workOrders.map((wo) => (
+                  <tr
+                    key={wo._id}
+                    className="border-t border-muted hover:bg-muted/30"
+                  >
+                    <td className="px-4 py-3 font-bold">
+                      #{wo.workOrderNumber}
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      {typeLabels[wo.type] ?? wo.type}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {wo.fromStore ? `${wo.fromStore.name} → ` : "— → "}
+                      {wo.toStore?.name}
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      {wo.requestedBy?.name ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {wo.items.reduce((s, i) => s + i.quantity, 0)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColors[wo.status]}`}
+                      >
+                        {statusLabels[wo.status] ?? wo.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {new Date(wo.createdAt).toLocaleDateString("es-MX")}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/admin/ordenes-trabajo/${wo._id}`}
+                        className="text-primary hover:underline flex items-center gap-1 text-xs"
+                      >
+                        <MdOpenInNew size={14} /> Ver
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-6">
+              <p className="text-xs text-muted-foreground">
+                Página {currentPage} de {totalPages}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 border border-muted rounded-lg text-sm hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Anterior
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                  (page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-1 rounded-lg text-sm transition-colors ${
+                        currentPage === page
+                          ? "bg-primary text-primary-foreground"
+                          : "border border-muted hover:bg-muted"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ),
+                )}
+                <button
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 border border-muted rounded-lg text-sm hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

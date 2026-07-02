@@ -155,6 +155,9 @@ export default function POSWorkOrdersPage() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     fetch("/api/stores")
@@ -168,20 +171,26 @@ export default function POSWorkOrdersPage() {
       });
   }, [storeSlug]);
 
+  // Reset to page 1 when status filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter]);
+
   useEffect(() => {
     if (!storeId) return;
     setLoading(true);
     const url = `/api/work-orders?storeId=${storeId}${
       statusFilter ? `&status=${statusFilter}` : ""
-    }`;
+    }&page=${currentPage}&limit=${itemsPerPage}`;
     fetch(url)
       .then((r) => r.json())
       .then((data) => {
         setWorkOrders(data?.workOrders ?? []);
+        setTotalPages(data?.totalPages ?? 1);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [storeId, statusFilter]);
+  }, [storeId, statusFilter, currentPage]);
 
   const pendingCount = workOrders.filter((w) => w.status === "pending").length;
 
@@ -306,6 +315,48 @@ export default function POSWorkOrdersPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && workOrders.length > 0 && totalPages > 1 && (
+          <div className="flex items-center justify-between mt-6">
+            <p className="text-xs text-muted-foreground">
+              Página {currentPage} de {totalPages}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 border border-muted rounded-lg text-sm hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Anterior
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-3 py-1 rounded-lg text-sm transition-colors ${
+                      currentPage === page
+                        ? "bg-primary text-primary-foreground"
+                        : "border border-muted hover:bg-muted"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ),
+              )}
+              <button
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 border border-muted rounded-lg text-sm hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Siguiente
+              </button>
+            </div>
           </div>
         )}
       </div>

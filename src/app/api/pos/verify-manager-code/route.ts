@@ -12,6 +12,7 @@ const POS_ROLES = [
   "manager",
   "sucursal",
   "supervisor",
+  "super_admin",
 ];
 
 /**
@@ -26,6 +27,7 @@ const POS_ROLES = [
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(options);
+
     if (!session || !POS_ROLES.includes((session.user as any)?.role)) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
@@ -33,7 +35,6 @@ export async function POST(req: Request) {
     await dbConnect();
 
     const { code } = await req.json();
-
     if (!code || !/^\d{6}$/.test(String(code))) {
       return NextResponse.json(
         { valid: false, error: "El código debe ser de 6 dígitos" },
