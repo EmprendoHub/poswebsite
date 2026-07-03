@@ -789,6 +789,7 @@ const NewVariationOptimized = ({
         throw new Error(`Failed to get MinIO URL: ${response.statusText}`);
       }
       const url = await response.text();
+      cb(file, url);
     } catch (e) {
       console.error("❌ Error in retrieveNewURL:", e);
       throw e;
