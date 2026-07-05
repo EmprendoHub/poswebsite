@@ -190,6 +190,10 @@ const ProductSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    updatePrice: {
+      type: Boolean,
+      default: false,
+    },
     quantity: {
       type: Number,
       default: 1,
@@ -223,7 +227,7 @@ const ProductSchema = new mongoose.Schema(
     },
     default: [],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose?.models?.Product ||

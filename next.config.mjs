@@ -4,6 +4,9 @@ const nextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "minio.salvawebpro.com", port: "9000" },
+      { protocol: "https", hostname: "ebay.com" },
+      { protocol: "https", hostname: "www.ebay.com" },
+      { protocol: "https", hostname: "*.ebayimg.com" },
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
       { protocol: "https", hostname: "images.pexels.com" },
       { protocol: "https", hostname: "unsplash.com" },

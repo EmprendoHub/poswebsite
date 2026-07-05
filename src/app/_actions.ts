@@ -3988,8 +3988,11 @@ export async function updateVariationProduct(data: any) {
 }
 
 export async function updateRevalidateProduct() {
+  // Revalidate all product-related paths
   revalidatePath("/admin/productos");
   revalidatePath("/tienda");
+  revalidatePath("/api/product", "layout");
+  revalidatePath("/api/products", "layout");
 }
 
 export async function addProduct(data: any) {

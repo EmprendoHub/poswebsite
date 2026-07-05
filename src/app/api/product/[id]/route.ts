@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import dbConnect from "@/lib/db";
 import Product from "@/backend/models/Product";
 import { getToken } from "next-auth/jwt";
@@ -60,6 +61,10 @@ export async function PATCH(
     if (!updatedProduct) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
+
+    // Revalidate all product-related paths when price or product data changes
+    revalidatePath("/admin/productos");
+    revalidatePath("/tienda");
 
     return NextResponse.json(
       {

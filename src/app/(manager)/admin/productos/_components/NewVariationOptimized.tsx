@@ -9,6 +9,7 @@ import { toast } from "@/components/ui/use-toast";
 import { ValidationError } from "@/types";
 import { Loader } from "@/components/loader";
 import BarcodeScannerModal from "@/components/modals/BarcodeScannerModal";
+import PriceCheckerModal from "@/components/modals/PriceCheckerModal";
 import { MdQrCodeScanner } from "react-icons/md";
 
 // =====================================================
@@ -57,6 +58,8 @@ const NewVariationOptimized = ({
   const [asin, setAsin] = useState("");
   const [showScanner, setShowScanner] = useState(false);
   const [featured, setFeatured] = useState(false);
+  const [updatePrice, setUpdatePrice] = useState(false);
+  const [showPriceCheckerModal, setShowPriceCheckerModal] = useState(false);
   const [createdAt, setCreatedAt] = useState(
     cstDateTimeClient().toLocaleString(),
   );
@@ -110,6 +113,29 @@ const NewVariationOptimized = ({
     const newVariations: any = [...variations];
     newVariations[index].price = newPrice;
     setVariations(newVariations);
+  };
+
+  const handlePriceSelected = (selectedPrice: number) => {
+    // Update the price in variations
+    handlePriceChange(0, selectedPrice);
+
+    // Close the modal
+    setShowPriceCheckerModal(false);
+
+    toast({
+      title: "Precio seleccionado",
+      description: `El precio se ha actualizado a $${selectedPrice.toFixed(2)}`,
+    });
+  };
+
+  const handleCardDetailsUpdate = (cardName: string) => {
+    // Update the product title
+    setTitle(cardName);
+
+    toast({
+      title: "Título actualizado",
+      description: `El título del producto se ha actualizado a: ${cardName}`,
+    });
   };
 
   // Function to delete image from MinIO
@@ -995,6 +1021,7 @@ const NewVariationOptimized = ({
     formData.append("featured", featured.toString());
     formData.append("active", active.toString());
     formData.append("onlineAvailability", onlineAvailability.toString());
+    formData.append("updatePrice", updatePrice.toString());
     formData.append("brand", brand);
     formData.append("grade", grade.toString());
     formData.append("gender", gender);
@@ -1058,6 +1085,11 @@ const NewVariationOptimized = ({
                   label="En Línea"
                   enabled={onlineAvailability}
                   setEnabled={setOnlineAvailability}
+                />
+                <ToggleSwitch
+                  label="Actualizar Precio"
+                  enabled={updatePrice}
+                  setEnabled={setUpdatePrice}
                 />
               </div>
             </div>
@@ -1303,6 +1335,30 @@ const NewVariationOptimized = ({
                         <p className="text-sm text-red-400">
                           {validationError.price._errors.join(", ")}
                         </p>
+                      )}
+
+                      {/* Check Prices Button */}
+                      {updatePrice && (
+                        <button
+                          type="button"
+                          onClick={() => setShowPriceCheckerModal(true)}
+                          className="mt-3 w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2 text-sm"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                            />
+                          </svg>
+                          Verificar Precios del Mercado
+                        </button>
                       )}
                     </div>
                   </div>
@@ -1583,6 +1639,17 @@ const NewVariationOptimized = ({
           onClose={() => setShowScanner(false)}
         />
       )}
+
+      {/* Price Checker Modal */}
+      <PriceCheckerModal
+        isOpen={showPriceCheckerModal}
+        onClose={() => setShowPriceCheckerModal(false)}
+        productTitle={title || ""}
+        asin={asin || ""}
+        currentPrice={variations?.[0]?.price || 0}
+        onPriceSelected={handlePriceSelected}
+        onCardDetailsUpdate={handleCardDetailsUpdate}
+      />
     </main>
   );
 };

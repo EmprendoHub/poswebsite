@@ -23,6 +23,7 @@ export async function POST(request: any, res: any) {
       featured,
       active,
       onlineAvailability,
+      updatePrice,
       mainImage,
       brand,
       grade,
@@ -97,6 +98,7 @@ export async function POST(request: any, res: any) {
     };
 
     const isActive = active === "true" || active === true;
+    const isUpdatePrice = updatePrice === "true" || updatePrice === true;
 
     // Parse weight and dimensions
     const productWeight = weight ? parseFloat(weight as string) : 0.5;
@@ -112,6 +114,7 @@ export async function POST(request: any, res: any) {
       featured,
       active: isActive,
       availability,
+      updatePrice: isUpdatePrice,
       brand,
       rating,
       gender,
@@ -197,6 +200,7 @@ export async function PUT(request: any, res: any) {
       featured,
       active,
       onlineAvailability,
+      updatePrice,
       mainImage,
       brand,
       grade,
@@ -272,6 +276,7 @@ export async function PUT(request: any, res: any) {
     };
 
     const isActive = active === "true" || active === true;
+    const isUpdatePrice = updatePrice === "true" || updatePrice === true;
 
     // Parse weight and dimensions
     const productWeight = weight ? parseFloat(weight) : 0.5;
@@ -294,6 +299,7 @@ export async function PUT(request: any, res: any) {
         featured,
         active: isActive,
         availability,
+        updatePrice: isUpdatePrice,
         brand,
         rating,
         gender,

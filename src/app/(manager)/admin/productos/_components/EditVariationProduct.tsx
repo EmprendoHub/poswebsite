@@ -20,6 +20,7 @@ import { toast } from "@/components/ui/use-toast";
 import { Loader } from "@/components/loader";
 import BarcodeScannerModal from "@/components/modals/BarcodeScannerModal";
 import PriceVerificationModal from "@/components/modals/PriceVerificationModal";
+import PriceCheckerModal from "@/components/modals/PriceCheckerModal";
 import { MdQrCodeScanner } from "react-icons/md";
 import { ValidationError } from "@/types";
 
@@ -80,6 +81,7 @@ const EditVariationProduct = ({
   const [asin, setAsin] = useState(product?.ASIN || "");
   const [showScanner, setShowScanner] = useState(false);
   const [featured, setFeatured] = useState(product?.featured);
+  const [updatePrice, setUpdatePrice] = useState(product?.updatePrice ?? false);
   const [active, setActive] = useState(product?.active ?? true);
   const [onlineAvailability, setOnlineAvailability] = useState(
     product?.availability?.online,
@@ -131,6 +133,9 @@ const EditVariationProduct = ({
   const [priceChangeAuthorizedBy, setPriceChangeAuthorizedBy] = useState<
     string | null
   >(null);
+
+  // Price checker modal state
+  const [showPriceCheckerModal, setShowPriceCheckerModal] = useState(false);
   const [priceChangeAuthorizedUserId, setPriceChangeAuthorizedUserId] =
     useState<string | null>(null);
   const [authorizedPriceChange, setAuthorizedPriceChange] = useState<{
@@ -233,6 +238,32 @@ const EditVariationProduct = ({
     toast({
       title: "Cambio de precio autorizado",
       description: "El precio ha sido actualizado correctamente.",
+    });
+  };
+
+  const handlePriceSelected = (selectedPrice: number) => {
+    // Update the price input value and trigger price change
+    setPriceInputValue(selectedPrice.toString());
+
+    // Close the modal
+    setShowPriceCheckerModal(false);
+
+    // Trigger the price change handler
+    handlePriceChange(0, selectedPrice.toString());
+
+    toast({
+      title: "Precio seleccionado",
+      description: `El precio se ha actualizado a $${selectedPrice.toFixed(2)}`,
+    });
+  };
+
+  const handleCardDetailsUpdate = (cardName: string) => {
+    // Update the product title
+    setTitle(cardName);
+
+    toast({
+      title: "Título actualizado",
+      description: `El título del producto se ha actualizado a: ${cardName}`,
     });
   };
 
@@ -933,6 +964,7 @@ const EditVariationProduct = ({
         "onlineAvailability",
         onlineAvailability?.toString() || "false",
       );
+      formData.append("updatePrice", updatePrice?.toString() || "false");
       formData.append("brand", brand || "");
       formData.append("grade", grade?.toString() || "0");
       formData.append("secondaryImages", JSON.stringify(secondaryImages || []));
@@ -1101,6 +1133,11 @@ const EditVariationProduct = ({
                     label="En Línea"
                     enabled={onlineAvailability}
                     setEnabled={setOnlineAvailability}
+                  />
+                  <ToggleSwitch
+                    label="Actualizar Precio"
+                    enabled={updatePrice}
+                    setEnabled={setUpdatePrice}
                   />
                 </div>
               </div>
@@ -1638,6 +1675,30 @@ const EditVariationProduct = ({
                         </p>
                       )}
                     </div>
+
+                    {/* Check Prices Button */}
+                    {updatePrice && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPriceCheckerModal(true)}
+                        className="mt-4 w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                          />
+                        </svg>
+                        Verificar Precios del Mercado
+                      </button>
+                    )}
                   </div>
 
                   {/* Categorización */}
@@ -1987,6 +2048,20 @@ const EditVariationProduct = ({
           setShowPriceVerification(false);
           setPendingPriceChange(null);
         }}
+      />
+
+      {/* Price Checker Modal */}
+      <PriceCheckerModal
+        isOpen={showPriceCheckerModal}
+        onClose={() => setShowPriceCheckerModal(false)}
+        productTitle={title || ""}
+        asin={asin || ""}
+        currentPrice={variations?.[0]?.price || 0}
+        onPriceSelected={handlePriceSelected}
+        onCardDetailsUpdate={handleCardDetailsUpdate}
+        brand={brand || ""}
+        grade={grade || 0}
+        productImage={mainImage || ""}
       />
     </main>
   );

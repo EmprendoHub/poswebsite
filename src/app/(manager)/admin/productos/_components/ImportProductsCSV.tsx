@@ -46,6 +46,7 @@ interface PreviewItem {
   exists: boolean;
   existingId?: string;
   existingTitle?: string;
+  existingImages?: number; // Number of images in existing product
   alternatives?: Array<{ _id: string; title: string }>;
   selected?: boolean; // New: track if user selected this row for import
 }
@@ -307,6 +308,7 @@ const ImportProductsCSV = () => {
         let exists = false;
         let existingId: string | undefined;
         let existingTitle: string | undefined;
+        let existingImages: number | undefined;
         let alternatives: Array<{ _id: string; title: string }> | undefined;
 
         // Match by ASIN or Title
@@ -323,6 +325,7 @@ const ImportProductsCSV = () => {
                   exists = true;
                   existingId = asinData.product._id;
                   existingTitle = asinData.product.title;
+                  existingImages = asinData.product.images?.length || 0;
                 }
               }
             } catch (err) {
@@ -342,6 +345,7 @@ const ImportProductsCSV = () => {
                   exists = true;
                   existingId = titleData.product._id;
                   existingTitle = titleData.product.title;
+                  existingImages = titleData.product.images?.length || 0;
                   // Store alternatives for user selection
                   if (
                     titleData.alternatives &&
@@ -365,6 +369,7 @@ const ImportProductsCSV = () => {
           exists,
           existingId,
           existingTitle,
+          existingImages,
           alternatives,
         });
       }
@@ -837,6 +842,7 @@ const ImportProductsCSV = () => {
                   <th className="px-4 py-3 text-left">ASIN</th>
                   <th className="px-4 py-3 text-left">Producto</th>
                   <th className="px-4 py-3 text-center">Imágenes</th>
+                  <th className="px-4 py-3 text-center">Imágenes Existentes</th>
                   <th className="px-4 py-3 text-center">Estado</th>
                   <th className="px-4 py-3 text-left">Nota</th>
                 </tr>
@@ -866,7 +872,7 @@ const ImportProductsCSV = () => {
                       <td className="px-4 py-3 font-mono text-xs">
                         {item.asin || "—"}
                       </td>
-                      <td className="px-4 py-3 font-medium truncate max-w-xs">
+                      <td className="px-4 py-3 font-medium  max-w-xs">
                         {item.title}
                       </td>
                       <td className="px-4 py-3 text-center">
@@ -874,6 +880,24 @@ const ImportProductsCSV = () => {
                           <FaImages size={12} />
                           {item.totalImages}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {item.exists ? (
+                          <span
+                            className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded ${
+                              (item.existingImages ?? 0) > 0
+                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            }`}
+                          >
+                            <FaImages size={12} />
+                            {item.existingImages ?? 0}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded text-muted-foreground">
+                            —
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-center">
                         {item.exists ? (
