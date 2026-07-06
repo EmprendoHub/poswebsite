@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import dbConnect from "@/lib/db";
 import Product from "@/backend/models/Product";
 import { getToken } from "next-auth/jwt";
+import { updateCartItemsForProduct } from "@/lib/cartUpdateHelper";
 
 export async function PATCH(
   request: any,
@@ -62,6 +63,17 @@ export async function PATCH(
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
+    // Automatically update any active shopping carts containing this product
+    let cartUpdateInfo = null;
+    if (
+      body.price !== undefined ||
+      body.title !== undefined ||
+      body.images !== undefined
+    ) {
+      cartUpdateInfo = await updateCartItemsForProduct(productId, updateData);
+      console.log("Cart update result:", cartUpdateInfo);
+    }
+
     // Revalidate all product-related paths when price or product data changes
     revalidatePath("/admin/productos");
     revalidatePath("/tienda");
@@ -71,6 +83,7 @@ export async function PATCH(
         success: true,
         message: "Product updated successfully",
         product: updatedProduct,
+        cartUpdates: cartUpdateInfo,
       },
       { status: 200 },
     );
