@@ -10,7 +10,15 @@ import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
-const ALLOWED_ROLES = ["manager", "super_admin", "pos", "organizer", "empleado", "sucursal", "supervisor"];
+const ALLOWED_ROLES = [
+  "manager",
+  "super_admin",
+  "pos",
+  "organizer",
+  "empleado",
+  "sucursal",
+  "supervisor",
+];
 
 /**
  * GET /api/pos/cardex?productId=yyy&variationId=zzz

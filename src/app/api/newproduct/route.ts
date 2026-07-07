@@ -327,9 +327,7 @@ export async function PUT(request: any, res: any) {
     }
 
     const firstVariationPrice =
-      parsedVariations?.[0]?.price ||
-      parsedVariations?.[0]?.price ||
-      0;
+      parsedVariations?.[0]?.price || parsedVariations?.[0]?.price || 0;
 
     // Update a Product in the database
     // Also update product-level price and currentPrice to match variation price

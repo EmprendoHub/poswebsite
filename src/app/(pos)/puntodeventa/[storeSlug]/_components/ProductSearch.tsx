@@ -133,11 +133,11 @@ export default function ProductSearch({
     variation: SearchResult["variations"][0],
   ) => {
     if (variation.stock <= 0) return; // never add out-of-stock
-    
+
     // Use product.currentPrice if available (freshly fetched from search),
     // otherwise fall back to variation price
     const price = product.currentPrice ?? variation.price;
-    
+
     const label = [variation.color, variation.size, variation.title]
       .filter(Boolean)
       .join(" / ");

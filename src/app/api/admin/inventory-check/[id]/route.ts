@@ -5,7 +5,16 @@ import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
-const ALLOWED_ROLES = ["manager", "director", "super_admin", "pos", "organizer", "empleado", "sucursal", "supervisor"];
+const ALLOWED_ROLES = [
+  "manager",
+  "director",
+  "super_admin",
+  "pos",
+  "organizer",
+  "empleado",
+  "sucursal",
+  "supervisor",
+];
 
 /** GET /api/admin/inventory-check/[id] — get full session with all scanned items */
 export async function GET(
