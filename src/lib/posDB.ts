@@ -13,6 +13,8 @@ export interface CachedProduct {
   storeId: string;
   title: string;
   asin?: string;
+  price?: number; // Base product price
+  currentPrice?: number; // Sale price (takes precedence over price)
   images: { url: string }[];
   variations: {
     _id: string;
