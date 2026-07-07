@@ -39,6 +39,34 @@ export async function POST(request: any, res: any) {
       asin,
     } = Object.fromEntries(payload);
 
+    // Check if ASIN already exists
+    if (asin && asin.trim() !== "") {
+      const existingAsin = await Product.findOne({ ASIN: asin });
+      if (existingAsin) {
+        return NextResponse.json(
+          {
+            error: "ASIN ya existe",
+            message: "Este ASIN ya está registrado en el sistema",
+            status: "asin_exists",
+            existingProduct: {
+              _id: existingAsin._id,
+              title: existingAsin.title,
+              brand: existingAsin.brand,
+              category: existingAsin.category,
+              ASIN: existingAsin.ASIN,
+              images: existingAsin.images || [],
+              variations: existingAsin.variations || [],
+              stock: existingAsin.stock,
+              active: existingAsin.active,
+              price: existingAsin.variations?.[0]?.price || 0,
+              slug: existingAsin.slug,
+            },
+          },
+          { status: 409 },
+        );
+      }
+    }
+
     let slug = generateUrlSafeTitle(title);
 
     let slugExists = await Product.findOne({ slug });
@@ -288,7 +316,23 @@ export async function PUT(request: any, res: any) {
           height: 10,
         };
 
+    // Parse variations to get the first variation's price for the product-level price fields
+    let parsedVariations = [];
+    try {
+      parsedVariations = Array.isArray(variations)
+        ? variations
+        : JSON.parse(variations);
+    } catch (e) {
+      parsedVariations = [];
+    }
+
+    const firstVariationPrice =
+      parsedVariations?.[0]?.price ||
+      parsedVariations?.[0]?.price ||
+      0;
+
     // Update a Product in the database
+    // Also update product-level price and currentPrice to match variation price
     await Product.updateOne(
       { _id },
       {
@@ -307,6 +351,8 @@ export async function PUT(request: any, res: any) {
         images,
         colors,
         variations,
+        price: firstVariationPrice, // Update product-level price
+        currentPrice: firstVariationPrice, // Update currentPrice too
         weight: productWeight,
         dimensions: productDimensions,
         ASIN: asin || "",

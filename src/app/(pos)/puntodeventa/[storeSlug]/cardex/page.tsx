@@ -1,9 +1,114 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { useSession } from "next-auth/react";
 import POSSidebar from "../_components/POSSidebar";
-import { MdPrint, MdSearch, MdClose, MdInventory2 } from "react-icons/md";
+import {
+  MdPrint,
+  MdSearch,
+  MdClose,
+  MdInventory2,
+  MdLock,
+  MdShield,
+} from "react-icons/md";
+
+/* ─── Manager code modal ─────────────────────────────────────────── */
+function ManagerCodeModal({
+  onAuthorized,
+  onCancel,
+}: {
+  onAuthorized: () => void;
+  onCancel: () => void;
+}) {
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleVerify() {
+    if (code.length !== 6) {
+      setError("El código debe tener 6 dígitos.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/pos/verify-manager-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        onAuthorized();
+      } else {
+        setError("Código incorrecto. Intenta de nuevo.");
+        setCode("");
+      }
+    } catch {
+      setError("Error de red. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="bg-background rounded-2xl shadow-2xl w-full max-w-xs">
+        <div className="flex items-center gap-3 px-6 py-5 border-b border-muted">
+          <MdLock size={22} className="text-primary" />
+          <div>
+            <h2 className="font-bold text-base">Acceso restringido</h2>
+            <p className="text-xs text-muted-foreground">
+              Se requiere autorización de manager
+            </p>
+          </div>
+        </div>
+        <div className="px-6 py-5">
+          <p className="text-xs text-muted-foreground mb-4">
+            Ingresa el{" "}
+            <span className="font-semibold text-foreground">
+              código de manager
+            </span>{" "}
+            para acceder al cardex de productos.
+          </p>
+          <input
+            type="password"
+            value={code}
+            onChange={(e) => {
+              setCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+              setError("");
+            }}
+            onKeyDown={(e) => e.key === "Enter" && handleVerify()}
+            inputMode="numeric"
+            maxLength={6}
+            autoFocus
+            placeholder="••••••"
+            className="w-full border border-border rounded-lg px-3 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-primary tracking-widest text-center text-lg mb-1"
+          />
+          <p className="text-xs text-muted-foreground text-center mb-3">
+            {code.length}/6 dígitos
+          </p>
+          {error && (
+            <p className="text-xs text-red-500 mb-3 text-center">{error}</p>
+          )}
+          <button
+            onClick={handleVerify}
+            disabled={loading || code.length !== 6}
+            className="w-full bg-primary text-primary-foreground rounded-xl py-3 font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <MdShield size={16} />
+            {loading ? "Verificando..." : "Autorizar acceso"}
+          </button>
+          <button
+            onClick={onCancel}
+            className="w-full mt-2 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ─── Types ─────────────────────────────────────────────────────────── */
 interface ProductResult {
@@ -11,7 +116,7 @@ interface ProductResult {
   title: string;
   ASIN?: string;
   brand?: string;
-  variations: { _id: string; title: string; color?: string; size?: string }[];
+  variations: { _id: string; title: string }[];
   images?: { url: string }[];
 }
 interface InventoryRecord {
@@ -19,18 +124,23 @@ interface InventoryRecord {
   quantity: number;
 }
 interface Movement {
-  type: "sale";
+  type: "sale" | "transfer_in" | "transfer_out" | "adjustment";
   date: string;
-  orderId: number;
-  customerName: string;
-  phone: string;
-  orderStatus: string;
-  payMethod: string;
+  reference?: string;
+  orderId?: number;
+  customerName?: string;
+  phone?: string;
+  orderStatus?: string;
+  payMethod?: string;
   variationId: string;
-  variationName: string;
+  variationName?: string;
   quantity: number;
+  stockImpact?: number;
   unitPrice: number;
   total: number;
+  details?: string;
+  authorizedBy?: string;
+  branches?: string[];
 }
 interface CardexData {
   product: ProductResult;
@@ -39,12 +149,12 @@ interface CardexData {
   storeName: string;
 }
 
-/* ─── Helpers ────────────────────────────────────────────────────────── */
-function fmt(n: number) {
-  return n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
-}
-function fmtDate(d: string) {
-  return new Date(d).toLocaleString("es-MX", {
+/* ─── Helpers ─────────────────────────────────────────────────────── */
+const fmt = (n: number) =>
+  n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+
+const fmtDate = (d: string) =>
+  new Date(d).toLocaleString("es-MX", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -53,236 +163,52 @@ function fmtDate(d: string) {
     hour12: true,
     timeZone: "UTC",
   });
-}
 
-/* ─── Print ticket component ─────────────────────────────────────────── */
-function CardexPrintView({
-  data,
-  variationId,
-  storeName,
-}: {
-  data: CardexData;
-  variationId: string;
-  storeName: string;
-}) {
-  const { product, inventoryRecords, movements } = data;
-  const line = "─".repeat(60);
+const payLabel = (ref?: string) => {
+  const v = ref ?? "";
+  if (v === "EFECTIVO") return "Efectivo";
+  if (v.startsWith("MIXTO")) return "Mixto";
+  if (v) return "Terminal";
+  return "—";
+};
 
-  const filteredMovements = variationId
-    ? movements.filter((m) => m.variationId === variationId)
-    : movements;
+const movementTypeLabel = (type: Movement["type"]) => {
+  if (type === "sale") return "Venta";
+  if (type === "transfer_in") return "Entrada";
+  if (type === "transfer_out") return "Salida";
+  return "Ajuste";
+};
 
-  const selectedVariation = variationId
-    ? product.variations.find((v) => v._id === variationId)
-    : null;
-
-  const currentStock = variationId
-    ? (inventoryRecords.find((r) => r.variationId === variationId)?.quantity ??
-      0)
-    : inventoryRecords.reduce((s, r) => s + r.quantity, 0);
-
-  const totalSold = filteredMovements.reduce((s, m) => s + m.quantity, 0);
-
-  return (
-    <div
-      id="pos-ticket"
-      className="font-mono text-black bg-white text-xs"
-      style={{ padding: "10mm", lineHeight: "1.5", width: "100%" }}
-    >
-      <div
-        style={{
-          textAlign: "center",
-          fontWeight: "bold",
-          fontSize: "14px",
-          marginBottom: "4px",
-        }}
-      >
-        SUPER COLLECTIBLES
-      </div>
-      <div
-        style={{ textAlign: "center", fontSize: "11px", marginBottom: "2px" }}
-      >
-        {storeName}
-      </div>
-      <div
-        style={{ textAlign: "center", fontSize: "10px", marginBottom: "6px" }}
-      >
-        Reporte de Cardex — {new Date().toLocaleDateString("es-MX")}
-      </div>
-      <div>{line}</div>
-
-      <div style={{ marginTop: "4px", marginBottom: "4px" }}>
-        <strong>Producto:</strong> {product.title}
-      </div>
-      {product.ASIN && (
-        <div>
-          <strong>ASIN:</strong> {product.ASIN}
-        </div>
-      )}
-      {product.brand && (
-        <div>
-          <strong>Marca:</strong> {product.brand}
-        </div>
-      )}
-      {selectedVariation && (
-        <div>
-          <strong>Variación:</strong> {selectedVariation.title}
-        </div>
-      )}
-      <div style={{ marginTop: "2px" }}>
-        <strong>Stock actual:</strong> {currentStock} unidades
-      </div>
-      <div>
-        <strong>Total vendido (historial):</strong> {totalSold} unidades
-      </div>
-
-      <div style={{ marginTop: "6px", marginBottom: "2px" }}>{line}</div>
-      <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
-        HISTORIAL DE MOVIMIENTOS
-      </div>
-
-      {/* Table header */}
-      <div
-        style={{
-          display: "flex",
-          gap: "4px",
-          fontWeight: "bold",
-          fontSize: "9px",
-          borderBottom: "1px solid #000",
-          paddingBottom: "2px",
-          marginBottom: "2px",
-        }}
-      >
-        <span style={{ width: "120px" }}>Fecha</span>
-        <span style={{ width: "50px" }}>Folio</span>
-        <span style={{ width: "110px" }}>Cliente</span>
-        <span style={{ width: "60px" }}>Pago</span>
-        <span style={{ width: "30px", textAlign: "right" }}>Cant.</span>
-        <span style={{ width: "70px", textAlign: "right" }}>Total</span>
-        <span style={{ flex: 1 }}>Estado</span>
-      </div>
-
-      {filteredMovements.length === 0 && (
-        <div style={{ textAlign: "center", padding: "8px", color: "#555" }}>
-          Sin movimientos registrados.
-        </div>
-      )}
-
-      {filteredMovements.map((m, idx) => {
-        const payRef = m.payMethod ?? "";
-        let payLabel = "—";
-        if (payRef === "EFECTIVO") payLabel = "EFECT.";
-        else if (payRef.startsWith("MIXTO")) payLabel = "MIXTO";
-        else if (payRef) payLabel = "TERM.";
-
-        return (
-          <div
-            key={idx}
-            style={{
-              display: "flex",
-              gap: "4px",
-              fontSize: "9px",
-              paddingBottom: "2px",
-              borderBottom: "1px dotted #ccc",
-            }}
-          >
-            <span style={{ width: "120px" }}>{fmtDate(m.date)}</span>
-            <span style={{ width: "50px" }}>#{m.orderId}</span>
-            <span
-              style={{
-                width: "110px",
-                overflow: "hidden",
-                whiteSpace: "nowrap",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {m.customerName}
-            </span>
-            <span style={{ width: "60px" }}>{payLabel}</span>
-            <span style={{ width: "30px", textAlign: "right" }}>
-              {m.quantity}
-            </span>
-            <span style={{ width: "70px", textAlign: "right" }}>
-              {fmt(m.total)}
-            </span>
-            <span style={{ flex: 1 }}>{m.orderStatus}</span>
-          </div>
-        );
-      })}
-
-      <div style={{ marginTop: "6px" }}>{line}</div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginTop: "4px",
-          fontWeight: "bold",
-        }}
-      >
-        <span>TOTAL VENDIDO:</span>
-        <span>{fmt(filteredMovements.reduce((s, m) => s + m.total, 0))}</span>
-      </div>
-      <div
-        style={{
-          textAlign: "center",
-          fontSize: "9px",
-          marginTop: "8px",
-          color: "#555",
-        }}
-      >
-        Documento generado el {new Date().toLocaleString("es-MX")}
-      </div>
-    </div>
-  );
-}
-
-/* ─── Main page ──────────────────────────────────────────────────────── */
-export default function CardexPage() {
+/* ─── Main page ──────────────────────────────────────────────────── */
+export default function POSCardexPage() {
   const params = useParams();
   const storeSlug = params?.storeSlug as string;
-  const { data: session } = useSession();
-  const role = (session?.user as any)?.role;
-
-  const [storeId, setStoreId] = useState<string | null>(null);
   const [storeName, setStoreName] = useState("");
 
-  // Search
+  const [pageUnlocked, setPageUnlocked] = useState(false);
+
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ProductResult[]>([]);
   const [searching, setSearching] = useState(false);
 
-  // Selected product
   const [selectedProduct, setSelectedProduct] = useState<ProductResult | null>(
     null,
   );
   const [selectedVariationId, setSelectedVariationId] = useState("");
 
-  // Cardex data
   const [cardex, setCardex] = useState<CardexData | null>(null);
   const [loadingCardex, setLoadingCardex] = useState(false);
   const [cardexError, setCardexError] = useState("");
 
-  // Print preview
-  const [showPrint, setShowPrint] = useState(false);
-
-  const searchRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /* ── Redirect non-authorized roles ── */
-  useEffect(() => {
-    if (session && !["manager", "super_admin"].includes(role)) {
-      window.location.href = `/puntodeventa/${storeSlug}`;
-    }
-  }, [session, role, storeSlug]);
-
-  /* ── Load store ── */
+  /* ── Load store name ── */
   useEffect(() => {
     fetch("/api/stores")
       .then((r) => r.json())
       .then((stores: any[]) => {
         const found = stores.find((s) => s.slug === storeSlug);
         if (found) {
-          setStoreId(found._id);
           setStoreName(found.name);
         }
       });
@@ -290,7 +216,7 @@ export default function CardexPage() {
 
   /* ── Debounced product search ── */
   useEffect(() => {
-    if (!storeId || query.trim().length < 2) {
+    if (query.trim().length < 2) {
       setSearchResults([]);
       return;
     }
@@ -299,7 +225,7 @@ export default function CardexPage() {
       setSearching(true);
       try {
         const res = await fetch(
-          `/api/pos/cardex?storeId=${storeId}&q=${encodeURIComponent(query.trim())}`,
+          `/api/pos/cardex?q=${encodeURIComponent(query.trim())}`,
         );
         const data = await res.json();
         setSearchResults(data.products ?? []);
@@ -307,30 +233,26 @@ export default function CardexPage() {
         setSearching(false);
       }
     }, 350);
-  }, [query, storeId]);
+  }, [query]);
 
-  /* ── Load cardex detail ── */
-  const loadCardex = useCallback(
-    async (productId: string, variationId = "") => {
-      if (!storeId) return;
-      setLoadingCardex(true);
-      setCardexError("");
-      setCardex(null);
-      try {
-        const params = new URLSearchParams({ storeId, productId });
-        if (variationId) params.set("variationId", variationId);
-        const res = await fetch(`/api/pos/cardex?${params}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Error al cargar cardex");
-        setCardex(data);
-      } catch (e: any) {
-        setCardexError(e.message);
-      } finally {
-        setLoadingCardex(false);
-      }
-    },
-    [storeId],
-  );
+  /* ── Load cardex ── */
+  const loadCardex = useCallback(async (productId: string, varId = "") => {
+    setLoadingCardex(true);
+    setCardexError("");
+    setCardex(null);
+    try {
+      const p = new URLSearchParams({ productId });
+      if (varId) p.set("variationId", varId);
+      const res = await fetch(`/api/pos/cardex?${p}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Error al cargar cardex");
+      setCardex(data);
+    } catch (e: any) {
+      setCardexError(e.message);
+    } finally {
+      setLoadingCardex(false);
+    }
+  }, []);
 
   function selectProduct(p: ProductResult) {
     setSelectedProduct(p);
@@ -359,7 +281,6 @@ export default function CardexPage() {
       ? cardex.movements.filter((m) => m.variationId === selectedVariationId)
       : cardex.movements
     : [];
-
   const currentStock = cardex
     ? selectedVariationId
       ? (cardex.inventoryRecords.find(
@@ -367,67 +288,45 @@ export default function CardexPage() {
         )?.quantity ?? 0)
       : cardex.inventoryRecords.reduce((s, r) => s + r.quantity, 0)
     : 0;
+  const totalSold = filteredMovements
+    .filter((m) => m.type === "sale")
+    .reduce((s, m) => s + m.quantity, 0);
+  const totalRevenue = filteredMovements
+    .filter((m) => m.type === "sale")
+    .reduce((s, m) => s + m.total, 0);
 
-  const totalSold = filteredMovements.reduce((s, m) => s + m.quantity, 0);
-  const totalRevenue = filteredMovements.reduce((s, m) => s + m.total, 0);
+  if (!pageUnlocked) {
+    return (
+      <div className="flex h-screen bg-background">
+        <POSSidebar storeSlug={storeSlug} storeName={storeName} />
+        <ManagerCodeModal
+          onAuthorized={() => setPageUnlocked(true)}
+          onCancel={() => {
+            window.history.back();
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-background">
       <POSSidebar storeSlug={storeSlug} storeName={storeName} />
-
-      {/* Print overlay */}
-      {showPrint && cardex && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center print:bg-transparent print:inset-auto print:z-auto print:relative">
-          <div className="bg-white rounded-xl shadow-xl p-4 flex flex-col items-center gap-4 max-w-4xl w-full mx-4 print:shadow-none print:p-0 print:rounded-none">
-            <div className="no-print flex gap-3 items-center self-start">
-              <span className="font-semibold text-black">
-                Vista previa de impresión
-              </span>
-              <button
-                onClick={() => window.print()}
-                className="flex items-center gap-1 bg-primary text-white text-sm px-4 py-2 rounded-lg"
-              >
-                <MdPrint size={16} /> Imprimir
-              </button>
-              <button
-                onClick={() => setShowPrint(false)}
-                className="text-gray-500 text-sm underline"
-              >
-                Cerrar
-              </button>
-            </div>
-            <div className="w-full overflow-auto max-h-[70vh] print:max-h-none">
-              <CardexPrintView
-                data={cardex}
-                variationId={selectedVariationId}
-                storeName={storeName}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex-1 overflow-y-auto p-6 no-print">
+      <div className="flex-1 overflow-y-auto p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-xl font-bold flex items-center gap-2">
               <MdInventory2 size={22} /> Cardex de Producto
             </h1>
-            <p className="text-xs text-muted-foreground">{storeName}</p>
+            <p className="text-xs text-muted-foreground">
+              Historial de movimientos en {storeName}
+            </p>
           </div>
-          {cardex && (
-            <button
-              onClick={() => setShowPrint(true)}
-              className="flex items-center gap-2 bg-muted hover:bg-primary hover:text-primary-foreground px-4 py-2 rounded-lg text-sm transition-colors"
-            >
-              <MdPrint size={16} /> Imprimir historial
-            </button>
-          )}
         </div>
 
-        {/* Search */}
-        <div className="relative mb-6" ref={searchRef}>
+        {/* Product search */}
+        <div className="relative mb-6">
           <div className="flex items-center gap-2 bg-card border border-muted rounded-xl px-4 py-3">
             <MdSearch
               size={18}
@@ -457,8 +356,6 @@ export default function CardexPage() {
               </span>
             )}
           </div>
-
-          {/* Dropdown results */}
           {searchResults.length > 0 && (
             <div className="absolute left-0 right-0 top-full mt-1 bg-card border border-muted rounded-xl shadow-xl z-30 max-h-72 overflow-y-auto">
               {searchResults.map((p) => (
@@ -479,7 +376,7 @@ export default function CardexPage() {
           )}
         </div>
 
-        {/* Variation filter */}
+        {/* Variation pills */}
         {selectedProduct && selectedProduct.variations.length > 1 && (
           <div className="mb-6">
             <label className="text-xs text-muted-foreground mb-2 block font-medium uppercase tracking-wide">
@@ -488,11 +385,7 @@ export default function CardexPage() {
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => handleVariationChange("")}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                  selectedVariationId === ""
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "border-muted text-muted-foreground hover:border-foreground"
-                }`}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${selectedVariationId === "" ? "bg-primary text-primary-foreground border-primary" : "border-muted text-muted-foreground hover:border-foreground"}`}
               >
                 Todas
               </button>
@@ -500,11 +393,7 @@ export default function CardexPage() {
                 <button
                   key={v._id}
                   onClick={() => handleVariationChange(v._id)}
-                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                    selectedVariationId === v._id
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "border-muted text-muted-foreground hover:border-foreground"
-                  }`}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${selectedVariationId === v._id ? "bg-primary text-primary-foreground border-primary" : "border-muted text-muted-foreground hover:border-foreground"}`}
                 >
                   {v.title}
                 </button>
@@ -513,23 +402,21 @@ export default function CardexPage() {
           </div>
         )}
 
-        {/* Loading */}
         {loadingCardex && (
           <p className="text-sm text-muted-foreground animate-pulse">
             Cargando historial…
           </p>
         )}
-
         {cardexError && <p className="text-sm text-red-500">{cardexError}</p>}
 
-        {/* Product header + KPIs */}
+        {/* Product header */}
         {cardex && !loadingCardex && (
           <>
             <div className="bg-card border border-muted rounded-xl px-5 py-4 mb-5 flex items-start gap-4">
               {cardex.product.images?.[0]?.url && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={cardex.product.images[0].url}
+                  src={cardex.product.images?.[0]?.url!}
                   alt={cardex.product.title}
                   className="w-16 h-16 object-contain rounded-lg border border-muted flex-shrink-0"
                 />
@@ -545,88 +432,52 @@ export default function CardexPage() {
 
             {/* KPI cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-              <div className="bg-card border border-muted rounded-xl px-4 py-4">
-                <p className="text-xs text-muted-foreground mb-1">
-                  Stock actual
-                </p>
-                <p
-                  className={`text-2xl font-bold ${currentStock <= 0 ? "text-red-500" : currentStock <= 3 ? "text-amber-500" : "text-green-600"}`}
+              {[
+                {
+                  label: "Stock actual",
+                  value: currentStock,
+                  color:
+                    currentStock <= 0
+                      ? "text-red-500"
+                      : currentStock <= 3
+                        ? "text-amber-500"
+                        : "text-green-600",
+                },
+                {
+                  label: "Movimientos",
+                  value: filteredMovements.length,
+                  color: "text-foreground",
+                },
+                {
+                  label: "Uds. vendidas",
+                  value: totalSold,
+                  color: "text-primary",
+                },
+                {
+                  label: "Ingresos totales",
+                  value: fmt(totalRevenue),
+                  color: "text-green-600",
+                },
+              ].map((c) => (
+                <div
+                  key={c.label}
+                  className="bg-card border border-muted rounded-xl px-4 py-4"
                 >
-                  {currentStock}
-                </p>
-              </div>
-              <div className="bg-card border border-muted rounded-xl px-4 py-4">
-                <p className="text-xs text-muted-foreground mb-1">
-                  Movimientos
-                </p>
-                <p className="text-2xl font-bold">{filteredMovements.length}</p>
-              </div>
-              <div className="bg-card border border-muted rounded-xl px-4 py-4">
-                <p className="text-xs text-muted-foreground mb-1">
-                  Uds. vendidas
-                </p>
-                <p className="text-2xl font-bold text-primary">{totalSold}</p>
-              </div>
-              <div className="bg-card border border-muted rounded-xl px-4 py-4">
-                <p className="text-xs text-muted-foreground mb-1">
-                  Ingresos totales
-                </p>
-                <p className="text-2xl font-bold text-green-600">
-                  {fmt(totalRevenue)}
-                </p>
-              </div>
-            </div>
-
-            {/* Stock per variation table */}
-            {cardex.inventoryRecords.length > 1 && (
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                  Stock por variación
-                </h3>
-                <div className="overflow-x-auto rounded-xl border border-muted">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/30 text-xs text-muted-foreground uppercase">
-                      <tr>
-                        <th className="px-4 py-3 text-left">Variación</th>
-                        <th className="px-4 py-3 text-right">Stock</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cardex.inventoryRecords.map((r) => {
-                        const v = cardex.product.variations.find(
-                          (vv) => vv._id === r.variationId,
-                        );
-                        return (
-                          <tr
-                            key={r.variationId}
-                            className="border-t border-muted"
-                          >
-                            <td className="px-4 py-3 text-sm">
-                              {v?.title ?? r.variationId}
-                            </td>
-                            <td
-                              className={`px-4 py-3 text-right font-bold ${r.quantity <= 0 ? "text-red-500" : r.quantity <= 3 ? "text-amber-500" : "text-green-600"}`}
-                            >
-                              {r.quantity}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    {c.label}
+                  </p>
+                  <p className={`text-2xl font-bold ${c.color}`}>{c.value}</p>
                 </div>
-              </div>
-            )}
+              ))}
+            </div>
 
             {/* Movement history */}
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
               Historial de movimientos
             </h3>
-
             {filteredMovements.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No hay movimientos registrados para este producto en esta
-                sucursal.
+                No hay movimientos registrados para este producto.
               </p>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-muted">
@@ -635,91 +486,82 @@ export default function CardexPage() {
                     <tr>
                       <th className="px-4 py-3 text-left">Tipo</th>
                       <th className="px-4 py-3 text-left">Fecha</th>
-                      <th className="px-4 py-3 text-left">Folio</th>
-                      <th className="px-4 py-3 text-left">Cliente</th>
+                      <th className="px-4 py-3 text-left">Referencia</th>
+                      <th className="px-4 py-3 text-left">Detalle</th>
                       <th className="px-4 py-3 text-left">Variación</th>
-                      <th className="px-4 py-3 text-left">Forma de pago</th>
                       <th className="px-4 py-3 text-right">Cant.</th>
+                      <th className="px-4 py-3 text-right">Impacto</th>
                       <th className="px-4 py-3 text-right">Precio unit.</th>
                       <th className="px-4 py-3 text-right">Total</th>
-                      <th className="px-4 py-3 text-left">Estado</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredMovements.map((m, idx) => {
-                      const payRef = m.payMethod ?? "";
-                      let payLabel = "—";
-                      if (payRef === "EFECTIVO") payLabel = "Efectivo";
-                      else if (payRef.startsWith("MIXTO")) payLabel = "Mixto";
-                      else if (payRef) payLabel = "Terminal";
-
+                      const ref =
+                        m.reference || (m.orderId ? `#${m.orderId}` : "—");
+                      const detail =
+                        m.type === "sale"
+                          ? `${m.customerName || "—"} · ${payLabel(m.payMethod)} · ${m.orderStatus || "—"}`
+                          : m.details || "—";
                       const v = cardex.product.variations.find(
                         (vv) => vv._id === m.variationId,
                       );
-
+                      const impact = Number(m.stockImpact ?? 0);
                       return (
                         <tr key={idx} className="border-t border-muted">
                           <td className="px-4 py-3">
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                              Venta
+                            <span
+                              className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                m.type === "sale"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : m.type === "transfer_in"
+                                    ? "bg-green-100 text-green-700"
+                                    : m.type === "transfer_out"
+                                      ? "bg-orange-100 text-orange-700"
+                                      : "bg-purple-100 text-purple-700"
+                              }`}
+                            >
+                              {movementTypeLabel(m.type)}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-xs">
                             {fmtDate(m.date)}
                           </td>
-                          <td className="px-4 py-3 font-bold">#{m.orderId}</td>
-                          <td className="px-4 py-3">
-                            <p className="text-xs">{m.customerName}</p>
-                            {m.phone && (
-                              <p className="text-xs text-muted-foreground">
-                                {m.phone}
-                              </p>
-                            )}
-                          </td>
+                          <td className="px-4 py-3 font-bold">{ref}</td>
+                          <td className="px-4 py-3 text-xs">{detail}</td>
                           <td className="px-4 py-3 text-xs">
                             {v?.title ?? m.variationName ?? "—"}
                           </td>
-                          <td className="px-4 py-3 text-xs">{payLabel}</td>
                           <td className="px-4 py-3 text-right font-bold">
                             {m.quantity}
+                          </td>
+                          <td
+                            className={`px-4 py-3 text-right font-bold ${
+                              impact > 0
+                                ? "text-green-600"
+                                : impact < 0
+                                  ? "text-red-500"
+                                  : "text-muted-foreground"
+                            }`}
+                          >
+                            {impact > 0 ? `+${impact}` : impact}
                           </td>
                           <td className="px-4 py-3 text-right">
                             {fmt(m.unitPrice)}
                           </td>
-                          <td className="px-4 py-3 text-right font-bold text-green-600">
-                            {fmt(m.total)}
-                          </td>
                           <td
-                            className={`px-4 py-3 text-xs font-semibold ${
-                              m.orderStatus === "Entregado"
+                            className={`px-4 py-3 text-right font-bold ${
+                              m.total > 0
                                 ? "text-green-600"
-                                : m.orderStatus === "Apartado"
-                                  ? "text-amber-500"
-                                  : "text-muted-foreground"
+                                : "text-muted-foreground"
                             }`}
                           >
-                            {m.orderStatus}
+                            {fmt(m.total)}
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
-                  <tfoot className="bg-muted/30 font-bold text-sm">
-                    <tr className="border-t-2 border-muted">
-                      <td
-                        colSpan={6}
-                        className="px-4 py-3 text-right text-xs text-muted-foreground"
-                      >
-                        TOTALES
-                      </td>
-                      <td className="px-4 py-3 text-right">{totalSold}</td>
-                      <td></td>
-                      <td className="px-4 py-3 text-right text-green-600">
-                        {fmt(totalRevenue)}
-                      </td>
-                      <td></td>
-                    </tr>
-                  </tfoot>
                 </table>
               </div>
             )}
@@ -728,7 +570,7 @@ export default function CardexPage() {
 
         {/* Empty state */}
         {!selectedProduct && !loadingCardex && (
-          <div className="flex flex-col items-center justify-center gap-3 mt-16 text-muted-foreground">
+          <div className="flex flex-col items-center justify-center gap-3 mt-12 text-muted-foreground">
             <MdInventory2 size={48} />
             <p className="text-sm">Busca un producto para ver su cardex</p>
           </div>

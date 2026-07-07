@@ -13,6 +13,10 @@ const ALLOWED_ROLES = [
   "super_admin",
   "admin",
   "sucursal",
+  "pos",
+  "organizer",
+  "empleado",
+  "supervisor",
 ];
 
 /**

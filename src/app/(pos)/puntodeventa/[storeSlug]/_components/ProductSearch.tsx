@@ -108,6 +108,7 @@ export default function ProductSearch({
             _id: p.id,
             title: p.title,
             price: p.variations[0]?.price ?? 0,
+            currentPrice: p.currentPrice ?? p.variations[0]?.price ?? 0,
             images: p.images,
             variations: p.variations,
           })),
@@ -127,11 +128,16 @@ export default function ProductSearch({
     }
   }, [results]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleAdd = (
+  const handleAdd = async (
     product: SearchResult,
     variation: SearchResult["variations"][0],
   ) => {
     if (variation.stock <= 0) return; // never add out-of-stock
+    
+    // Use product.currentPrice if available (freshly fetched from search),
+    // otherwise fall back to variation price
+    const price = product.currentPrice ?? variation.price;
+    
     const label = [variation.color, variation.size, variation.title]
       .filter(Boolean)
       .join(" / ");
@@ -140,9 +146,7 @@ export default function ProductSearch({
       variationId: variation._id,
       title: product.title,
       variationLabel: label || "Default",
-      // Prefer product.currentPrice (the marked-up import price) over variation.price
-      // so that ÷1.1 in the cart always strips the correct 10% markup.
-      price: product.currentPrice ?? variation.price,
+      price,
       quantity: 1,
       image: variation.image ?? product.images?.[0]?.url ?? "",
       stock: variation.stock,
@@ -247,7 +251,7 @@ export default function ProductSearch({
                       </p>
                     </div>
                     <span className="text-sm font-semibold text-primary flex-shrink-0">
-                      ${v.price?.toFixed(2)}
+                      ${(product.currentPrice ?? v.price)?.toFixed(2)}
                     </span>
                   </button>
                 );

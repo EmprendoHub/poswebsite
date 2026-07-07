@@ -11,6 +11,7 @@ import {
   MdSync,
   MdCloudDone,
   MdLock,
+  MdRefresh,
 } from "react-icons/md";
 import { useParams, useRouter } from "next/navigation";
 import { usePOSSync } from "@/hooks/usePOSSync";
@@ -190,6 +191,28 @@ export default function POSSalesPage() {
                 Sincronizar ahora
               </button>
             )}
+          </div>
+        )}
+
+        {/* ── Refresh Products banner (always visible when online) ────── */}
+        {isOnline && (
+          <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-700 px-4 py-2 text-sm">
+            <MdRefresh
+              size={18}
+              className={`text-amber-600 flex-shrink-0 ${
+                isSyncing ? "animate-spin" : ""
+              }`}
+            />
+            <span className="text-amber-800 dark:text-amber-300 text-xs">
+              Actualización de catálogo disponible
+            </span>
+            <button
+              onClick={syncNow}
+              disabled={isSyncing}
+              className="ml-auto text-xs bg-amber-100 hover:bg-amber-200 disabled:opacity-50 disabled:cursor-not-allowed text-amber-700 px-3 py-1 rounded-lg transition-colors"
+            >
+              {isSyncing ? "Actualizando…" : "Actualizar ahora"}
+            </button>
           </div>
         )}
 

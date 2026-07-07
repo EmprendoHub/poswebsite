@@ -10,6 +10,7 @@ import { ValidationError } from "@/types";
 import { Loader } from "@/components/loader";
 import BarcodeScannerModal from "@/components/modals/BarcodeScannerModal";
 import PriceCheckerModal from "@/components/modals/PriceCheckerModal";
+import ASINConflictModal from "@/components/modals/ASINConflictModal";
 import { MdQrCodeScanner } from "react-icons/md";
 
 // =====================================================
@@ -60,6 +61,8 @@ const NewVariationOptimized = ({
   const [featured, setFeatured] = useState(false);
   const [updatePrice, setUpdatePrice] = useState(false);
   const [showPriceCheckerModal, setShowPriceCheckerModal] = useState(false);
+  const [showASINConflictModal, setShowASINConflictModal] = useState(false);
+  const [conflictingProduct, setConflictingProduct] = useState<any>(null);
   const [createdAt, setCreatedAt] = useState(
     cstDateTimeClient().toLocaleString(),
   );
@@ -1047,12 +1050,27 @@ const NewVariationOptimized = ({
     });
 
     if (!response?.ok) {
-      if (response.status === 409) {
+      const errorData = await response.json();
+
+      if (response.status === 409 && errorData.status === "asin_exists") {
+        // ASIN conflict - show modal with existing product
+        setConflictingProduct(errorData.existingProduct);
+        setShowASINConflictModal(true);
+        setIsSending(false);
+      } else if (response.status === 409) {
+        // Title conflict
         setValidationError({
           response: { _errors: ["Este Titulo de producto ya esta en uso"] },
         });
+        setIsSending(false);
+      } else {
+        setValidationError({
+          response: {
+            _errors: [errorData.error || "Error al crear el producto"],
+          },
+        });
+        setIsSending(false);
       }
-      setIsSending(false);
     } else {
       setValidationError(null);
       await updateRevalidateProduct();
@@ -1649,6 +1667,19 @@ const NewVariationOptimized = ({
         currentPrice={variations?.[0]?.price || 0}
         onPriceSelected={handlePriceSelected}
         onCardDetailsUpdate={handleCardDetailsUpdate}
+      />
+
+      {/* ASIN Conflict Modal */}
+      <ASINConflictModal
+        isOpen={showASINConflictModal}
+        existingProduct={conflictingProduct}
+        onClose={() => {
+          setShowASINConflictModal(false);
+          setConflictingProduct(null);
+        }}
+        onViewProduct={() => {
+          router.push(`/admin/productos/${conflictingProduct?.slug}`);
+        }}
       />
     </main>
   );

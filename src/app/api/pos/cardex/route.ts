@@ -10,11 +10,13 @@ import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
-const ALLOWED_ROLES = ["manager", "super_admin"];
+const ALLOWED_ROLES = ["manager", "super_admin", "pos", "organizer", "empleado", "sucursal", "supervisor"];
 
 /**
  * GET /api/pos/cardex?productId=yyy&variationId=zzz
  * GET /api/pos/cardex?q=search+term   (search products)
+ *
+ * Accessible to POS users after manager code verification
  */
 export async function GET(req: Request) {
   try {

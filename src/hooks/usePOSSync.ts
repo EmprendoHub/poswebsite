@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { posDB } from "@/lib/posDB";
 
-const CACHE_TTL_MS = 30 * 60 * 1000; // re-cache after 30 min
+const CACHE_TTL_MS = 10 * 60 * 1000; // re-cache after 10 min (reduced from 30 to show product updates faster)
 const SYNC_INTERVAL_MS = 5 * 60 * 1000; // background check every 5 min
 
 export interface SyncResult {
@@ -67,6 +67,8 @@ export function usePOSSync(storeId: string | null, storeSlug: string) {
           storeId,
           title: p.title,
           asin: p.ASIN ?? undefined,
+          price: p.price ?? 0,
+          currentPrice: p.currentPrice ?? p.price ?? 0,
           images: p.images ?? [],
           variations: p.variations ?? [],
           cachedAt: now,

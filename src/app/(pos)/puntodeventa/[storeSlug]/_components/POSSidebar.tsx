@@ -16,6 +16,8 @@ import {
   MdLightMode,
   MdAddBox,
   MdPieChart,
+  MdTableChart,
+  MdFactCheck,
 } from "react-icons/md";
 import { FiBarChart, FiLogOut } from "react-icons/fi";
 import { BsChevronBarLeft, BsChevronBarRight } from "react-icons/bs";
@@ -59,6 +61,18 @@ export default function POSSidebar({ storeSlug, storeName }: POSSidebarProps) {
       href: `${base}/inventario`,
       label: "Inventario",
       icon: <MdInventory2 size={20} />,
+      managerOnly: false,
+    },
+    {
+      href: `${base}/cardex`,
+      label: "Cardex",
+      icon: <MdTableChart size={20} />,
+      managerOnly: false,
+    },
+    {
+      href: `${base}/conteo-inventario`,
+      label: "Conteo de Inventario",
+      icon: <MdFactCheck size={20} />,
       managerOnly: false,
     },
     {
