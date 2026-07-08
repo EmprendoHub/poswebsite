@@ -232,7 +232,7 @@ export async function POST(req: any, res: any) {
 
       if (payAmount >= totalWithShipping) {
         currentOrder.orderStatus = "Procesando";
-        currentOrder.paymentInfo.status = "Paid";
+        currentOrder.paymentInfo.status = "Pagado";
 
         // Create shipment with Envía.com
         const shipment = await createShipmentWithEnvia(currentOrder);

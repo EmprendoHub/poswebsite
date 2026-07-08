@@ -57,13 +57,6 @@ export default function POSSidebar({ storeSlug, storeName }: POSSidebarProps) {
       icon: <FiBarChart size={20} />,
       managerOnly: false,
     },
-
-    {
-      href: `${base}/inventario`,
-      label: "Inventario",
-      icon: <MdInventory2 size={20} />,
-      managerOnly: false,
-    },
     {
       href: `${base}/cardex`,
       label: "Cardex",

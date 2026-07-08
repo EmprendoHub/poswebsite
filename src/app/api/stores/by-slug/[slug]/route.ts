@@ -26,7 +26,7 @@ export async function GET(
 
     return NextResponse.json(store, { status: 200 });
   } catch (error: any) {
-    console.error("Error fetching store:", error);
+    console.error("❌ Error fetching store:", error);
     return NextResponse.json(
       { error: error.message || "Error fetching store" },
       { status: 500 },

@@ -4,6 +4,7 @@ import { options } from "@/app/api/auth/[...nextauth]/options";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Order from "@/backend/models/Order";
+import mongoose from "mongoose";
 
 export async function GET(request: Request) {
   try {
@@ -16,7 +17,6 @@ export async function GET(request: Request) {
     // Get query parameters
     const { searchParams } = new URL(request.url);
     const storeId = searchParams.get("storeId");
-    const status = searchParams.get("status");
 
     if (!storeId) {
       return NextResponse.json(
@@ -28,16 +28,24 @@ export async function GET(request: Request) {
     // Connect to database
     await dbConnect();
 
-    // Build query
+    // Convert storeId to ObjectId if it's a valid MongoDB ObjectId
+    let storeObjectId: any = storeId;
+    try {
+      if (mongoose.Types.ObjectId.isValid(storeId)) {
+        storeObjectId = new mongoose.Types.ObjectId(storeId);
+      }
+    } catch (e) {
+      console.log(
+        "⚠️ Could not convert storeId to ObjectId, using as string:",
+        storeId,
+      );
+    }
+
+    // Build query - get all pickup orders for this store regardless of status
     const query: any = {
       fulfillmentType: "pickup",
-      pickupStore: storeId,
+      pickupStore: storeObjectId,
     };
-
-    // Filter by status if provided
-    if (status) {
-      query.orderStatus = status;
-    }
 
     // Fetch orders sorted by most recent first
     const orders = await Order.find(query).sort({ createdAt: -1 }).lean();
@@ -47,7 +55,7 @@ export async function GET(request: Request) {
       { status: 200 },
     );
   } catch (error: any) {
-    console.error("Error fetching pickup orders:", error);
+    console.error("❌ Error fetching pickup orders:", error);
     return NextResponse.json(
       { error: error.message || "Error fetching pickup orders" },
       { status: 500 },
