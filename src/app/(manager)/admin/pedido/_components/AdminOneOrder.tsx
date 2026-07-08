@@ -36,6 +36,8 @@ const AdminOneOrder = ({
   const [showModal, setShowModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
+  const [sendingPickupNotification, setSendingPickupNotification] =
+    useState(false);
 
   // ── Replace item state ────────────────────────────────────────────────────
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -202,6 +204,32 @@ const AdminOneOrder = ({
       toast("Error al reenviar el email");
     } finally {
       setResending(false);
+    }
+  };
+
+  const sendPickupNotification = async () => {
+    setSendingPickupNotification(true);
+    try {
+      const res = await fetch("/api/orders/send-pickup-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: id,
+          customerEmail: order?.email || customer?.email,
+          customerName: order?.customerName,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast("Email de notificación enviado exitosamente");
+      } else {
+        toast(data.error || "Error al enviar la notificación");
+      }
+    } catch (error) {
+      console.error("Error sending pickup notification:", error);
+      toast("Error al enviar la notificación");
+    } finally {
+      setSendingPickupNotification(false);
     }
   };
 
@@ -561,6 +589,17 @@ const AdminOneOrder = ({
             <FaEnvelope />
             {resending ? "Enviando..." : "Reenviar email"}
           </button>
+          {order?.fulfillmentType === "pickup" && (
+            <button
+              onClick={sendPickupNotification}
+              disabled={sendingPickupNotification}
+              title="Notificar al cliente que su pedido está listo para recoger"
+              className="mb-8 ml-4 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-sm px-4 py-2 cursor-pointer transition-colors"
+            >
+              <FaEnvelope />
+              {sendingPickupNotification ? "Enviando..." : "Notificar retiro"}
+            </button>
+          )}
         </div>
         {order?.branch !== "Sucursal" ? (
           <table className="w-fit text-sm text-left flex flex-col maxsm:flex-row">

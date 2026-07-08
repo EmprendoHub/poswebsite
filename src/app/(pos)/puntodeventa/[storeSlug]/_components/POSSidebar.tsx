@@ -18,6 +18,7 @@ import {
   MdPieChart,
   MdTableChart,
   MdFactCheck,
+  MdLocalShipping,
 } from "react-icons/md";
 import { FiBarChart, FiLogOut } from "react-icons/fi";
 import { BsChevronBarLeft, BsChevronBarRight } from "react-icons/bs";
@@ -79,6 +80,12 @@ export default function POSSidebar({ storeSlug, storeName }: POSSidebarProps) {
       href: `${base}/ordenes-trabajo`,
       label: "Órdenes de Trabajo",
       icon: <MdAssignment size={20} />,
+      managerOnly: false,
+    },
+    {
+      href: `${base}/ordenes-retiro`,
+      label: "Órdenes de Retiro",
+      icon: <MdLocalShipping size={20} />,
       managerOnly: false,
     },
   ].filter((item) => !item.managerOnly || isManager);
