@@ -178,7 +178,7 @@ export default function ProductSearch({
           onChange={(e) => setQuery(e.target.value)}
           placeholder={
             isOnline
-              ? "Buscar por nombre, ID, marca o categoría..."
+              ? "Buscar por nombre, ID, Cert o categoría..."
               : "Modo sin conexión — buscando en caché local..."
           }
           className="flex-1 bg-transparent outline-none text-sm placeholder:text-slate-300"

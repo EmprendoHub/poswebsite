@@ -90,7 +90,7 @@ export default function ASINConflictModal({
               </h3>
               {existingProduct.brand && (
                 <p className="text-sm text-gray-500 mt-1">
-                  Marca:{" "}
+                  Cert:{" "}
                   <span className="font-medium">{existingProduct.brand}</span>
                 </p>
               )}

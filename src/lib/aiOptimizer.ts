@@ -23,7 +23,7 @@ export async function optimizeProductForSEO(
   title: string,
   description: string,
   category?: string,
-  brand?: string
+  brand?: string,
 ): Promise<AIOptimizedContent> {
   try {
     const prompt = `Eres un experto en copywriting y SEO para e-commerce, especializado en TikTok Shop México.
@@ -32,7 +32,7 @@ Información del producto:
 - Título: ${title}
 - Descripción: ${description || "Sin descripción"}
 - Categoría: ${category || "General"}
-- Marca: ${brand || "Desconocida"}
+- Cert: ${brand || "Desconocida"}
 
 Optimiza este producto para TikTok Shop con los siguientes requisitos:
 
@@ -120,7 +120,7 @@ Devuelve ÚNICAMENTE un objeto JSON con esta estructura exacta (sin markdown, si
             "\f": "\\f",
           };
           return escapeMap[match] || "";
-        }
+        },
       );
 
       parsed = JSON.parse(cleanedText);
@@ -151,7 +151,7 @@ export async function optimizeProductsBatch(
     category?: string;
     brand?: string;
   }>,
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
 ): Promise<AIOptimizedContent[]> {
   const results: AIOptimizedContent[] = [];
   const delayBetweenCalls = 1000; // 1 second delay to avoid rate limits
@@ -164,7 +164,7 @@ export async function optimizeProductsBatch(
         product.title,
         product.description,
         product.category,
-        product.brand
+        product.brand,
       );
       results.push(optimized);
 

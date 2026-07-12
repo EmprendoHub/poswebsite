@@ -6,21 +6,21 @@ import {
   FaStar,
   FaExclamationCircle,
   FaEye,
-  FaFileExcel,
 } from "react-icons/fa";
 import { MdClose, MdStorefront } from "react-icons/md";
 import FormattedPrice from "@/backend/helpers/FormattedPrice";
 import Swal, { SweetAlertIcon } from "sweetalert2";
 import SearchProducts from "@/app/(manager)/admin/productos/search";
+import BarcodeScannerModal from "@/components/modals/BarcodeScannerModal";
+import { MdQrCodeScanner } from "react-icons/md";
 import {
   changeProductAvailability,
   deleteOneProduct,
   bulkUpdateProducts,
 } from "@/app/_actions";
-import { product_categories, genders } from "@/backend/data/productData";
 import { FaShop } from "react-icons/fa6";
 import { TbWorldWww } from "react-icons/tb";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { SiMercadopago } from "react-icons/si";
@@ -36,6 +36,7 @@ const AdminProducts = ({
   search: any;
 }) => {
   const getPathname = usePathname();
+  const router = useRouter();
   const { data: session } = useSession();
   const isSuperAdmin = (session?.user as any)?.role === "super_admin";
   let pathname: string = "";
@@ -54,6 +55,7 @@ const AdminProducts = ({
   );
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkGender, setBulkGender] = useState("");
+  const [bulkBrand, setBulkBrand] = useState("");
   const [isBulkLoading, setIsBulkLoading] = useState(false);
   const [bulkLength, setBulkLength] = useState("");
   const [bulkWidth, setBulkWidth] = useState("");
@@ -64,6 +66,9 @@ const AdminProducts = ({
   } | null>(null);
   const [stockPreview, setStockPreview] = useState<any | null>(null);
   const [stockPreviewLoading, setStockPreviewLoading] = useState(false);
+  const [categoryOptions, setCategoryOptions] = useState<any[]>([]);
+  const [brandOptions, setBrandOptions] = useState<any[]>([]);
+  const [genderOptions, setGenderOptions] = useState<any[]>([]);
   const [stockPreviewRows, setStockPreviewRows] = useState<
     {
       storeName: string;
@@ -71,6 +76,7 @@ const AdminProducts = ({
       details: { label: string; quantity: number }[];
     }[]
   >([]);
+  const [showScanner, setShowScanner] = useState(false);
 
   const closePreview = useCallback(() => setPreviewImage(null), []);
   const closeStockPreview = useCallback(() => {
@@ -126,6 +132,36 @@ const AdminProducts = ({
   }, []);
 
   useEffect(() => {
+    const fetchProductDetails = async () => {
+      try {
+        const [categoriesRes, brandsRes, gendersRes] = await Promise.all([
+          fetch("/api/product-details?catType=category", {
+            credentials: "include",
+          }),
+          fetch("/api/product-details?catType=brand", {
+            credentials: "include",
+          }),
+          fetch("/api/product-details?catType=gender", {
+            credentials: "include",
+          }),
+        ]);
+
+        const categoriesData = await categoriesRes.json();
+        const brandsData = await brandsRes.json();
+        const gendersData = await gendersRes.json();
+
+        setCategoryOptions(categoriesData.details || []);
+        setBrandOptions(brandsData.details || []);
+        setGenderOptions(gendersData.details || []);
+      } catch (error) {
+        console.error("Error fetching ProductDetails:", error);
+      }
+    };
+
+    fetchProductDetails();
+  }, []);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && closePreview();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -162,11 +198,12 @@ const AdminProducts = ({
 
   const handleBulkUpdate = async () => {
     const hasDims = bulkLength || bulkWidth || bulkHeight;
-    if (!bulkCategory && !bulkGender && !hasDims) return;
+    if (!bulkCategory && !bulkGender && !bulkBrand && !hasDims) return;
     const count = selectedProducts.size;
     const parts = [];
     if (bulkCategory) parts.push(`categoría "${bulkCategory}"`);
     if (bulkGender) parts.push(`género "${bulkGender}"`);
+    if (bulkBrand) parts.push(`marca "${bulkBrand}"`);
     if (hasDims)
       parts.push(
         `dimensiones (${bulkLength || "—"}×${bulkWidth || "—"}×${bulkHeight || "—"} cm)`,
@@ -187,6 +224,7 @@ const AdminProducts = ({
       await bulkUpdateProducts(Array.from(selectedProducts), {
         category: bulkCategory || undefined,
         gender: bulkGender || undefined,
+        brand: bulkBrand || undefined,
         dimensions: hasDims
           ? {
               length: bulkLength ? Number(bulkLength) : undefined,
@@ -204,6 +242,7 @@ const AdminProducts = ({
       setSelectedProducts(new Set());
       setBulkCategory("");
       setBulkGender("");
+      setBulkBrand("");
       setBulkLength("");
       setBulkWidth("");
       setBulkHeight("");
@@ -373,7 +412,17 @@ const AdminProducts = ({
           <h1 className="text-3xl maxsm:text-base mb-2 maxsm:mb-1 ml-4 maxsm:ml-0 font-bold font-EB_Garamond w-1/2">
             {`${filteredProductsCount} Productos `}
           </h1>
-          <SearchProducts search={search} />
+          <div className="flex gap-2 items-center w-full">
+            <button
+              type="button"
+              onClick={() => setShowScanner(true)}
+              className="flex-shrink-0 flex items-center gap-1 px-3 py-2 bg-muted hover:bg-primary hover:text-primary-foreground rounded-xl transition-colors text-sm"
+              title="Escanear código de barras/QR para buscar"
+            >
+              <MdQrCodeScanner size={20} />
+            </button>
+            <SearchProducts search={search} />
+          </div>
         </div>
 
         {/* Bulk action bar */}
@@ -390,9 +439,9 @@ const AdminProducts = ({
               className="text-sm border rounded-lg px-2 py-1.5 bg-background"
             >
               <option value="">— Categoría —</option>
-              {product_categories.map((c) => (
-                <option key={c.en} value={c.en}>
-                  {c.es}
+              {categoryOptions.map((c) => (
+                <option key={c._id} value={c.catTitle}>
+                  {c.catTitle}
                 </option>
               ))}
             </select>
@@ -404,9 +453,23 @@ const AdminProducts = ({
               className="text-sm border rounded-lg px-2 py-1.5 bg-background"
             >
               <option value="">— Género —</option>
-              {genders.map((g) => (
-                <option key={g.en} value={g.en}>
-                  {g.es}
+              {genderOptions.map((g) => (
+                <option key={g._id} value={g.catTitle}>
+                  {g.catTitle}
+                </option>
+              ))}
+            </select>
+
+            {/* Brand select */}
+            <select
+              value={bulkBrand}
+              onChange={(e) => setBulkBrand(e.target.value)}
+              className="text-sm border rounded-lg px-2 py-1.5 bg-background"
+            >
+              <option value="">— Cert —</option>
+              {brandOptions.map((b) => (
+                <option key={b._id} value={b.catTitle}>
+                  {b.catTitle}
                 </option>
               ))}
             </select>
@@ -450,6 +513,7 @@ const AdminProducts = ({
                 isBulkLoading ||
                 (!bulkCategory &&
                   !bulkGender &&
+                  !bulkBrand &&
                   !bulkLength &&
                   !bulkWidth &&
                   !bulkHeight)
@@ -459,12 +523,12 @@ const AdminProducts = ({
               {isBulkLoading ? "Guardando..." : "Aplicar cambios"}
             </button>
 
-            <div className="ml-auto">
+            {/* <div className="ml-auto">
               <ExportToTikTokButton
                 selectedProductIds={Array.from(selectedProducts)}
                 onExportComplete={() => setSelectedProducts(new Set())}
               />
-            </div>
+            </div> */}
           </div>
         )}
 
@@ -493,7 +557,10 @@ const AdminProducts = ({
                 Img
               </th>
               <th scope="col" className="w-full py-3 ">
-                Genero
+                Dempt
+              </th>
+              <th scope="col" className="w-full py-3 ">
+                Cert
               </th>
               {/* <th scope="col" className="w-full py-3 ">
                 Linea
@@ -577,6 +644,7 @@ const AdminProducts = ({
                   </span>
                 </td>
                 <td className="w-full px-1 py-0 ">{product?.gender}</td>
+                <td className="w-full px-1 py-0 ">{product?.brand}</td>
                 {/* <td className="w-full px-1 py-0 ">{product?.linea}</td> */}
                 <td className="w-full px-1 py-0 text-[11px] uppercase">
                   {product?.ASIN || "—"}
@@ -786,6 +854,17 @@ const AdminProducts = ({
             </div>
           </div>
         </div>
+      )}
+
+      {showScanner && (
+        <BarcodeScannerModal
+          onScan={(value) => {
+            // Navigate to search with scanned barcode value
+            router.push(`/${pathname}/productos?keyword=${value}`);
+            setShowScanner(false);
+          }}
+          onClose={() => setShowScanner(false)}
+        />
       )}
     </>
   );

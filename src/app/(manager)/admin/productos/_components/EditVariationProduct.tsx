@@ -102,6 +102,15 @@ const EditVariationProduct = ({
   const [validationError, setValidationError] =
     useState<ValidationError | null>(null);
 
+  // Product Details (Brands, Genders, Categories)
+  const [brands, setBrands] = useState<{ _id: string; catTitle: string }[]>([]);
+  const [genders, setGenders] = useState<{ _id: string; catTitle: string }[]>(
+    [],
+  );
+  const [categories, setCategories] = useState<
+    { _id: string; catTitle: string }[]
+  >([]);
+
   const [mainImage, setMainImage] = useState(product?.images[0]?.url || "");
   const [uploadingSecondaryIndices, setUploadingSecondaryIndices] = useState<
     number[]
@@ -149,6 +158,24 @@ const EditVariationProduct = ({
       setPriceInputValue(variations[0].price.toString());
     }
   }, [showPriceVerification, variations]);
+
+  // Fetch ProductDetails for brands, genders, categories
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/product-details?catType=brand").then((r) => r.json()),
+      fetch("/api/product-details?catType=gender").then((r) => r.json()),
+      fetch("/api/product-details?catType=category").then((r) => r.json()),
+    ])
+      .then(([brandsData, gendersData, categoriesData]) => {
+        if (brandsData?.details && Array.isArray(brandsData.details))
+          setBrands(brandsData.details);
+        if (gendersData?.details && Array.isArray(gendersData.details))
+          setGenders(gendersData.details);
+        if (categoriesData?.details && Array.isArray(categoriesData.details))
+          setCategories(categoriesData.details);
+      })
+      .catch(() => {});
+  }, []);
 
   const addVariation = () => {
     setVariations(
@@ -1594,14 +1621,19 @@ const EditVariationProduct = ({
                         <label className="block mb-2 text-xs font-medium text-muted-foreground">
                           Certificador
                         </label>
-                        <input
-                          type="text"
+                        <select
                           className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
-                          placeholder="PSA, BGS, etc."
                           value={brand || ""}
                           onChange={(e) => setBrand(e.target.value)}
                           name="brand"
-                        />
+                        >
+                          <option value="">Seleccionar certificador...</option>
+                          {brands.map((b) => (
+                            <option key={b._id} value={b.catTitle}>
+                              {b.catTitle}
+                            </option>
+                          ))}
+                        </select>
                         {validationError?.brand && (
                           <p className="text-xs text-destructive mt-1">
                             {validationError.brand._errors.join(", ")}
@@ -1711,14 +1743,19 @@ const EditVariationProduct = ({
                         <label className="block mb-2 text-xs font-medium text-muted-foreground">
                           Género/Tema
                         </label>
-                        <input
-                          type="text"
+                        <select
                           className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
-                          placeholder="Pokémon, NFL, etc."
                           value={gender || ""}
                           onChange={(e) => setGender(e.target.value)}
                           name="gender"
-                        />
+                        >
+                          <option value="">Seleccionar género...</option>
+                          {genders.map((g) => (
+                            <option key={g._id} value={g.catTitle}>
+                              {g.catTitle}
+                            </option>
+                          ))}
+                        </select>
                         {validationError?.gender && (
                           <p className="text-xs text-destructive mt-1">
                             {validationError.gender._errors.join(", ")}
@@ -1730,14 +1767,19 @@ const EditVariationProduct = ({
                         <label className="block mb-2 text-xs font-medium text-muted-foreground">
                           Categoría
                         </label>
-                        <input
-                          type="text"
+                        <select
                           className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
-                          placeholder="Tarjetas, Guantes, etc."
                           value={category || ""}
                           onChange={(e) => setCategory(e.target.value)}
                           name="category"
-                        />
+                        >
+                          <option value="">Seleccionar categoría...</option>
+                          {categories.map((c) => (
+                            <option key={c._id} value={c.catTitle}>
+                              {c.catTitle}
+                            </option>
+                          ))}
+                        </select>
                         {validationError?.category && (
                           <p className="text-xs text-destructive mt-1">
                             {validationError.category._errors.join(", ")}

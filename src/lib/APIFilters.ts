@@ -19,6 +19,7 @@ class APIFilters {
           { description: { $regex: keyword, $options: "i" } },
           { category: { $regex: keyword, $options: "i" } },
           { gender: { $regex: keyword, $options: "i" } },
+          { brand: { $regex: keyword, $options: "i" } },
           { ASIN: { $regex: keyword, $options: "i" } },
         ],
       };

@@ -409,7 +409,7 @@ export default function NewWorkOrderPage() {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar por nombre, ID, marca..."
+                placeholder="Buscar por nombre, ID, Cert..."
                 className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
               />
               {query && (

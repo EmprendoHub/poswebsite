@@ -82,7 +82,7 @@ const FavoritesComp = ({ session }: { session: any }) => {
                               </p>
                               <p className="mt-1 text-gray-400">
                                 {" "}
-                                Marca: {item?.brand}
+                                Cert: {item?.brand}
                               </p>
                             </figcaption>
                           </figure>

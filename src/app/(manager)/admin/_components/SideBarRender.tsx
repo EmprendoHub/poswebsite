@@ -15,6 +15,7 @@ import {
   MdAttachMoney,
   MdFactCheck,
   MdTableChart,
+  MdCategory,
 } from "react-icons/md";
 import { FaCartPlus } from "react-icons/fa6";
 import { BsCardImage } from "react-icons/bs";
@@ -101,9 +102,18 @@ const SideBarRender = () => {
             active: pathname === "/admin/productos/nuevo" ? "true" : "false",
             icon: <FaCartPlus size={20} />,
           },
+
           // Add more dropdown items as needed
         ]}
       />
+      {userRole === "super_admin" && (
+        <SideBarItem
+          icon={<MdCategory size={20} />}
+          text={"Detalles de Productos"}
+          active={pathname === "/admin/producto-detalles" ? "true" : "false"}
+          url={"/admin/producto-detalles"}
+        />
+      )}
       <SideBarItem
         icon={<PiUserListLight size={20} />}
         text={"Clientes"}

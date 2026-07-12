@@ -339,7 +339,7 @@ export default function POSCardexPage() {
                 setQuery(e.target.value);
                 if (!e.target.value) clearSearch();
               }}
-              placeholder="Buscar producto por nombre, ASIN o marca…"
+              placeholder="Buscar producto por nombre, ASIN o Cert…"
               className="flex-1 bg-transparent outline-none text-sm"
             />
             {query && (

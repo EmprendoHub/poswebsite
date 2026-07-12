@@ -147,7 +147,7 @@ function CardexPrintView({
       )}
       {product.brand && (
         <div>
-          <strong>Marca:</strong> {product.brand}
+          <strong>Cert:</strong> {product.brand}
         </div>
       )}
       {selectedVar && (
@@ -444,7 +444,7 @@ export default function AdminCardexPage() {
               setQuery(e.target.value);
               if (!e.target.value) clearSearch();
             }}
-            placeholder="Buscar producto por nombre, ASIN o marca…"
+            placeholder="Buscar producto por nombre, ASIN o Cert…"
             className="flex-1 bg-transparent outline-none text-sm"
           />
           {query && (

@@ -54,13 +54,13 @@ export async function POST(request: any) {
         title: title,
         description: description,
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("Error analyzing image with OpenAI API:", error);
     return NextResponse.json(
       { message: "Failed to analyze image" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

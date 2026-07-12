@@ -51,7 +51,7 @@ const POSProductDetails = ({ product }: { product: any }) => {
   }));
   const initialSizes = product?.variations
     .filter(
-      (variation: any) => variation.color === product?.variations[0]?.color
+      (variation: any) => variation.color === product?.variations[0]?.color,
     )
     .map((variation: any) => variation.size);
 
@@ -74,7 +74,7 @@ const POSProductDetails = ({ product }: { product: any }) => {
   const [colors, setColors] = useState<string[]>(product?.colors || []);
   const [alreadyCart, setAlreadyCart] = useState<boolean>(false);
   const [color, setColor] = useState<string>(
-    product?.variations[0]?.color || ""
+    product?.variations[0]?.color || "",
   );
   const [size, setSize] = useState<string>(product?.variations[0]?.size || "");
   const [variation, setVariation] = useState<ProductVariation>({
@@ -89,7 +89,7 @@ const POSProductDetails = ({ product }: { product: any }) => {
   useEffect(() => {
     // Find matches based on _id property
     const existingProduct: any = productsPOS.find((item1: any) =>
-      product.variations.some((item2: any) => item1._id === item2._id)
+      product.variations.some((item2: any) => item1._id === item2._id),
     );
 
     if (existingProduct?.quantity >= product.stock) {
@@ -135,7 +135,7 @@ const POSProductDetails = ({ product }: { product: any }) => {
     const valueToCheck = e.target.value;
     setColor(valueToCheck);
     const pickedVariationByColor = product.variations.find(
-      (variation: any) => variation.color === valueToCheck
+      (variation: any) => variation.color === valueToCheck,
     );
 
     setSize(pickedVariationByColor.size);
@@ -149,7 +149,7 @@ const POSProductDetails = ({ product }: { product: any }) => {
     const pickedVariation = product.variations.find(
       (variation: any) =>
         variation.color === valueToCheck &&
-        variation.size === pickedVariationByColor.size
+        variation.size === pickedVariationByColor.size,
     );
 
     const currentSizes: any[] = [];
@@ -168,7 +168,7 @@ const POSProductDetails = ({ product }: { product: any }) => {
     const valueToCheck = e.target.value;
     const pickedSizeVariation = product.variations.find(
       (variation: any) =>
-        variation.size === valueToCheck && variation.color === color
+        variation.size === valueToCheck && variation.color === color,
     );
     setVariation(pickedSizeVariation);
     setSize(valueToCheck);
@@ -190,7 +190,7 @@ const POSProductDetails = ({ product }: { product: any }) => {
                   {images.map(
                     (
                       image: { _id: Key | null | undefined; url: any },
-                      index: number
+                      index: number,
                     ) => (
                       <div
                         key={image._id}
@@ -201,7 +201,7 @@ const POSProductDetails = ({ product }: { product: any }) => {
                           backgroundImage: `url('${image.url}')`,
                         }}
                       ></div>
-                    )
+                    ),
                   )}
                 </div>
               </motion.div>
@@ -229,7 +229,7 @@ const POSProductDetails = ({ product }: { product: any }) => {
                         <p>
                           {calculatePercentage(
                             variation.price,
-                            product?.sale_price
+                            product?.sale_price,
                           )}
                           % menos
                         </p>
@@ -288,7 +288,7 @@ const POSProductDetails = ({ product }: { product: any }) => {
                                 value: string;
                                 colorHex: string;
                               },
-                              index: Key | null | undefined
+                              index: Key | null | undefined,
                             ) => (
                               <div
                                 key={index}
@@ -308,15 +308,15 @@ const POSProductDetails = ({ product }: { product: any }) => {
                                     c.value === "Multicolor"
                                       ? "dynamic-gradient"
                                       : c.value === "Multicolor Dos"
-                                      ? "dynamic-gradient-two"
-                                      : "rounded-full"
+                                        ? "dynamic-gradient-two"
+                                        : "rounded-full"
                                   } flex shadow-md cursor-pointer p-3  text-white `}
                                 ></button>
                                 <p className="text-[10px]">
                                   {c.value.substring(0, 8)}
                                 </p>
                               </div>
-                            )
+                            ),
                           )}
                         </span>
                       )}
@@ -414,7 +414,7 @@ const POSProductDetails = ({ product }: { product: any }) => {
                     </span>
                   </span>
                   <span>
-                    Genero:{" "}
+                    Departamento:{" "}
                     <span className="t font-bodyFont">{product?.gender}</span>
                   </span>
                 </div>

@@ -12,6 +12,7 @@ import BarcodeScannerModal from "@/components/modals/BarcodeScannerModal";
 import PriceCheckerModal from "@/components/modals/PriceCheckerModal";
 import ASINConflictModal from "@/components/modals/ASINConflictModal";
 import { MdQrCodeScanner } from "react-icons/md";
+import { log } from "console";
 
 // =====================================================
 // REMOTE IMAGE API CONFIGURATION
@@ -82,11 +83,37 @@ const NewVariationOptimized = ({
   const [initialCost, setInitialCost] = useState<number | "">("");
   const [initialStock, setInitialStock] = useState<number | "">("");
 
+  // Product Details (Brands, Genders, Categories)
+  const [brands, setBrands] = useState<{ _id: string; catTitle: string }[]>([]);
+  const [genders, setGenders] = useState<{ _id: string; catTitle: string }[]>(
+    [],
+  );
+  const [categories, setCategories] = useState<
+    { _id: string; catTitle: string }[]
+  >([]);
+
   useEffect(() => {
+    // Fetch stores
     fetch("/api/stores")
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setStores(data);
+      })
+      .catch(() => {});
+
+    // Fetch ProductDetails for brands, genders, categories
+    Promise.all([
+      fetch("/api/product-details?catType=brand").then((r) => r.json()),
+      fetch("/api/product-details?catType=gender").then((r) => r.json()),
+      fetch("/api/product-details?catType=category").then((r) => r.json()),
+    ])
+      .then(([brandsData, gendersData, categoriesData]) => {
+        if (brandsData?.details && Array.isArray(brandsData.details))
+          setBrands(brandsData.details);
+        if (gendersData?.details && Array.isArray(gendersData.details))
+          setGenders(gendersData.details);
+        if (categoriesData?.details && Array.isArray(categoriesData.details))
+          setCategories(categoriesData.details);
       })
       .catch(() => {});
   }, []);
@@ -1312,13 +1339,18 @@ const NewVariationOptimized = ({
                       <label className="block mb-1 font-EB_Garamond text-xs">
                         Certificador
                       </label>
-                      <input
-                        type="text"
+                      <select
                         className="appearance-none border bg-card text-card-foreground rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
-                        placeholder="Cert. ej. PSA"
                         value={brand}
                         onChange={(e) => setBrand(e.target.value)}
-                      />
+                      >
+                        <option value="">Seleccionar certificador...</option>
+                        {brands.map((b) => (
+                          <option key={b._id} value={b.catTitle}>
+                            {b.catTitle}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     {/* Grado */}
                     <div className="flex w-20 flex-col items-start">
@@ -1474,13 +1506,18 @@ const NewVariationOptimized = ({
                     <label className="block mb-1 font-EB_Garamond text-xs">
                       Género
                     </label>
-                    <input
-                      type="text"
+                    <select
                       className="appearance-none border bg-card text-card-foreground rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
-                      placeholder="Ej. Pokémon, NFL, Nascar, etc."
                       value={gender}
                       onChange={(e) => setGender(e.target.value)}
-                    />
+                    >
+                      <option value="">Seleccionar género...</option>
+                      {genders.map((g) => (
+                        <option key={g._id} value={g.catTitle}>
+                          {g.catTitle}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* Category */}
@@ -1488,13 +1525,18 @@ const NewVariationOptimized = ({
                     <label className="block mb-1 font-EB_Garamond text-xs">
                       Categoría
                     </label>
-                    <input
-                      type="text"
+                    <select
                       className="appearance-none border bg-card text-card-foreground rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
-                      placeholder="Ej. Tarjetas, Guantes, Balones, etc."
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                    />
+                    >
+                      <option value="">Seleccionar categoría...</option>
+                      {categories.map((c) => (
+                        <option key={c._id} value={c.catTitle}>
+                          {c.catTitle}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* ASIN */}

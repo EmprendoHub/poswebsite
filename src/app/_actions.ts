@@ -2734,6 +2734,7 @@ export async function bulkUpdateProducts(
   updates: {
     category?: string;
     gender?: string;
+    brand?: string;
     dimensions?: { length?: number; width?: number; height?: number };
   },
 ) {
@@ -2742,6 +2743,7 @@ export async function bulkUpdateProducts(
     const updateFields: Record<string, any> = {};
     if (updates.category) updateFields.category = updates.category;
     if (updates.gender) updateFields.gender = updates.gender;
+    if (updates.brand) updateFields.brand = updates.brand;
     if (updates.dimensions) {
       const { length, width, height } = updates.dimensions;
       if (length != null) updateFields["dimensions.length"] = length;

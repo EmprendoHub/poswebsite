@@ -24,7 +24,7 @@ const AdminProductsPage = async ({ searchParams }: { searchParams: any }) => {
   let page = parseInt(searchParams.page, 10);
   page = !page || page < 1 ? 1 : page;
   const perPage = 20;
-  const itemCount = data?.productsCount;
+  const itemCount = data?.filteredProductsCount;
   const totalPages = Math.ceil(data.filteredProductsCount / perPage);
   const prevPage = page - 1 > 0 ? page - 1 : 1;
   const nextPage = page + 1;

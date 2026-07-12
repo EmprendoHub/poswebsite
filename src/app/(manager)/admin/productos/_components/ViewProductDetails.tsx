@@ -407,7 +407,7 @@ const ViewProductDetails = ({
                     </span>
                   </span>
                   <span>
-                    Genero:{" "}
+                    Departamento:{" "}
                     <span className="t font-bodyFont">{product?.gender}</span>
                   </span>
                 </div>

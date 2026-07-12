@@ -136,7 +136,7 @@ const Cart = () => {
                               <p>{cartItem?.title}</p>
                               <p className="mt-1 text-gray-400  text-[12px]">
                                 {" "}
-                                Marca: {cartItem?.brand}
+                                Cert: {cartItem?.brand}
                               </p>
                             </figcaption>
                             <div>{cartItem.color}</div>
