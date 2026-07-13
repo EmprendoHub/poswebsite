@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import { options } from "@/app/api/auth/[...nextauth]/options";
 import CashRegisterMovement from "@/backend/models/CashRegisterMovement";
+import Order from "@/backend/models/Order";
 import dbConnect from "@/lib/db";
 import {
   POS_ALLOWED_ROLES,
@@ -44,10 +45,46 @@ export async function POST(req: Request) {
     const periodStart = cajaSession.openedAt;
     const periodEnd = new Date();
 
+    console.log("\n████████████ CIERRE DEBUG ████████████");
+    console.log("📅 PERIOD START:", {
+      raw: periodStart,
+      iso: new Date(periodStart).toISOString(),
+      timestamp: periodStart.getTime?.() || new Date(periodStart).getTime(),
+    });
+    console.log("📅 PERIOD END:", {
+      raw: periodEnd,
+      iso: periodEnd.toISOString(),
+      timestamp: periodEnd.getTime(),
+    });
+    console.log(
+      "⏱️  Period Duration (ms):",
+      periodEnd.getTime() -
+        (periodStart.getTime?.() || new Date(periodStart).getTime()),
+    );
+    console.log("████████████████████████████████████\n");
+
     // All movements for the full session (cierre covers everything since apertura)
     const movements = await CashRegisterMovement.find({
       session: sessionId,
     }).lean();
+
+    // For cierre, include all cancelled orders from the entire session
+    // (all calendar days involved in the session period)
+    const cancelledOrders = await Order.find({
+      orderStatus: "Cancelado",
+      createdAt: { $gte: periodStart, $lte: periodEnd },
+    }).lean();
+
+    // Debug: Check all cancelled orders to see their timestamps
+    const allCancelledOrders = await Order.find({
+      orderStatus: "Cancelado",
+    })
+      .lean()
+      .limit(5);
+    allCancelledOrders.forEach((order: any, idx: number) => {});
+
+    if (cancelledOrders.length > 0) {
+    }
 
     const totals = movements.reduce(
       (acc, m) => {
@@ -74,14 +111,18 @@ export async function POST(req: Request) {
         mixedCardSales: 0,
         inflows: 0,
         outflows: 0,
+        cancelledOrdersCount: cancelledOrders.length,
+        cancelledOrdersTotal: cancelledOrders.reduce(
+          (sum, order: any) => sum + (order.paymentInfo?.amountPaid ?? 0),
+          0,
+        ),
       },
     );
 
-    const totalSales =
-      totals.cashSales +
-      totals.cardSales +
-      totals.mixedCashSales +
-      totals.mixedCardSales;
+    // Combine payment methods: Efectivo includes mixed cash, Terminal includes mixed card
+    const totalCashSales = totals.cashSales + totals.mixedCashSales;
+    const totalCardSales = totals.cardSales + totals.mixedCardSales;
+    const totalSales = totalCashSales + totalCardSales;
 
     const expectedCash = calculateExpectedCash(cajaSession);
     const declared = Number(declaredCash ?? expectedCash);
@@ -102,7 +143,15 @@ export async function POST(req: Request) {
       declaredCash: declared,
       expectedCash,
       difference,
-      totals: { ...totals, totalSales },
+      totals: {
+        cashSales: totalCashSales,
+        cardSales: totalCardSales,
+        inflows: totals.inflows,
+        outflows: totals.outflows,
+        totalSales,
+        cancelledOrdersCount: totals.cancelledOrdersCount,
+        cancelledOrdersTotal: totals.cancelledOrdersTotal,
+      },
       movementsCount: movements.length,
       salesCount: movements.filter((m) => m.type === "sale").length,
       notes: notes || "",

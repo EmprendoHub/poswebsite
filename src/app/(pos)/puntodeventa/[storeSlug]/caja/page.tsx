@@ -22,6 +22,8 @@ interface CajaTotals {
   inflows: number;
   outflows: number;
   totalSales?: number;
+  cancelledOrdersCount?: number;
+  cancelledOrdersTotal?: number;
 }
 interface CajaSession {
   _id: string;
@@ -92,7 +94,7 @@ function CajaTicket({
       style={{
         width: "95%",
         fontSize: "10px",
-        padding: "4mm",
+        padding: "8mm",
         lineHeight: "1.4",
         textTransform: "uppercase",
         fontWeight: "bold",
@@ -137,20 +139,20 @@ function CajaTicket({
 
       <div className="flex justify-between text-xs">
         <span>Efectivo:</span>
-        <span>{fmt(cut.totals.cashSales)}</span>
+        <span>{fmt(cut.totals.cashSales + cut.totals.mixedCashSales)}</span>
       </div>
       <div className="flex justify-between text-xs">
         <span>Terminal:</span>
-        <span>{fmt(cut.totals.cardSales)}</span>
+        <span>{fmt(cut.totals.cardSales + cut.totals.mixedCardSales)}</span>
       </div>
-      <div className="flex justify-between text-xs">
+      {/* <div className="flex justify-between text-xs">
         <span>Mixto (efe):</span>
         <span>{fmt(cut.totals.mixedCashSales)}</span>
       </div>
       <div className="flex justify-between text-xs">
         <span>Mixto (tar):</span>
         <span>{fmt(cut.totals.mixedCardSales)}</span>
-      </div>
+      </div> */}
       <div className="flex justify-between text-xs font-bold">
         <span>TOTAL VENTAS:</span>
         <span>
@@ -166,6 +168,23 @@ function CajaTicket({
         <span># Transacciones:</span>
         <span>{cut.salesCount}</span>
       </div>
+
+      {(cut.totals.cancelledOrdersCount ?? 0) > 0 && (
+        <>
+          <div className="text-xs text-center my-1">{line}</div>
+          <div className="text-xs font-bold text-center mb-1">
+            ÓRDENES CANCELADAS
+          </div>
+          <div className="flex justify-between text-xs">
+            <span># Cancelado:</span>
+            <span>{cut.totals.cancelledOrdersCount ?? 0}</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span>Total:</span>
+            <span>{fmt(cut.totals.cancelledOrdersTotal ?? 0)}</span>
+          </div>
+        </>
+      )}
 
       <div className="text-xs text-center my-1">{line}</div>
       <div className="text-xs font-bold text-center mb-1">CAJA</div>
@@ -273,6 +292,12 @@ export default function CajaPage() {
     setLoading(true);
     const res = await fetch(`/api/pos/caja/state?storeId=${storeId}`);
     const data = await res.json();
+    if (data?.recentCuts?.length > 0) {
+      console.log("First cut cancelled orders:", {
+        count: data.recentCuts[0].totals?.cancelledOrdersCount,
+        total: data.recentCuts[0].totals?.cancelledOrdersTotal,
+      });
+    }
     setActiveSession(data?.activeSession ?? null);
     setRecentCuts(data?.recentCuts ?? []);
     setMovements(data?.movements ?? []);
@@ -806,6 +831,15 @@ export default function CajaPage() {
                       <td className="px-4 py-3 text-center">
                         <button
                           onClick={() => {
+                            console.log("=== REPRINT BUTTON CLICKED ===");
+                            console.log("Cut data:", {
+                              _id: c._id,
+                              cancelledOrdersCount:
+                                c.totals?.cancelledOrdersCount,
+                              cancelledOrdersTotal:
+                                c.totals?.cancelledOrdersTotal,
+                            });
+                            console.log("==============================");
                             setLastCut(c);
                             setShowPrintTicket(true);
                           }}
