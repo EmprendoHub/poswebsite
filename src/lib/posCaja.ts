@@ -98,9 +98,9 @@ export async function nextCutNumber(sessionId: string) {
   if (!session) return 1;
 
   // Find the highest cutNumber for this store
-  const lastCut = await CashRegisterCut.findOne({ store: session.store })
+  const lastCut = (await CashRegisterCut.findOne({ store: session.store })
     .sort({ cutNumber: -1 })
-    .lean() as any;
+    .lean()) as any;
 
   return (lastCut?.cutNumber ?? 0) + 1;
 }
