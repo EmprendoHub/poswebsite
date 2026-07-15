@@ -100,7 +100,7 @@ export async function nextCutNumber(sessionId: string) {
   // Find the highest cutNumber for this store
   const lastCut = await CashRegisterCut.findOne({ store: session.store })
     .sort({ cutNumber: -1 })
-    .lean();
+    .lean() as any;
 
   return (lastCut?.cutNumber ?? 0) + 1;
 }
