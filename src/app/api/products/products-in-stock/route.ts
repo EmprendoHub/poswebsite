@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Product from "@/backend/models/Product";
 import StoreInventory from "@/backend/models/StoreInventory";
-import APIFilters from "@/lib/APIFilters";
 import { getToken } from "next-auth/jwt";
 
 export const GET = async (request: any) => {
@@ -20,12 +19,12 @@ export const GET = async (request: any) => {
     await dbConnect();
 
     const keyword = request.nextUrl.searchParams.get("keyword");
+    const storeId = request.nextUrl.searchParams.get("storeId");
     const resPerPage = Number(request.nextUrl.searchParams.get("limit")) || 15;
     const page = Number(request.nextUrl.searchParams.get("page")) || 1;
-    const storeId = request.nextUrl.searchParams.get("storeId");
 
     // Build search filter - only search by title and ASIN
-    let searchFilter: any = { "availability.online": true };
+    let searchFilter: any = {};
     if (keyword) {
       searchFilter.$or = [
         { title: { $regex: keyword, $options: "i" } },
@@ -42,7 +41,6 @@ export const GET = async (request: any) => {
     // Get filtered count
     let productsData = await productQuery.clone().exec();
     const filteredProductsCount = productsData.length;
-
     // Apply pagination
     const skip = (page - 1) * resPerPage;
     productsData = await Product.find(searchFilter)
@@ -51,62 +49,53 @@ export const GET = async (request: any) => {
       .limit(resPerPage)
       .exec();
 
-    // If storeId provided, check StoreInventory for each variation
+    // Filter availability from StoreInventory (not Product.stock)
+    const productIds = productsData.map((p: any) => p._id);
+    const inventoryMatch: Record<string, any> = {
+      product: { $in: productIds },
+      quantity: { $gt: 0 },
+    };
+
     if (storeId) {
-      const productsWithStoreStock = await Promise.all(
-        productsData.map(async (product: any) => {
-          const productObj = product.toObject();
-
-          // Get inventory for all variations from this store
-          const inventoryRecords = await StoreInventory.find({
-            store: storeId,
-            product: product._id,
-          });
-
-          // Create a map of variationId -> quantity
-          const inventoryMap = new Map(
-            inventoryRecords.map((inv: any) => [inv.variationId, inv.quantity]),
-          );
-
-          // Update each variation's stock from StoreInventory
-          productObj.variations = productObj.variations.map(
-            (variation: any) => ({
-              ...variation,
-              storeStock: inventoryMap.get(variation._id.toString()) || 0,
-            }),
-          );
-
-          return productObj;
-        }),
-      );
-
-      // Filter products that have at least one variation with stock in this store
-      const productsWithStock = productsWithStoreStock.filter((p: any) =>
-        p.variations?.some((v: any) => v.storeStock > 0),
-      );
-
-      return NextResponse.json(
-        {
-          products: {
-            products: productsWithStock,
-          },
-          productsCount,
-          filteredProductsCount: productsWithStock.length,
-          allCategories,
-          allBrands,
-        },
-        { status: 200 },
-      );
+      inventoryMatch.store = storeId;
     }
 
-    // Default behavior: check product.variations.stock
+    const inventoryRows = await StoreInventory.aggregate([
+      { $match: inventoryMatch },
+      {
+        $group: {
+          _id: "$product",
+          totalQuantity: { $sum: "$quantity" },
+        },
+      },
+    ]);
+
+    const inventoryMap = new Map(
+      inventoryRows.map((row: any) => [row._id.toString(), row.totalQuantity]),
+    );
+
+    const productsWithInventory = new Set(
+      inventoryRows
+        .filter((row: any) => Number(row.totalQuantity || 0) > 0)
+        .map((row: any) => row._id.toString()),
+    );
+
     const sortedProducts = productsData
       .slice()
       .sort(
         (a: any, b: any) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       )
-      .filter((p: any) => p.variations?.some((v: any) => v.stock > 0));
+      .filter((p: any) => {
+        // Include product if it has StoreInventory records OR if it has Product.stock
+        const hasStoreInventory = productsWithInventory.has(p._id.toString());
+        // const hasProductStock = Number(p.stock || 0) > 0;
+        return hasStoreInventory;
+      })
+      .map((p: any) => ({
+        ...p.toObject(),
+        storeInventoryTotal: inventoryMap.get(p._id.toString()) || 0,
+      }));
 
     const products = {
       products: sortedProducts,

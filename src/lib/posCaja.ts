@@ -93,8 +93,16 @@ export async function aggregateMovements(
 }
 
 export async function nextCutNumber(sessionId: string) {
-  const cuts = await CashRegisterCut.countDocuments({ session: sessionId });
-  return cuts + 1;
+  // Get the session to find the store
+  const session = await CashRegisterSession.findById(sessionId);
+  if (!session) return 1;
+
+  // Find the highest cutNumber for this store
+  const lastCut = await CashRegisterCut.findOne({ store: session.store })
+    .sort({ cutNumber: -1 })
+    .lean();
+
+  return (lastCut?.cutNumber ?? 0) + 1;
 }
 
 export { CashRegisterSession, CashRegisterCut, CashRegisterMovement };

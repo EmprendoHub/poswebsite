@@ -15,11 +15,13 @@ import { calculateShippingQuotes } from "@/lib/shippingRates";
 interface PaymentFormProps {
   fulfillmentType?: "shipping" | "pickup";
   pickupStore?: string;
+  storeId?: string;
 }
 
 const PaymentForm = ({
   fulfillmentType = "shipping",
   pickupStore = "",
+  storeId = "",
 }: PaymentFormProps) => {
   const dispatch = useDispatch();
   const { data: session } = useSession();
@@ -134,6 +136,7 @@ const PaymentForm = ({
     // Add pickup store for pickup fulfillment
     if (fulfillmentType === "pickup") {
       requestBody.pickupStore = pickupStore;
+      requestBody.storeId = pickupStore; // For inventory deduction from pickup store
     }
 
     const response = await fetch(`/api/checkout?${payType}`, {
@@ -243,13 +246,13 @@ const PaymentForm = ({
             <button
               onClick={() => handleCheckout("total")}
               className={`rounded-xl w-full text-slate-100 mt-4 py-3 px-6 duration-300 ease-in-out cursor-pointer ${
-                shippingMethod
+                fulfillmentType === "pickup" || shippingMethod
                   ? "bg-emerald-600 hover:bg-emerald-800 hover:text-foreground"
                   : "bg-gray-400 cursor-not-allowed"
               }`}
-              disabled={!shippingMethod}
+              disabled={fulfillmentType === "shipping" && !shippingMethod}
             >
-              {shippingMethod ? (
+              {fulfillmentType === "pickup" || shippingMethod ? (
                 <>
                   Pagar Total <FormattedPrice amount={totalAmountCalc} />
                 </>

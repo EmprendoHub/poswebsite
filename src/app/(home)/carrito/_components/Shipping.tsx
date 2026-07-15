@@ -152,6 +152,9 @@ const Shipping = ({ addresses }: { addresses: any }) => {
                 <PaymentForm
                   fulfillmentType={fulfillmentType}
                   pickupStore={pickupStore}
+                  storeId={
+                    fulfillmentType === "pickup" ? pickupStore : undefined
+                  }
                 />
               </article>
             </aside>

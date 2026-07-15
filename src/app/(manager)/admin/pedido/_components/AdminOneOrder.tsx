@@ -573,34 +573,43 @@ const AdminOneOrder = ({
             className={`text-3xl mb-8 ml-4 font-bold uppercase ${
               order?.orderStatus === "Apartado"
                 ? "text-amber-700"
-                : order?.paymentInfo?.status === "Pagado"
-                  ? "text-green-700"
-                  : "text-blue-500"
+                : order?.orderStatus === "Cancelado"
+                  ? "text-red-700"
+                  : order?.paymentInfo?.status === "Pagado"
+                    ? "text-green-700"
+                    : "text-blue-500"
             }`}
           >
             {order?.orderStatus}
           </h2>
-          <button
-            onClick={resendAdminEmail}
-            disabled={resending}
-            title="Reenviar email al administrador"
-            className="mb-8 ml-4 flex items-center gap-2 bg-green-700 hover:bg-green-800 disabled:opacity-50 text-white text-sm font-medium rounded-sm px-4 py-2 cursor-pointer transition-colors"
-          >
-            <FaEnvelope />
-            {resending ? "Enviando..." : "Reenviar email"}
-          </button>
-          {order?.fulfillmentType === "pickup" && (
-            <button
-              onClick={sendPickupNotification}
-              disabled={sendingPickupNotification}
-              title="Notificar al cliente que su pedido está listo para recoger"
-              className="mb-8 ml-4 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-sm px-4 py-2 cursor-pointer transition-colors"
-            >
-              <FaEnvelope />
-              {sendingPickupNotification ? "Enviando..." : "Notificar retiro"}
-            </button>
+          {order?.orderStatus !== "Cancelado" && (
+            <div className="flex flex-row maxsm:flex-col items-start justify-start gap-x-5">
+              <button
+                onClick={resendAdminEmail}
+                disabled={resending}
+                title="Reenviar email al administrador"
+                className="mb-8 ml-4 flex items-center gap-2 bg-green-700 hover:bg-green-800 disabled:opacity-50 text-white text-sm font-medium rounded-sm px-4 py-2 cursor-pointer transition-colors"
+              >
+                <FaEnvelope />
+                {resending ? "Enviando..." : "Reenviar email"}
+              </button>
+              {order?.fulfillmentType === "pickup" && (
+                <button
+                  onClick={sendPickupNotification}
+                  disabled={sendingPickupNotification}
+                  title="Notificar al cliente que su pedido está listo para recoger"
+                  className="mb-8 ml-4 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-sm px-4 py-2 cursor-pointer transition-colors"
+                >
+                  <FaEnvelope />
+                  {sendingPickupNotification
+                    ? "Enviando..."
+                    : "Notificar retiro"}
+                </button>
+              )}
+            </div>
           )}
         </div>
+
         {order?.branch !== "Sucursal" ? (
           <table className="w-fit text-sm text-left flex flex-col maxsm:flex-row">
             <thead className="text-l text-gray-400 ">
@@ -707,7 +716,7 @@ const AdminOneOrder = ({
           <div className="flex items-center gap-3 py-2 px-1 mb-2 border-b">
             {editingPrices ? (
               <>
-                <span className="text-xs text-amber-700 font-semibold uppercase tracking-wide">
+                <span className="text-xs text-purple-700 font-semibold uppercase tracking-wide">
                   Modo edición de precios
                 </span>
                 <button
@@ -728,7 +737,7 @@ const AdminOneOrder = ({
             ) : (
               <button
                 onClick={startEditPrices}
-                className="flex items-center gap-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded px-3 py-1.5 transition-colors"
+                className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded px-3 py-1.5 transition-colors"
               >
                 <FaPencilAlt className="text-xs" />
                 Editar precios

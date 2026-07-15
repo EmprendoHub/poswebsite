@@ -1,75 +1,50 @@
 export const dynamic = "force-dynamic";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
+import { getServerSession } from "next-auth";
+import { options } from "@/app/api/auth/[...nextauth]/options";
 import dbConnect from "@/lib/db";
 import User from "@/backend/models/User";
-import APIClientFilters from "@/lib/APIClientFilters";
 
-export const GET = async (request: any, res: any) => {
-  const sessionRaw = await request.headers.get("session");
-  const session = JSON.parse(sessionRaw);
-  if (!session) {
-    // Not Signed in
-    return new Response("You are not authorized, eh eh eh, no no no", {
-      status: 400,
-    });
-  }
+export const GET = async (req: NextRequest) => {
   try {
-    await dbConnect();
-    let clientQuery;
-    clientQuery = User.find({ role: "cliente" });
+    const session = await getServerSession(options);
 
-    const resPerPage = Number(request.headers.get("perpage")) || 5;
-    // Extract page and per_page from request URL
-    const page = Number(request.nextUrl.searchParams.get("page")) || 1;
-    // total number of documents in database
-    const clientsCount = await User.countDocuments();
-
-    // Apply search Filters
-    const apiClientFilters: any = new APIClientFilters(
-      clientQuery,
-      request.nextUrl.searchParams
-    )
-      .searchAllFields()
-      .filter();
-
-    let clientsData = await apiClientFilters.query;
-
-    const filteredClientsCount = clientsData.length;
-
-    apiClientFilters.pagination(resPerPage, page);
-    clientsData = await apiClientFilters.query.clone();
-
-    // If you want a new sorted array without modifying the original one, use slice
-    // const sortedObj1 = obj1
-    //   .slice()
-    //   .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-
-    // descending order
-    // descending order
-    const sortedClients = clientsData
-      .slice()
-      .sort(
-        (a: any, b: any) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    if (!session) {
+      return NextResponse.json(
+        { error: "You are not authorized" },
+        { status: 401 },
       );
+    }
 
-    const clients = {
-      clients: sortedClients,
-    };
+    await dbConnect();
 
-    const dataPacket = {
-      clients,
-      clientsCount,
-      filteredClientsCount,
-      resPerPage,
-    };
-    return new Response(JSON.stringify(dataPacket), { status: 201 });
-  } catch (error) {
+    const searchParams = req.nextUrl.searchParams;
+    const search = searchParams.get("search") || "";
+    const limit = Number(searchParams.get("limit")) || 10;
+
+    // Build search filter
+    let searchFilter: any = { role: "cliente" };
+
+    if (search) {
+      searchFilter.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Find matching clients
+    const clients = await User.find(searchFilter)
+      .limit(limit)
+      .sort({ createdAt: -1 })
+      .select("_id name email phone");
+
+    return NextResponse.json(clients, { status: 200 });
+  } catch (error: any) {
+    console.error("Error fetching clients:", error);
     return NextResponse.json(
-      {
-        error: "Clients loading error",
-      },
-      { status: 500 }
+      { error: "Clients loading error" },
+      { status: 500 },
     );
   }
 };

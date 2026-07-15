@@ -19,6 +19,7 @@ interface OrderDocument extends Document {
     quantity: number;
     price: number;
     image: string;
+    storeId?: mongoose.Types.ObjectId;
     weight?: number;
     length?: number;
     width?: number;
@@ -113,6 +114,10 @@ const OrderSchema = new Schema<OrderDocument>({
       image: {
         type: String,
         require: true,
+      },
+      storeId: {
+        type: Schema.Types.ObjectId,
+        ref: "Store",
       },
       weight: {
         type: Number,

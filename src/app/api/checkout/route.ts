@@ -4,19 +4,22 @@ import Affiliate from "@/backend/models/Affiliate";
 import Order from "@/backend/models/Order";
 import Product from "@/backend/models/Product";
 import ReferralLink from "@/backend/models/ReferralLink";
+import StoreInventory from "@/backend/models/StoreInventory";
+import dbConnect from "@/lib/db";
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-async function getCartItems(items: any) {
+async function getCartItems(items: any, storeId?: string) {
   try {
     const cartItemsPromises = items.map(async (item: any) => {
       const variationId = item.variation || item._id;
-      const productId = item.product || item._id; // Usar el _id del item si product no existe
+      const productId = item.product || item._id;
 
       console.log("Processing item:", {
         variationId,
         productId,
+        storeId,
         title: item.title,
         quantity: item.quantity,
       });
@@ -39,14 +42,33 @@ async function getCartItems(items: any) {
         return null;
       }
 
+      // Check inventory from StoreInventory if storeId is provided, otherwise use product stock
+      let availableStock = 0;
+      let inventorySource = "product.stock";
+
+      if (storeId) {
+        const storeInventory = await StoreInventory.findOne({
+          store: storeId,
+          variationId: variationId,
+        });
+        availableStock = storeInventory?.quantity || 0;
+        inventorySource = "StoreInventory";
+      } else {
+        availableStock = variation.stock || 0;
+      }
+
+      console.log(
+        `Stock check (${inventorySource}): ${availableStock} available, need ${item.quantity}`,
+      );
+
       // Check if there is enough stock
-      if (variation.stock < item.quantity) {
+      if (availableStock < item.quantity) {
         console.log("Insufficient stock for:", item.title);
         return null;
       }
 
       return {
-        product: product._id, // Usar el ID del producto encontrado
+        product: product._id,
         variation: variationId,
         name: item.title?.replace(/[^\w\s]/gi, "") || "Producto",
         description: item.title?.replace(/[^\w\s]/gi, "") || "Producto",
@@ -59,6 +81,7 @@ async function getCartItems(items: any) {
         length: item.length || product.dimensions?.length || 15,
         width: item.width || product.dimensions?.width || 15,
         height: item.height || product.dimensions?.height || 10,
+        storeId: storeId || undefined,
       };
     });
 
@@ -113,6 +136,7 @@ export const POST = async (request: any) => {
     payType,
     fulfillmentType = "shipping", // "shipping", "pickup", or "pos"
     pickupStore,
+    storeId,
   } = await reqBody;
 
   try {
@@ -187,7 +211,7 @@ export const POST = async (request: any) => {
       paymentIntent: "pending",
     };
 
-    const order_items = await getCartItems(items);
+    const order_items = await getCartItems(items, storeId);
     const line_items = await items.map((item: any) => {
       return {
         price_data: {
@@ -238,6 +262,37 @@ export const POST = async (request: any) => {
     };
 
     const newOrder = await new Order(orderData).save({ session: mongoSession });
+
+    // Deduct inventory from StoreInventory for each item
+    console.log(`\nDeducting inventory from StoreInventory...`);
+    for (const item of order_items) {
+      if (item.storeId) {
+        console.log(`\n--- Deducting Item ---`);
+        console.log(`Product: ${item.product}`);
+        console.log(`Variation: ${item.variation}`);
+        console.log(`Quantity to Deduct: ${item.quantity}`);
+        console.log(`Store ID: ${item.storeId}`);
+
+        const beforeInventory = await StoreInventory.findOne({
+          store: item.storeId,
+          variationId: item.variation,
+        }).session(mongoSession);
+
+        console.log(`Inventory BEFORE: ${beforeInventory?.quantity || 0}`);
+
+        const updatedInventory = (await StoreInventory.findOneAndUpdate(
+          {
+            store: item.storeId,
+            variationId: item.variation,
+          },
+          { $inc: { quantity: -item.quantity } },
+          { new: true, session: mongoSession },
+        )) as any;
+
+        console.log(`Inventory AFTER: ${updatedInventory?.quantity || 0}`);
+        console.log(`✓ Inventory deducted`);
+      }
+    }
 
     // Intentionally cause an error by attempting to insert a document with missing required fields
     //await new Customer({}).save({ session: mongoSession });

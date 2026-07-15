@@ -250,6 +250,11 @@ export default function CajaPage() {
   const [movements, setMovements] = useState<MovementRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Pagination & search
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   // Modals
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showCorteModal, setShowCorteModal] = useState(false);
@@ -491,6 +496,26 @@ export default function CajaPage() {
       activeSession.totals.mixedCashSales +
       activeSession.totals.mixedCardSales
     : 0;
+
+  // Filter cuts based on search query
+  const filteredCuts = recentCuts.filter((cut) => {
+    const query = searchQuery;
+    return (
+      cut.cutNumber.toString().includes(query) ||
+      new Date(cut.createdAt).toLocaleDateString("es-MX").includes(query)
+    );
+  });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredCuts.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedCuts = filteredCuts.slice(startIndex, endIndex);
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   return (
     <div className="flex h-screen bg-background">
@@ -770,90 +795,145 @@ export default function CajaPage() {
             <h2 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
               Cortes recientes
             </h2>
-            <div className="overflow-x-auto rounded-xl border border-muted">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/30 text-xs text-muted-foreground uppercase">
-                  <tr>
-                    <th className="px-4 py-3 text-left">Tipo</th>
-                    <th className="px-4 py-3 text-left">Folio</th>
-                    <th className="px-4 py-3 text-left">Cajero</th>
-                    <th className="px-4 py-3 text-left">Fecha</th>
-                    <th className="px-4 py-3 text-right">Ventas</th>
-                    <th className="px-4 py-3 text-right">Entradas</th>
-                    <th className="px-4 py-3 text-right">Salidas</th>
-                    <th className="px-4 py-3 text-right">Efe. Esp.</th>
-                    <th className="px-4 py-3 text-right">Declarado</th>
-                    <th className="px-4 py-3 text-right">Dif.</th>
-                    <th className="px-4 py-3 text-center">Imp.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentCuts.map((c) => (
-                    <tr key={c._id} className="border-t border-muted">
-                      <td className="px-4 py-3">
-                        <span
-                          className={`text-xs font-semibold px-2 py-0.5 rounded-full ${c.type === "cierre" ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"}`}
-                        >
-                          {c.type === "cierre" ? "CIERRE" : "CORTE"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 font-bold">#{c.cutNumber}</td>
-                      <td className="px-4 py-3">{c.generatedByName}</td>
-                      <td className="px-4 py-3 text-xs">
-                        {fmtDate(c.createdAt)}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {fmt(
-                          c.totals.cashSales +
-                            c.totals.cardSales +
-                            c.totals.mixedCashSales +
-                            c.totals.mixedCardSales,
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right text-green-600">
-                        {fmt(c.totals.inflows)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-red-500">
-                        {fmt(c.totals.outflows)}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {fmt(c.expectedCash)}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {fmt(c.declaredCash)}
-                      </td>
-                      <td
-                        className={`px-4 py-3 text-right font-bold ${c.difference < 0 ? "text-red-500" : c.difference > 0 ? "text-amber-500" : "text-green-600"}`}
-                      >
-                        {c.difference >= 0 ? "+" : ""}
-                        {fmt(c.difference)}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => {
-                            console.log("=== REPRINT BUTTON CLICKED ===");
-                            console.log("Cut data:", {
-                              _id: c._id,
-                              cancelledOrdersCount:
-                                c.totals?.cancelledOrdersCount,
-                              cancelledOrdersTotal:
-                                c.totals?.cancelledOrdersTotal,
-                            });
-                            console.log("==============================");
-                            setLastCut(c);
-                            setShowPrintTicket(true);
-                          }}
-                          className="text-muted-foreground hover:text-foreground"
-                          title="Reimprimir"
-                        >
-                          <MdPrint size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+            {/* Search bar */}
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Buscar por folio o fecha..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-muted rounded-lg px-4 py-2.5 text-sm outline-none border border-muted focus:border-primary transition-colors"
+              />
             </div>
+
+            {filteredCuts.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p className="text-sm">No se encontraron cortes.</p>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto rounded-xl border border-muted mb-4">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/30 text-xs text-muted-foreground uppercase">
+                      <tr>
+                        <th className="px-4 py-3 text-left">Tipo</th>
+                        <th className="px-4 py-3 text-left">Folio</th>
+                        <th className="px-4 py-3 text-left">Cajero</th>
+                        <th className="px-4 py-3 text-left">Fecha</th>
+                        <th className="px-4 py-3 text-right">Ventas</th>
+                        <th className="px-4 py-3 text-right">Entradas</th>
+                        <th className="px-4 py-3 text-right">Salidas</th>
+                        <th className="px-4 py-3 text-right">Efe. Esp.</th>
+                        <th className="px-4 py-3 text-right">Declarado</th>
+                        <th className="px-4 py-3 text-right">Dif.</th>
+                        <th className="px-4 py-3 text-center">Imp.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedCuts.map((c) => (
+                        <tr key={c._id} className="border-t border-muted">
+                          <td className="px-4 py-3">
+                            <span
+                              className={`text-xs font-semibold px-2 py-0.5 rounded-full ${c.type === "cierre" ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"}`}
+                            >
+                              {c.type === "cierre" ? "CIERRE" : "CORTE"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-bold">
+                            #{c.cutNumber}
+                          </td>
+                          <td className="px-4 py-3">{c.generatedByName}</td>
+                          <td className="px-4 py-3 text-xs">
+                            {fmtDate(c.createdAt)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {fmt(
+                              c.totals.cashSales +
+                                c.totals.cardSales +
+                                c.totals.mixedCashSales +
+                                c.totals.mixedCardSales,
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right text-green-600">
+                            {fmt(c.totals.inflows)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-red-500">
+                            {fmt(c.totals.outflows)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {fmt(c.expectedCash)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {fmt(c.declaredCash)}
+                          </td>
+                          <td
+                            className={`px-4 py-3 text-right font-bold ${c.difference < 0 ? "text-red-500" : c.difference > 0 ? "text-amber-500" : "text-green-600"}`}
+                          >
+                            {c.difference >= 0 ? "+" : ""}
+                            {fmt(c.difference)}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <button
+                              onClick={() => {
+                                console.log("=== REPRINT BUTTON CLICKED ===");
+                                console.log("Cut data:", {
+                                  _id: c._id,
+                                  cancelledOrdersCount:
+                                    c.totals?.cancelledOrdersCount,
+                                  cancelledOrdersTotal:
+                                    c.totals?.cancelledOrdersTotal,
+                                });
+                                setLastCut(c);
+                                setShowPrintTicket(true);
+                              }}
+                              className="text-muted-foreground hover:text-foreground"
+                              title="Reimprimir"
+                            >
+                              <MdPrint size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination controls */}
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    Mostrando{" "}
+                    <span className="font-semibold">
+                      {startIndex + 1}-{Math.min(endIndex, filteredCuts.length)}
+                    </span>{" "}
+                    de{" "}
+                    <span className="font-semibold">{filteredCuts.length}</span>{" "}
+                    cortes
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 rounded-lg border border-muted text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted transition-colors"
+                    >
+                      Anterior
+                    </button>
+                    <span className="text-xs text-muted-foreground min-w-[80px] text-center">
+                      Página {currentPage} de {totalPages}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 rounded-lg border border-muted text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted transition-colors"
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </>
         )}
       </div>

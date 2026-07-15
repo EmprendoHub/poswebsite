@@ -2089,9 +2089,7 @@ export async function getAllOrder(searchQuery: any) {
       session?.user?.role === "director" ||
       session?.user?.role === "sucursal"
     ) {
-      orderQuery = Order.find({ orderStatus: { $ne: "Cancelado" } }).populate(
-        "user",
-      );
+      orderQuery = Order.find().populate("user");
     } else if (session?.user?.role === "supervisor") {
       // Find the user's assigned store to get its slug and legacy name
       const me = await User.findById((session.user as any)._id)
@@ -4669,7 +4667,10 @@ export async function exportProductsToTikTok(productIds: string[]) {
   }
 }
 
-export async function deleteOrder(orderId: string) {
+export async function deleteOrder(
+  orderId: string,
+  action: "cancel" | "delete" = "delete",
+) {
   "use server";
   try {
     await dbConnect();
@@ -4678,7 +4679,7 @@ export async function deleteOrder(orderId: string) {
     if (!session?.user || (session.user as any).role !== "super_admin") {
       return {
         success: false,
-        error: "Solo super_admin puede eliminar pedidos",
+        error: "Solo super_admin puede procesar pedidos",
       };
     }
 
@@ -4690,21 +4691,53 @@ export async function deleteOrder(orderId: string) {
       };
     }
 
-    // Delete the order
-    await Order.findByIdAndDelete(orderId);
+    const actionLabel = action === "cancel" ? "CANCELACIÓN" : "ELIMINACIÓN";
+
+    // Restore inventory for each item in the order
+    for (const item of order.orderItems || []) {
+      const storeId = item.storeId;
+
+      if (storeId) {
+        const beforeInventory = await StoreInventory.findOne({
+          store: storeId,
+          product: item.product,
+          variationId: item.variation,
+        });
+
+        const updatedInventory = await StoreInventory.findOneAndUpdate(
+          {
+            store: storeId,
+            product: item.product,
+            variationId: item.variation,
+          },
+          { $inc: { quantity: item.quantity } },
+          { new: true },
+        );
+      } else {
+        console.warn(`⚠ Advertencia: storeId no encontrado para este item`);
+      }
+    }
+
+    if (action === "cancel") {
+      order.orderStatus = "Cancelado";
+      await order.save();
+    } else {
+      await Order.findByIdAndDelete(orderId);
+    }
 
     revalidatePath("/admin/pedidos");
     revalidatePath("/puntodeventa/pedidos");
 
     return {
       success: true,
-      message: "Pedido eliminado correctamente",
+      message: `Pedido ${action === "cancel" ? "cancelado" : "eliminado"} correctamente`,
     };
   } catch (error: any) {
-    console.error("Error deleting order:", error);
+    console.error("❌ Error procesando orden:", error);
+    console.error(`Stack: ${error.stack}`);
     return {
       success: false,
-      error: error.message || "Error al eliminar el pedido",
+      error: error.message || "Error al procesar el pedido",
     };
   }
 }

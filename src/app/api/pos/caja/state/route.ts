@@ -48,7 +48,6 @@ export async function GET(req: Request) {
 
     const recentCuts = await CashRegisterCut.find({ store: storeId })
       .sort({ createdAt: -1 })
-      .limit(10)
       .lean();
 
     // Populate cancelled orders for cuts that are missing this data
