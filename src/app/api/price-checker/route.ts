@@ -20,7 +20,6 @@ const EBAY_CLIENT_SECRET = process.env.EBAY_CLIENT_SECRET || "";
 // PSA API configuration
 const PSA_API_BASE = "https://api.psacard.com/publicapi";
 const PSA_API_KEY = process.env.PSA_API_KEY || "";
-const PSA_API_KEY = process.env.PSA_API_KEY || PSA_API_KEY;
 
 // Currency conversion rate: 1 USD = 17 MXN (approximate, can be adjusted)
 const USD_TO_MXN_RATE = 18;
