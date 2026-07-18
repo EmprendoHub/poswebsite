@@ -34,10 +34,11 @@ const PaymentForm = ({
     shippingMethod,
   } = useSelector((state: any) => state.compras);
 
-  const amountTotal = productsData?.reduce(
-    (acc: any, cartItem: any) => acc + cartItem.quantity * cartItem.price,
-    0,
-  );
+  const amountTotal = productsData?.reduce((acc: any, cartItem: any) => {
+    const discountPercentage = cartItem.discountPercentage || 0;
+    const discountedPrice = cartItem.price * (1 - discountPercentage / 100);
+    return acc + cartItem.quantity * discountedPrice;
+  }, 0);
 
   // Calcular automáticamente el costo de envío si no hay método seleccionado
   const calculatedShipAmount = useMemo(() => {

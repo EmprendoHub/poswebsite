@@ -34,6 +34,7 @@ const getStoreData = unstable_cache(
         dimensions: 1,
         images: { $slice: 1 },
         variations: { $slice: 1 },
+        discountPercentage: 1,
       },
     )
       .sort({ createdAt: -1 })

@@ -11,7 +11,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addToCart } from "@/redux/shoppingSlice";
 
-const ProductCard = ({ item, index }: { item: any; index: number }) => {
+interface ProductCardProps {
+  item: any;
+  index: number;
+  storeInventoryData?: Record<
+    string,
+    Array<{ variationId: string; quantity: number }>
+  >;
+}
+
+const ProductCard = ({ item, index, storeInventoryData }: ProductCardProps) => {
   const dispatch = useDispatch();
   const router = useRouter();
   const { productsData } = useSelector((state: any) => state?.compras);
@@ -39,6 +48,7 @@ const ProductCard = ({ item, index }: { item: any; index: number }) => {
     v.length = item.dimensions?.length || 15;
     v.width = item.dimensions?.width || 15;
     v.height = item.dimensions?.height || 10;
+    v.discountPercentage = item.discountPercentage || 0;
     dispatch(addToCart(v));
     toast(`${item?.title.substring(0, 15)}... se agrego al carrito`);
     setAdded(true);
@@ -46,6 +56,19 @@ const ProductCard = ({ item, index }: { item: any; index: number }) => {
       setAdded(false);
       router.push("/carrito");
     }, 1600);
+  };
+
+  // Get total stock for a variation from storeInventory data (passed as prop), fallback to variation.stock
+  const getVariationStock = (
+    variationId: string,
+    fallbackStock: number,
+  ): number => {
+    if (!storeInventoryData || !storeInventoryData[item._id]) {
+      return fallbackStock;
+    }
+    const inventory = storeInventoryData[item._id];
+    const found = inventory.find((r) => r.variationId === variationId);
+    return found ? found.quantity : fallbackStock;
   };
 
   useEffect(() => {
@@ -57,8 +80,15 @@ const ProductCard = ({ item, index }: { item: any; index: number }) => {
       productsData.some((item2: any) => item1._id === item2._id),
     );
 
-    if (existingProduct?.quantity >= existingVariation?.stock) {
+    const availableStock = getVariationStock(
+      existingVariation?._id,
+      existingVariation?.stock || 0,
+    );
+
+    if (existingProduct?.quantity >= availableStock) {
       setAlreadyCart(true);
+    } else {
+      setAlreadyCart(false);
     }
     // eslint-disable-next-line
   }, [productsData]);
@@ -114,11 +144,22 @@ const ProductCard = ({ item, index }: { item: any; index: number }) => {
               Oferta
             </span>
           )}
-          {item?.stock <= 0 && (
-            <span className="absolute -rotate-12 top-1/2 right-4 maxsm:right-[10%] border-[1px] border-primary font-medium text-[12px] py-1 px-3 rounded-sm bg-black text-slate-100 group-hover:bg-primary group-hover:text-foreground duration-200">
-              VENDIDO
+          {item?.discountPercentage && item?.discountPercentage > 0 && (
+            <span className="absolute top-12 right-2 border-[1px] border-green-600 font-medium text-sm py-1 px-3 rounded-sm bg-green-900/80 text-green-200 group-hover:bg-green-800 group-hover:text-white duration-200">
+              {item?.discountPercentage}% DESC
             </span>
           )}
+          {(() => {
+            const storeTotal = getVariationStock(
+              item?.variations[0]?._id,
+              item?.variations[0]?.stock || 0,
+            );
+            return storeTotal <= 0 ? (
+              <span className="absolute -rotate-12 top-1/2 right-4 maxsm:right-[10%] border-[1px] border-primary font-medium text-[12px] py-1 px-3 rounded-sm bg-black text-slate-100 group-hover:bg-primary group-hover:text-foreground duration-200">
+                VENDIDO
+              </span>
+            ) : null;
+          })()}
           {item?.sale_price ? (
             <div>
               <div className="absolute top-2 left-2  border-[1px] border-black w-fit py-1 px-4 rounded-sm text-xs bg-black text-slate-100 group-hover:bg-slate-100 group-hover:text-foreground duration-200">
@@ -161,16 +202,34 @@ const ProductCard = ({ item, index }: { item: any; index: number }) => {
             ""
           )}
         </div>
-        <div className="">
+        <div className=" flex items-center justify-center gap-x-2">
           <p className="font-semibold  tracking-wide text-2xl text-center text-white">
             <FormattedPrice
-              amount={
-                item?.variations[0]?.price > 0
-                  ? item?.variations[0].price
-                  : (item?.sale_price ?? item?.sale_price)
-              }
+              amount={(() => {
+                const basePrice =
+                  item?.variations[0]?.price > 0
+                    ? item?.variations[0].price
+                    : (item?.sale_price ?? item?.price);
+
+                // Apply product-level discount if present
+                if (item?.discountPercentage && item?.discountPercentage > 0) {
+                  return basePrice * (1 - item.discountPercentage / 100);
+                }
+                return basePrice;
+              })()}
             />
           </p>
+          {item?.discountPercentage && item?.discountPercentage > 0 && (
+            <p className="text-xs text-gray-400 line-through">
+              <FormattedPrice
+                amount={
+                  item?.variations[0]?.price > 0
+                    ? item?.variations[0].price
+                    : (item?.sale_price ?? item?.price)
+                }
+              />
+            </p>
+          )}
         </div>
         {/* add to cart button */}
         <motion.div
@@ -186,56 +245,66 @@ const ProductCard = ({ item, index }: { item: any; index: number }) => {
               </span>
             </Link>
           ) : (
-            <motion.button
-              disabled={variation?.stock <= 0}
-              whileHover={{ scale: added ? 1 : 1.07 }}
-              whileTap={{ scale: 0.9 }}
-              animate={added ? { scale: [1, 1.15, 1] } : {}}
-              transition={added ? { duration: 0.3 } : {}}
-              className={`${
-                added
-                  ? "bg-green-700 border-green-700 text-white"
-                  : variation?.stock <= 0
-                    ? "bg-slate-300 grayscale-0 text-foreground border-slate-300"
-                    : "text-white border-black bg-primary"
-              } border drop-shadow-md flex flex-row items-center justify-center px-6 py-4 gap-x-2 text-xs ease-in-out duration-300 w-full uppercase tracking-wider cursor-pointer transition-colors rounded-xl`}
-              onClick={handleClick}
-            >
-              <AnimatePresence mode="wait">
-                {added ? (
-                  <motion.span
-                    key="added"
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    exit={{ scale: 0, opacity: 0 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 18 }}
-                    className="flex items-center gap-x-2 "
-                  >
-                    <IoMdCheckmark size={16} />
-                    ¡Agregado!
-                  </motion.span>
-                ) : (
-                  <motion.span
-                    key="cart"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex items-center gap-x-2"
-                  >
-                    {variation?.stock <= 0
-                      ? "Out of Stock"
-                      : "Agregar a carrito"}
-                    <span
-                      className={`${
-                        variation?.stock <= 0 ? "text-foreground" : "text-white"
-                      } text-lg`}
-                    >
-                      <IoMdCart size={16} />
-                    </span>
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </motion.button>
+            (() => {
+              const storeTotal = getVariationStock(
+                variation?._id,
+                variation?.stock || 0,
+              );
+              return (
+                <motion.button
+                  disabled={storeTotal <= 0}
+                  whileHover={{ scale: added ? 1 : 1.07 }}
+                  whileTap={{ scale: 0.9 }}
+                  animate={added ? { scale: [1, 1.15, 1] } : {}}
+                  transition={added ? { duration: 0.3 } : {}}
+                  className={`${
+                    added
+                      ? "bg-green-700 border-green-700 text-white"
+                      : storeTotal <= 0
+                        ? "bg-slate-300 grayscale-0 text-foreground border-slate-300"
+                        : "text-white border-black bg-primary"
+                  } border drop-shadow-md flex flex-row items-center justify-center px-6 py-4 gap-x-2 text-xs ease-in-out duration-300 w-full uppercase tracking-wider cursor-pointer transition-colors rounded-xl`}
+                  onClick={handleClick}
+                >
+                  <AnimatePresence mode="wait">
+                    {added ? (
+                      <motion.span
+                        key="added"
+                        initial={{ scale: 0, rotate: -180 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 18,
+                        }}
+                        className="flex items-center gap-x-2 "
+                      >
+                        <IoMdCheckmark size={16} />
+                        ¡Agregado!
+                      </motion.span>
+                    ) : (
+                      <motion.span
+                        key="cart"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="flex items-center gap-x-2"
+                      >
+                        {storeTotal <= 0 ? "Out of Stock" : "Agregar a carrito"}
+                        <span
+                          className={`${
+                            storeTotal <= 0 ? "text-foreground" : "text-white"
+                          } text-lg`}
+                        >
+                          <IoMdCart size={16} />
+                        </span>
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </motion.button>
+              );
+            })()
           )}
         </motion.div>
       </div>

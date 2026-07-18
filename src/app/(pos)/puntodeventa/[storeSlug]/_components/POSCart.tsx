@@ -25,7 +25,11 @@ export default function POSCart({
   onCustomerPhoneChange,
   disabled,
 }: POSCartProps) {
-  const rawSubtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const rawSubtotal = items.reduce((sum, i) => {
+    const discountPercentage = i.discountPercentage || 0;
+    const discountedPrice = i.price * (1 - discountPercentage / 100);
+    return sum + discountedPrice * i.quantity;
+  }, 0);
   const iva = Math.round(((rawSubtotal * 16) / 116) * 100) / 100;
 
   return (
@@ -66,14 +70,38 @@ export default function POSCart({
               <p className="text-xs font-medium leading-tight truncate">
                 {item.title}
               </p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <p className="text-xs font-semibold text-muted-foreground">
-                  ${item.price.toFixed(2)} x {item.quantity}
-                </p>
-
-                <span className="text-[10px] font-semibold text-amber-400 leading-none">
-                  máx. {item.stock}
-                </span>
+              <div className="flex flex-col gap-1 mt-0.5">
+                <div className="flex items-center gap-2">
+                  {item.discountPercentage && item.discountPercentage > 0 ? (
+                    <>
+                      <p className="text-xs text-muted-foreground line-through">
+                        ${item.price.toFixed(2)}
+                      </p>
+                      <p className="text-xs font-semibold text-green-600">
+                        $
+                        {(
+                          item.price *
+                          (1 - item.discountPercentage / 100)
+                        ).toFixed(2)}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      ${item.price.toFixed(2)}
+                    </p>
+                  )}
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    x {item.quantity}
+                  </p>
+                  <span className="text-[10px] font-semibold text-amber-400 leading-none ml-auto">
+                    máx. {item.stock}
+                  </span>
+                </div>
+                {item.discountPercentage && item.discountPercentage > 0 && (
+                  <p className="text-[10px] font-semibold text-green-600">
+                    Descuento: {item.discountPercentage}%
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">

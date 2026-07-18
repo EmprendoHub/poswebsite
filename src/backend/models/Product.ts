@@ -194,6 +194,12 @@ const ProductSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    discountPercentage: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
     quantity: {
       type: Number,
       default: 1,

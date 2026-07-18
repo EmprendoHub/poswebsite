@@ -39,6 +39,7 @@ export interface CartItem {
   quantity: number;
   image: string;
   stock: number;
+  discountPercentage?: number;
 }
 
 export default function ProductSearch({
@@ -150,6 +151,7 @@ export default function ProductSearch({
       quantity: 1,
       image: variation.image ?? product.images?.[0]?.url ?? "",
       stock: variation.stock,
+      discountPercentage: (product as any).discountPercentage || 0,
     });
     setQuery("");
     setResults([]);

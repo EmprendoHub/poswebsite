@@ -151,7 +151,7 @@ interface LookupResult {
   systemCount: number;
 }
 
-type View = "scanning" | "report";
+type View = "scanning" | "report" | "past-reports";
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 export default function POSInventarioPage() {
@@ -163,6 +163,7 @@ export default function POSInventarioPage() {
   const [pageUnlocked, setPageUnlocked] = useState(false);
   const [view, setView] = useState<View>("scanning");
   const [activeSession, setActiveSession] = useState<CheckSession | null>(null);
+  const [pastSessions, setPastSessions] = useState<CheckSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
@@ -217,6 +218,24 @@ export default function POSInventarioPage() {
 
     initSession();
   }, [pageUnlocked, storeId, activeSession]);
+
+  // ── Fetch past sessions for this store ──────────────────────────────────────
+  const fetchPastSessions = async () => {
+    if (!storeId) return;
+    const res = await fetch(`/api/admin/inventory-check?storeId=${storeId}`);
+    const data = await res.json();
+    setPastSessions(data.sessions || []);
+  };
+
+  // ── View finalized report ────────────────────────────────────────────────────
+  const handleViewReport = async (session: CheckSession) => {
+    setLoading(true);
+    const res = await fetch(`/api/admin/inventory-check/${session._id}`);
+    const data = await res.json();
+    setLoading(false);
+    setActiveSession(data.session);
+    setView("report");
+  };
 
   // ── Lookup by scan/SKU ───────────────────────────────────────────────────────
   const handleLookup = useCallback(
@@ -370,12 +389,22 @@ export default function POSInventarioPage() {
         <POSSidebar storeSlug={storeSlug} storeName={storeName} />
         <div className="flex-1 overflow-y-auto p-6">
           {/* Header */}
-          <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center gap-3 mb-6 flex-wrap">
             <h1 className="font-bold text-lg flex items-center gap-2">
               <MdInventory size={24} />
               Conteo de Inventario - {storeName}
             </h1>
-            <span className="ml-auto text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
+            <button
+              onClick={() => {
+                fetchPastSessions();
+                setView("past-reports");
+              }}
+              className="text-sm border border-muted px-4 py-2 rounded-lg hover:bg-muted transition-colors ml-auto"
+            >
+              <MdBarChart className="inline mr-1" />
+              Reportes anteriores
+            </button>
+            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
               En progreso · {items.length} escaneados
             </span>
           </div>
@@ -719,6 +748,90 @@ export default function POSInventarioPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Render: past-reports ────────────────────────────────────────────────────
+  if (view === "past-reports") {
+    const finalizedSessions = pastSessions.filter(
+      (s) => s.status === "finalized",
+    );
+
+    return (
+      <div className="flex h-screen bg-background">
+        <POSSidebar storeSlug={storeSlug} storeName={storeName} />
+        <div className="flex-1 overflow-y-auto p-6">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-6">
+            <button
+              onClick={() => {
+                setView("scanning");
+              }}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              ← Conteo
+            </button>
+            <span className="text-muted-foreground">/</span>
+            <h1 className="font-bold text-lg">Reportes anteriores</h1>
+          </div>
+
+          {/* List of past reports */}
+          <div className="space-y-3">
+            {finalizedSessions.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                <MdBarChart className="inline text-2xl mb-2 opacity-50" />
+                <p>No hay reportes finalizados para esta sucursal</p>
+              </div>
+            ) : (
+              finalizedSessions.map((session) => (
+                <div
+                  key={session._id}
+                  className="border border-muted rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                  onClick={() => handleViewReport(session)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-foreground flex items-center gap-2">
+                        <MdBarChart className="text-blue-600" />
+                        Reporte de{" "}
+                        {new Date(session.finalizedAt!).toLocaleDateString(
+                          "es-MX",
+                        )}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Iniciado por: {session.startedByName} •{" "}
+                        {new Date(session.startedAt).toLocaleTimeString(
+                          "es-MX",
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          },
+                        )}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200 px-2 py-1 rounded-full inline-block">
+                        {session.totalScanned} escaneados
+                      </p>
+                      <p className="text-xs mt-2 text-muted-foreground">
+                        <span className="text-emerald-600 font-semibold">
+                          {session.totalMatched}
+                        </span>{" "}
+                        coincidencias
+                      </p>
+                      {session.totalDiscrepancies > 0 && (
+                        <p className="text-xs mt-1 text-red-600 font-semibold">
+                          {session.totalDiscrepancies} discrepancias
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

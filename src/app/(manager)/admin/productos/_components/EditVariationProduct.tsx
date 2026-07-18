@@ -82,6 +82,9 @@ const EditVariationProduct = ({
   const [showScanner, setShowScanner] = useState(false);
   const [featured, setFeatured] = useState(product?.featured);
   const [updatePrice, setUpdatePrice] = useState(product?.updatePrice ?? false);
+  const [discountPercentage, setDiscountPercentage] = useState(
+    product?.discountPercentage || 0,
+  );
   const [active, setActive] = useState(product?.active ?? true);
   const [onlineAvailability, setOnlineAvailability] = useState(
     product?.availability?.online,
@@ -992,6 +995,10 @@ const EditVariationProduct = ({
         onlineAvailability?.toString() || "false",
       );
       formData.append("updatePrice", updatePrice?.toString() || "false");
+      formData.append(
+        "discountPercentage",
+        discountPercentage?.toString() || "0",
+      );
       formData.append("brand", brand || "");
       formData.append("grade", grade?.toString() || "0");
       formData.append("secondaryImages", JSON.stringify(secondaryImages || []));
@@ -1731,6 +1738,40 @@ const EditVariationProduct = ({
                         Verificar Precios del Mercado
                       </button>
                     )}
+
+                    {/* Discount Percentage */}
+                    <div className="mt-4">
+                      <label className="block mb-3 text-sm font-semibold text-foreground">
+                        Descuento (%)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          className="w-full px-4 py-3 border-2 border-border rounded-xl bg-gradient-to-br from-green-50/50 to-background text-foreground text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all hover:border-green-300/50"
+                          placeholder="0"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={discountPercentage}
+                          onChange={(e) =>
+                            setDiscountPercentage(
+                              parseFloat(e.target.value) || 0,
+                            )
+                          }
+                          name="discountPercentage"
+                        />
+                      </div>
+                      {variations?.[0]?.price && discountPercentage > 0 && (
+                        <p className="text-xs text-green-600 mt-2">
+                          Precio original: ${variations[0].price.toFixed(2)} |
+                          Con descuento: $
+                          {(
+                            variations[0].price *
+                            (1 - discountPercentage / 100)
+                          ).toFixed(2)}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Categorización */}

@@ -24,6 +24,7 @@ export async function POST(request: any, res: any) {
       active,
       onlineAvailability,
       updatePrice,
+      discountPercentage,
       mainImage,
       brand,
       grade,
@@ -143,6 +144,9 @@ export async function POST(request: any, res: any) {
       active: isActive,
       availability,
       updatePrice: isUpdatePrice,
+      discountPercentage: discountPercentage
+        ? parseFloat(discountPercentage as string)
+        : 0,
       brand,
       rating,
       gender,
@@ -229,6 +233,7 @@ export async function PUT(request: any, res: any) {
       active,
       onlineAvailability,
       updatePrice,
+      discountPercentage,
       mainImage,
       brand,
       grade,
@@ -342,6 +347,9 @@ export async function PUT(request: any, res: any) {
         active: isActive,
         availability,
         updatePrice: isUpdatePrice,
+        discountPercentage: discountPercentage
+          ? parseFloat(discountPercentage as string)
+          : 0,
         brand,
         rating,
         gender,

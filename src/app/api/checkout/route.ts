@@ -105,11 +105,12 @@ async function getCartItems(items: any, storeId?: string) {
 }
 
 const calculateTotalAmount = (items: any) => {
-  // Assuming each item has a 'price' and 'quantity' property
-  const total = items.reduce(
-    (total: any, item: any) => total + item.price * item.quantity,
-    0,
-  );
+  // Assuming each item has a 'price' and 'quantity' property, and optional 'discountPercentage'
+  const total = items.reduce((total: any, item: any) => {
+    const discountPercentage = item.discountPercentage || 0;
+    const discountedPrice = item.price * (1 - discountPercentage / 100);
+    return total + discountedPrice * item.quantity;
+  }, 0);
   // Round to 2 decimal places to avoid floating point precision errors
   return Math.round(total * 100) / 100;
 };
@@ -213,10 +214,12 @@ export const POST = async (request: any) => {
 
     const order_items = await getCartItems(items, storeId);
     const line_items = await items.map((item: any) => {
+      const discountPercentage = item.discountPercentage || 0;
+      const discountedPrice = item.price * (1 - discountPercentage / 100);
       return {
         price_data: {
           currency: "mxn",
-          unit_amount: Math.round(item.price * 100),
+          unit_amount: Math.round(discountedPrice * 100),
           product_data: {
             name: item.title,
             description: item.description,

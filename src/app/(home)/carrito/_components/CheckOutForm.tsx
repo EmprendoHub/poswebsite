@@ -28,10 +28,11 @@ const CheckOutForm = () => {
   const [checking, setChecking] = useState(false);
   const [stockErrors, setStockErrors] = useState<StockError[]>([]);
 
-  const amountTotal = productsData?.reduce(
-    (acc: any, cartItem: any) => acc + cartItem.quantity * cartItem.price,
-    0,
-  );
+  const amountTotal = productsData?.reduce((acc: any, cartItem: any) => {
+    const discountPercentage = cartItem.discountPercentage || 0;
+    const discountedPrice = cartItem.price * (1 - discountPercentage / 100);
+    return acc + cartItem.quantity * discountedPrice;
+  }, 0);
 
   // Calcular automáticamente el costo de envío (opción Estándar)
   const shipAmount = useMemo(() => {

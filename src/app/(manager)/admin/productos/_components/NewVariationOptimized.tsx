@@ -61,6 +61,7 @@ const NewVariationOptimized = ({
   const [showScanner, setShowScanner] = useState(false);
   const [featured, setFeatured] = useState(false);
   const [updatePrice, setUpdatePrice] = useState(false);
+  const [discountPercentage, setDiscountPercentage] = useState(0);
   const [showPriceCheckerModal, setShowPriceCheckerModal] = useState(false);
   const [showASINConflictModal, setShowASINConflictModal] = useState(false);
   const [conflictingProduct, setConflictingProduct] = useState<any>(null);
@@ -1052,6 +1053,7 @@ const NewVariationOptimized = ({
     formData.append("active", active.toString());
     formData.append("onlineAvailability", onlineAvailability.toString());
     formData.append("updatePrice", updatePrice.toString());
+    formData.append("discountPercentage", discountPercentage.toString());
     formData.append("brand", brand);
     formData.append("grade", grade.toString());
     formData.append("gender", gender);
@@ -1409,6 +1411,35 @@ const NewVariationOptimized = ({
                           </svg>
                           Verificar Precios del Mercado
                         </button>
+                      )}
+                    </div>
+
+                    {/* Discount Percentage */}
+                    <div className="flex flex-col items-start w-full">
+                      <label className="block mb-1 font-EB_Garamond text-xs">
+                        Descuento (%)
+                      </label>
+                      <input
+                        type="number"
+                        className="appearance-none border bg-input rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
+                        placeholder="0"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={discountPercentage}
+                        onChange={(e) =>
+                          setDiscountPercentage(parseFloat(e.target.value) || 0)
+                        }
+                      />
+                      {variations[0].price && discountPercentage > 0 && (
+                        <p className="text-xs text-green-600 mt-1">
+                          Precio original: ${variations[0].price.toFixed(2)} |
+                          Precio con descuento: $
+                          {(
+                            variations[0].price *
+                            (1 - discountPercentage / 100)
+                          ).toFixed(2)}
+                        </p>
                       )}
                     </div>
                   </div>

@@ -171,7 +171,7 @@ export default function EmployeesAdminPage() {
           No se encontraron empleados.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border">
+        <div className="w-full rounded-xl border border-border">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>

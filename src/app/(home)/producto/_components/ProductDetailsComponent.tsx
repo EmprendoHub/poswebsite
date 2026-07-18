@@ -21,6 +21,9 @@ const ProductDetailsComponent = ({
   product: any;
   trendingProducts: any;
 }) => {
+  const [storeInventoryData, setStoreInventoryData] = useState<
+    Record<string, Array<{ variationId: string; quantity: number }>>
+  >({});
   const colorList = product?.variations.map((variation: any) => ({
     value: variation.color,
     colorHex: variation.colorHex,
@@ -58,6 +61,25 @@ const ProductDetailsComponent = ({
     height: 0,
   });
 
+  // Fetch store inventory data in batch for trending products
+  useEffect(() => {
+    if (!trendingProducts || trendingProducts.length === 0) return;
+
+    const productIds = trendingProducts.map((p: any) => p._id);
+    fetch("/api/store-inventory-batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productIds }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setStoreInventoryData(data);
+      })
+      .catch((err) => {
+        console.error("Error fetching batch inventory:", err);
+      });
+  }, [trendingProducts]);
+
   useEffect(() => {
     // Find matches based on _id property
     const existingProduct = productsData.find((item1: any) =>
@@ -89,6 +111,7 @@ const ProductDetailsComponent = ({
     v.length = product.dimensions?.length || 15;
     v.width = product.dimensions?.width || 15;
     v.height = product.dimensions?.height || 10;
+    v.discountPercentage = product.discountPercentage || 0;
     dispatch(addToCart(v));
     toast(`${product?.title.substring(0, 15)}... se agrego al carrito`);
     router.push("/carrito");
@@ -286,20 +309,30 @@ const ProductDetailsComponent = ({
                   </p>
 
                   {/* Discount Badge and Old Price */}
-                  {product?.sale_price ? (
+                  {product?.sale_price || product?.discountPercentage > 0 ? (
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-2">
-                      <div className="bg-gradient-to-r from-yellow-600 to-yellow-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
-                        {calculatePercentage(
-                          variation.price,
-                          product?.sale_price,
-                        )}
-                        % OFF
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <p className="line-through text-sm text-gray-500 font-bodyFont">
-                          <FormattedPrice amount={variation.price} />
-                        </p>
-                      </div>
+                      {product?.sale_price && (
+                        <div className="bg-gradient-to-r from-yellow-600 to-yellow-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
+                          {calculatePercentage(
+                            variation.price,
+                            product?.sale_price,
+                          )}
+                          % OFF
+                        </div>
+                      )}
+                      {product?.discountPercentage > 0 && (
+                        <div className="bg-gradient-to-r from-green-600 to-green-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
+                          {product?.discountPercentage}% DESCUENTO
+                        </div>
+                      )}
+                      {(product?.sale_price ||
+                        product?.discountPercentage > 0) && (
+                        <div className="flex items-center gap-3">
+                          <p className="line-through text-sm text-gray-500 font-bodyFont">
+                            <FormattedPrice amount={variation.price} />
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ) : null}
 
@@ -308,6 +341,14 @@ const ProductDetailsComponent = ({
                     <p className="font-semibold text-4xl lg:text-5xl text-white font-bodyFont">
                       {product?.sale_price > 0 ? (
                         <FormattedPrice amount={product?.sale_price} />
+                      ) : product?.discountPercentage > 0 &&
+                        variation.price > 0 ? (
+                        <FormattedPrice
+                          amount={
+                            variation.price *
+                            (1 - product.discountPercentage / 100)
+                          }
+                        />
                       ) : variation.price > 0 ? (
                         <FormattedPrice amount={variation.price} />
                       ) : (
@@ -444,7 +485,12 @@ const ProductDetailsComponent = ({
             {/* Products Grid */}
             <div className="grid grid-cols-2 maxmd:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 maxmd:gap-4">
               {filteredTrendingProducts?.map((product: any, index: number) => (
-                <ProductCard key={product._id} item={product} index={index} />
+                <ProductCard
+                  key={product._id}
+                  item={product}
+                  index={index}
+                  storeInventoryData={storeInventoryData}
+                />
               ))}
             </div>
           </div>

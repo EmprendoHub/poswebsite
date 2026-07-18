@@ -179,17 +179,45 @@ const Cart = () => {
                           )}
                         </div>
                         <div>
-                          <div className="leading-5">
-                            <p className="font-semibold not-italic">
-                              $
-                              {(cartItem?.price * cartItem?.quantity).toFixed(
-                                2,
-                              )}
-                            </p>
-                            <small className="text-gray-400">
-                              {" "}
-                              ${cartItem?.price.toFixed(2)} / por articulo{" "}
-                            </small>
+                          <div className="leading-5 space-y-1">
+                            {cartItem?.discountPercentage &&
+                            cartItem?.discountPercentage > 0 ? (
+                              <>
+                                <p className="text-xs text-green-600 font-semibold">
+                                  -{cartItem?.discountPercentage}% DESC
+                                </p>
+                                <p className="font-semibold not-italic">
+                                  $
+                                  {(
+                                    cartItem?.price *
+                                    (1 - cartItem?.discountPercentage / 100) *
+                                    cartItem?.quantity
+                                  ).toFixed(2)}
+                                </p>
+                                <small className="flex">
+                                  <span className="text-gray-400 line-through block">
+                                    ${cartItem?.price.toFixed(2)}
+                                  </span>
+                                  <span className="text-gray-400  block">
+                                    / articulo
+                                  </span>
+                                </small>
+                              </>
+                            ) : (
+                              <>
+                                <p className="font-semibold not-italic">
+                                  $
+                                  {(
+                                    cartItem?.price * cartItem?.quantity
+                                  ).toFixed(2)}
+                                </p>
+                                <small className="text-gray-400">
+                                  {" "}
+                                  ${cartItem?.price.toFixed(2)} / por
+                                  articulo{" "}
+                                </small>
+                              </>
+                            )}
                           </div>
                         </div>
                         <div className="flex-auto">

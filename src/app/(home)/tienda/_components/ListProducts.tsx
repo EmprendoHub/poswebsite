@@ -27,6 +27,7 @@ interface Product {
   gender: string;
   ASIN?: string;
   variations: { price: number; stock: number }[];
+  discountPercentage?: number;
 }
 
 const PRODUCTS_PER_PAGE = 20;
@@ -68,7 +69,29 @@ const ListProducts = ({
   const [displayedProductsCount, setDisplayedProductsCount] =
     useState(PRODUCTS_PER_PAGE);
   const [isLoading, setIsLoading] = useState(false);
+  const [storeInventoryData, setStoreInventoryData] = useState<
+    Record<string, Array<{ variationId: string; quantity: number }>>
+  >({});
   const observerTarget = useRef(null);
+
+  // Fetch store inventory data in batch for all products
+  useEffect(() => {
+    if (products.length === 0) return;
+
+    const productIds = products.map((p) => p._id);
+    fetch("/api/store-inventory-batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productIds }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setStoreInventoryData(data);
+      })
+      .catch((err) => {
+        console.error("Error fetching batch inventory:", err);
+      });
+  }, [products]);
 
   useEffect(() => {
     if (session?.user?.role === "manager") {
@@ -278,6 +301,7 @@ const ListProducts = ({
                   item={product}
                   key={`${product._id}-${index}`}
                   index={index}
+                  storeInventoryData={storeInventoryData}
                 />
               ))}
             </div>

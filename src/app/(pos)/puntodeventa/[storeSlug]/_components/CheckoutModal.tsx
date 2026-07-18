@@ -61,7 +61,11 @@ export default function CheckoutModal({
   onClose,
   onSuccess,
 }: CheckoutModalProps) {
-  const rawSubtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const rawSubtotal = items.reduce((s, i) => {
+    const discountPercentage = i.discountPercentage || 0;
+    const discountedPrice = i.price * (1 - discountPercentage / 100);
+    return s + discountedPrice * i.quantity;
+  }, 0);
   const [discountApplied, setDiscountApplied] = useState(false);
   const [discountAuthBy, setDiscountAuthBy] = useState<string | null>(null);
   const [showDiscountAuth, setShowDiscountAuth] = useState(false);
