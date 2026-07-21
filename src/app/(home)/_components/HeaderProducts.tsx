@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Carousel,
   CarouselContent,
@@ -10,6 +10,28 @@ import {
 import ProductCard from "../producto/_components/ProductCard";
 
 const HeaderProducts = ({ editorsProducts }: { editorsProducts: any }) => {
+  const [storeInventoryData, setStoreInventoryData] = useState<
+    Record<string, Array<{ variationId: string; quantity: number }>>
+  >({});
+
+  // Fetch store inventory data in batch for displayed products
+  useEffect(() => {
+    if (!editorsProducts || editorsProducts.length === 0) return;
+
+    const productIds = editorsProducts.slice(0, 20).map((p: any) => p._id);
+    fetch("/api/store-inventory-batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productIds }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setStoreInventoryData(data);
+      })
+      .catch((err) => {
+        console.error("Error fetching batch inventory:", err);
+      });
+  }, [editorsProducts]);
   return (
     <div className="relative h-full pb-10 pt-8">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 mb-6 flex items-end justify-between">
@@ -41,7 +63,11 @@ const HeaderProducts = ({ editorsProducts }: { editorsProducts: any }) => {
               key={index}
               className="pl-1 basis-1/5 maxmd:basis-1/4 maxsm:basis-1/2"
             >
-              <ProductCard item={product} index={index} />
+              <ProductCard
+                item={product}
+                index={index}
+                storeInventoryData={storeInventoryData}
+              />
             </CarouselItem>
           ))}
         </CarouselContent>

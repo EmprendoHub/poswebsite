@@ -73,7 +73,16 @@ const ProductCard = ({ item, index, storeInventoryData }: ProductCardProps) => {
 
   // Check if product brand requires a quote
   const isQuoteRequiredBrand = () => {
-    const quoteBrands = ["PSA", "Beckett", "CGC", "AGC"];
+    const quoteBrands = [
+      "PSA",
+      "Beckett",
+      "CGC",
+      "AGC",
+      "Icons",
+      "GMA",
+      "SGC",
+      "BGS",
+    ];
     return quoteBrands.some(
       (brand) => item?.brand?.toLowerCase() === brand.toLowerCase(),
     );
@@ -238,7 +247,7 @@ const ProductCard = ({ item, index, storeInventoryData }: ProductCardProps) => {
                   })()}
                 />
               </p>
-              {item?.discountPercentage && item?.discountPercentage > 0 && (
+              {item?.discountPercentage && item?.discountPercentage > 0 ? (
                 <p className="text-xs text-gray-400 line-through">
                   <FormattedPrice
                     amount={
@@ -248,7 +257,7 @@ const ProductCard = ({ item, index, storeInventoryData }: ProductCardProps) => {
                     }
                   />
                 </p>
-              )}
+              ) : null}
             </div>
           </>
         )}

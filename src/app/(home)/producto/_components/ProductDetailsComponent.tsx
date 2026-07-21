@@ -176,7 +176,16 @@ const ProductDetailsComponent = ({
 
   // Check if product brand requires a quote
   const isQuoteRequiredBrand = () => {
-    const quoteBrands = ["PSA", "Beckett", "CGC", "AGC"];
+    const quoteBrands = [
+      "PSA",
+      "Beckett",
+      "CGC",
+      "AGC",
+      "Icons",
+      "GMA",
+      "SGC",
+      "BGS",
+    ];
     return quoteBrands.some(
       (brand) => product?.brand?.toLowerCase() === brand.toLowerCase(),
     );
@@ -188,12 +197,21 @@ const ProductDetailsComponent = ({
     return encodeURIComponent(message);
   };
 
+  // Helper function to check if product has stock from storeInventory data
+  const getProductStock = (productId: string, product: any): number => {
+    if (!storeInventoryData || !storeInventoryData[productId]) {
+      return product?.variations?.[0]?.stock || 0;
+    }
+    const inventory = storeInventoryData[productId];
+    const totalStock = inventory.reduce(
+      (sum: number, item: any) => sum + item.quantity,
+      0,
+    );
+    return totalStock;
+  };
+
   const filteredTrendingProducts = (trendingProducts ?? []).filter(
-    (p: any) =>
-      p?.availability?.online === true &&
-      (Number(p?.stock ?? 0) > 0 ||
-        (Array.isArray(p?.variations) &&
-          p.variations.some((v: any) => Number(v?.stock ?? 0) > 0))),
+    (p: any) => getProductStock(p._id, p) > 0,
   );
 
   return (

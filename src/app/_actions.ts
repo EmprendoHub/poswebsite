@@ -2460,11 +2460,14 @@ export async function getOneProductWithTrending(slug: string, id: string) {
       product = await Product.findOne({ slug: slug });
     }
     let trendingProducts: any = await Product.find({
-      category: product.category,
+      gender: { $regex: product.gender, $options: "i" },
+      availability: { online: true },
       _id: { $ne: product._id },
     })
       .sort({ createdAt: -1 })
       .limit(4);
+
+    console.log("trendingProducts", trendingProducts.length);
 
     // ── Merge real-time StoreInventory stock into each variation ─────────────
     const inventoryRecords = await StoreInventory.find(
