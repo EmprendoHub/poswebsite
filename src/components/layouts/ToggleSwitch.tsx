@@ -48,6 +48,11 @@ const ToggleSwitch = ({
               <MdToggleOn />
               <p className="text-[10px]">{label}</p>
             </div>
+          ) : label === "Remover Fondo" ? (
+            <div className="flex flex-col items-center justify-center">
+              <MdToggleOn />
+              <p className="text-[10px]">{label}</p>
+            </div>
           ) : (
             ""
           )}

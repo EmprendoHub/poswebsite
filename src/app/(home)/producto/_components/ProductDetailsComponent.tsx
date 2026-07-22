@@ -180,7 +180,7 @@ const ProductDetailsComponent = ({
       "PSA",
       "Beckett",
       "CGC",
-      "AGC",
+      "AGS",
       "Icons",
       "GMA",
       "SGC",

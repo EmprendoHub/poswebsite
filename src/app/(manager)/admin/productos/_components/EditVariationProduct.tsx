@@ -81,6 +81,7 @@ const EditVariationProduct = ({
   const [asin, setAsin] = useState(product?.ASIN || "");
   const [showScanner, setShowScanner] = useState(false);
   const [featured, setFeatured] = useState(product?.featured);
+  const [removeBackground, setRemoveBackground] = useState(true);
   const [updatePrice, setUpdatePrice] = useState(product?.updatePrice ?? false);
   const [discountPercentage, setDiscountPercentage] = useState(
     product?.discountPercentage || 0,
@@ -575,7 +576,11 @@ const EditVariationProduct = ({
       const fileType = "image/webp";
       const file = new File([originalBlob], fileName, { type: fileType });
 
-      const processedBlob = await processImagePython(file, true, true);
+      const processedBlob = await processImagePython(
+        file,
+        removeBackground,
+        true,
+      );
 
       const previewUrl = URL.createObjectURL(processedBlob);
       onPreview(previewUrl);
@@ -719,7 +724,11 @@ const EditVariationProduct = ({
           setIsProcessing(true);
 
           // Process image before preview (uses remote API)
-          const processedBlob = await processImagePython(file, true, true);
+          const processedBlob = await processImagePython(
+            file,
+            removeBackground,
+            true,
+          );
 
           // Create preview URL from processed image
           const previewUrl = URL.createObjectURL(processedBlob);
@@ -859,7 +868,11 @@ const EditVariationProduct = ({
           setUploadingSecondaryIndices((prev) => [...prev, index]);
 
           // Process image before preview (uses remote API)
-          const processedBlob = await processImagePython(file, true, true);
+          const processedBlob = await processImagePython(
+            file,
+            removeBackground,
+            true,
+          );
 
           // Create preview URL from processed image
           const previewUrl = URL.createObjectURL(processedBlob);
@@ -1188,6 +1201,40 @@ const EditVariationProduct = ({
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-10">
               {/* Left: Image Gallery */}
               <div className="lg:col-span-2">
+                {/* Image Processing Options */}
+                <div className="mb-6 flex items-center justify-between bg-white dark:bg-card rounded-xl shadow-sm border border-border p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                      <svg
+                        className="w-5 h-5 text-amber-600 dark:text-amber-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">
+                        Procesamiento de Imágenes
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Controla cómo se procesan las imágenes al subirlas
+                      </p>
+                    </div>
+                  </div>
+                  <ToggleSwitch
+                    label="Remover Fondo"
+                    enabled={removeBackground}
+                    setEnabled={setRemoveBackground}
+                  />
+                </div>
+
                 {/* Main Image Display */}
                 <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-border overflow-hidden mb-6">
                   <div className="relative aspect-square bg-muted flex items-center justify-center overflow-hidden group">

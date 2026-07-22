@@ -53,6 +53,7 @@ const AdminProducts = ({
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(
     new Set(),
   );
+  const [selectAllInSearch, setSelectAllInSearch] = useState(false);
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkGender, setBulkGender] = useState("");
   const [bulkBrand, setBulkBrand] = useState("");
@@ -60,6 +61,7 @@ const AdminProducts = ({
   const [bulkLength, setBulkLength] = useState("");
   const [bulkWidth, setBulkWidth] = useState("");
   const [bulkHeight, setBulkHeight] = useState("");
+  const [bulkWeight, setBulkWeight] = useState("");
   const [previewImage, setPreviewImage] = useState<{
     url: string;
     title: string;
@@ -175,12 +177,21 @@ const AdminProducts = ({
     }
   }, [searchValue]);
 
-  // Handle select all checkbox
+  // Handle select all checkbox (page only)
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       const allProductIds = products.map((p: any) => p._id);
       setSelectedProducts(new Set(allProductIds));
     } else {
+      setSelectedProducts(new Set());
+    }
+    setSelectAllInSearch(false);
+  };
+
+  // Handle select all in search results
+  const handleSelectAllInSearch = (checked: boolean) => {
+    setSelectAllInSearch(checked);
+    if (checked) {
       setSelectedProducts(new Set());
     }
   };
@@ -198,19 +209,26 @@ const AdminProducts = ({
 
   const handleBulkUpdate = async () => {
     const hasDims = bulkLength || bulkWidth || bulkHeight;
-    if (!bulkCategory && !bulkGender && !bulkBrand && !hasDims) return;
-    const count = selectedProducts.size;
+    if (!bulkCategory && !bulkGender && !bulkBrand && !hasDims && !bulkWeight)
+      return;
+
+    const isSearchWide = selectAllInSearch;
+    const count = isSearchWide ? filteredProductsCount : selectedProducts.size;
+    const scopeLabel = isSearchWide ? "búsqueda" : "página";
+
     const parts = [];
     if (bulkCategory) parts.push(`categoría "${bulkCategory}"`);
     if (bulkGender) parts.push(`género "${bulkGender}"`);
     if (bulkBrand) parts.push(`marca "${bulkBrand}"`);
+    if (bulkWeight) parts.push(`peso ${bulkWeight}kg`);
     if (hasDims)
       parts.push(
         `dimensiones (${bulkLength || "—"}×${bulkWidth || "—"}×${bulkHeight || "—"} cm)`,
       );
+
     const confirmed = await Swal.fire({
       title: `¿Actualizar ${count} producto(s)?`,
-      text: `Se aplicará: ${parts.join(" y ")} a los productos seleccionados.`,
+      text: `Se aplicará: ${parts.join(" y ")} a ${count} producto(s) de esta ${scopeLabel}.`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#228B22",
@@ -221,10 +239,11 @@ const AdminProducts = ({
     if (!confirmed.isConfirmed) return;
     setIsBulkLoading(true);
     try {
-      await bulkUpdateProducts(Array.from(selectedProducts), {
+      const updatePayload = {
         category: bulkCategory || undefined,
         gender: bulkGender || undefined,
         brand: bulkBrand || undefined,
+        weight: bulkWeight ? Number(bulkWeight) : undefined,
         dimensions: hasDims
           ? {
               length: bulkLength ? Number(bulkLength) : undefined,
@@ -232,7 +251,26 @@ const AdminProducts = ({
               height: bulkHeight ? Number(bulkHeight) : undefined,
             }
           : undefined,
-      });
+      };
+
+      if (isSearchWide) {
+        // Update all products matching the search
+        const searchParams = new URLSearchParams(window.location.search);
+        const keyword = searchParams.get("keyword") || "";
+        const response = await fetch("/api/products/bulk-update-by-search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            keyword,
+            updates: updatePayload,
+          }),
+        });
+        if (!response.ok) throw new Error("Failed to update products");
+      } else {
+        // Update selected products
+        await bulkUpdateProducts(Array.from(selectedProducts), updatePayload);
+      }
+
       await Swal.fire({
         title: "¡Actualizado!",
         text: `${count} producto(s) actualizados correctamente.`,
@@ -240,9 +278,11 @@ const AdminProducts = ({
         confirmButtonColor: "#228B22",
       });
       setSelectedProducts(new Set());
+      setSelectAllInSearch(false);
       setBulkCategory("");
       setBulkGender("");
       setBulkBrand("");
+      setBulkWeight("");
       setBulkLength("");
       setBulkWidth("");
       setBulkHeight("");
@@ -426,11 +466,28 @@ const AdminProducts = ({
         </div>
 
         {/* Bulk action bar */}
-        {selectedProducts.size > 0 && (
+        {(selectedProducts.size > 0 || selectAllInSearch) && (
           <div className="mb-4 flex flex-wrap items-center gap-3 px-4 py-3 bg-muted rounded-xl border">
             <p className="text-sm font-medium shrink-0">
-              {selectedProducts.size} producto(s) seleccionado(s)
+              {selectAllInSearch
+                ? `${filteredProductsCount} producto(s) de búsqueda seleccionado(s)`
+                : `${selectedProducts.size} producto(s) seleccionado(s)`}
             </p>
+
+            {/* Toggle: Select page or all in search */}
+            {filteredProductsCount > products.length && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-background rounded-lg border">
+                <label className="text-xs font-medium text-muted-foreground cursor-pointer flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selectAllInSearch}
+                    onChange={(e) => handleSelectAllInSearch(e.target.checked)}
+                    className="w-4 h-4 cursor-pointer"
+                  />
+                  Seleccionar todos en búsqueda ({filteredProductsCount})
+                </label>
+              </div>
+            )}
 
             {/* Category select */}
             <select
@@ -507,6 +564,23 @@ const AdminProducts = ({
               />
             </div>
 
+            {/* Weight input */}
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground shrink-0">
+                Peso:
+              </span>
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                placeholder="kg"
+                value={bulkWeight}
+                onChange={(e) => setBulkWeight(e.target.value)}
+                className="text-sm border rounded-lg px-2 py-1.5 bg-background w-20"
+              />
+              <span className="text-xs text-muted-foreground">kg</span>
+            </div>
+
             <button
               onClick={handleBulkUpdate}
               disabled={
@@ -514,6 +588,7 @@ const AdminProducts = ({
                 (!bulkCategory &&
                   !bulkGender &&
                   !bulkBrand &&
+                  !bulkWeight &&
                   !bulkLength &&
                   !bulkWidth &&
                   !bulkHeight)

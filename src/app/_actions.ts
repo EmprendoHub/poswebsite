@@ -2467,8 +2467,6 @@ export async function getOneProductWithTrending(slug: string, id: string) {
       .sort({ createdAt: -1 })
       .limit(4);
 
-    console.log("trendingProducts", trendingProducts.length);
-
     // ── Merge real-time StoreInventory stock into each variation ─────────────
     const inventoryRecords = await StoreInventory.find(
       { product: product._id },
@@ -2736,6 +2734,7 @@ export async function bulkUpdateProducts(
     category?: string;
     gender?: string;
     brand?: string;
+    weight?: number;
     dimensions?: { length?: number; width?: number; height?: number };
   },
 ) {
@@ -2745,6 +2744,7 @@ export async function bulkUpdateProducts(
     if (updates.category) updateFields.category = updates.category;
     if (updates.gender) updateFields.gender = updates.gender;
     if (updates.brand) updateFields.brand = updates.brand;
+    if (updates.weight != null) updateFields.weight = updates.weight;
     if (updates.dimensions) {
       const { length, width, height } = updates.dimensions;
       if (length != null) updateFields["dimensions.length"] = length;

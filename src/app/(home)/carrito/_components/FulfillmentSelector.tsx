@@ -29,10 +29,34 @@ const FulfillmentSelector = ({
   const [pickupStore, setPickupStore] = useState<string>("");
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isPickupForced, setIsPickupForced] = useState(false);
   const dispatch = useDispatch();
 
   // Get cart products from Redux
   const { productsData } = useSelector((state: any) => state.compras);
+
+  // Check if pickup-only mode is forced by unshippable items
+  useEffect(() => {
+    const forcePickupOnly = sessionStorage.getItem("forcePickupOnly");
+    console.log(
+      "🔍 [FulfillmentSelector] Checking forcePickupOnly:",
+      forcePickupOnly,
+    );
+
+    if (forcePickupOnly === "true") {
+      console.log(
+        "🚫 [FulfillmentSelector] Hiding fulfillment selector - pickup required",
+      );
+      setIsPickupForced(true);
+      setFulfillmentType("pickup");
+    } else {
+      console.log(
+        "✓ [FulfillmentSelector] Showing fulfillment selector - normal mode",
+      );
+      setIsPickupForced(false);
+      setFulfillmentType("shipping");
+    }
+  }, []);
 
   // Fetch available stores for pickup with stock for cart items
   useEffect(() => {
@@ -83,6 +107,12 @@ const FulfillmentSelector = ({
     setPickupStore(storeId);
     onFulfillmentChange?.("pickup", storeId);
   };
+
+  // If pickup is forced by unshippable items, don't render this component
+  if (isPickupForced) {
+    console.log("⏭️ [FulfillmentSelector] Skipping render - pickup forced");
+    return null;
+  }
 
   return (
     <div className="border border-muted bg-background shadow-sm rounded-xl p-4 lg:p-6 mb-5">

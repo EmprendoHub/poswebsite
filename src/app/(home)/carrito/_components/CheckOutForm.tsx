@@ -1,12 +1,12 @@
 "use client";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import FormattedPrice from "@/backend/helpers/FormattedPrice";
-import { calculateShippingQuotes } from "@/lib/shippingRates";
+import { calculateShippingQuotes, UnshippableItem } from "@/lib/shippingRates";
 import { getVariationStock } from "@/app/_actions";
 import { deleteProduct, setCartQuantity } from "@/redux/shoppingSlice";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
@@ -27,6 +27,73 @@ const CheckOutForm = () => {
 
   const [checking, setChecking] = useState(false);
   const [stockErrors, setStockErrors] = useState<StockError[]>([]);
+  const [unshippableItems, setUnshippableItems] = useState<UnshippableItem[]>(
+    [],
+  );
+  const [showPickupWarning, setShowPickupWarning] = useState(false);
+
+  // Check for unshippable items on cart mount or when productsData changes
+  useEffect(() => {
+    const checkDeliverability = async () => {
+      if (!productsData || productsData.length === 0) {
+        setShowPickupWarning(false);
+        setUnshippableItems([]);
+        return;
+      }
+
+      try {
+        const cartItems = productsData.map((item: any) => ({
+          weight: item.weight || 0.5,
+          dimensions: item.dimensions || {
+            length: item.length || 15,
+            width: item.width || 15,
+            height: item.height || 10,
+          },
+          quantity: item.quantity || 1,
+          price: item.price || 0,
+          title: item.title || item.name || "Producto",
+          name: item._id,
+        }));
+
+        console.log(
+          "🔍 [Cart] Checking deliverability for",
+          cartItems.length,
+          "items",
+        );
+
+        const response = await fetch("/api/shipping/calculate-with-pickup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: cartItems }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log("📦 [Cart] Deliverability check result:", result);
+
+          if (
+            result.hasUnshippableItems &&
+            result.unshippableItems.length > 0
+          ) {
+            console.warn(
+              "⚠️ [Cart] Unshippable items detected:",
+              result.unshippableItems,
+            );
+            setUnshippableItems(result.unshippableItems);
+            setShowPickupWarning(true);
+          } else {
+            console.log("✓ [Cart] All items are shippable");
+            setShowPickupWarning(false);
+            setUnshippableItems([]);
+          }
+        }
+      } catch (error) {
+        console.error("❌ [Cart] Error checking deliverability:", error);
+      }
+    };
+
+    checkDeliverability();
+  }, [productsData]);
 
   const amountTotal = productsData?.reduce((acc: any, cartItem: any) => {
     const discountPercentage = cartItem.discountPercentage || 0;
@@ -66,6 +133,9 @@ const CheckOutForm = () => {
   async function handleContinuar() {
     setChecking(true);
     setStockErrors([]);
+    setUnshippableItems([]);
+    setShowPickupWarning(false);
+
     try {
       // Check every item in parallel
       const results = await Promise.all(
@@ -83,9 +153,74 @@ const CheckOutForm = () => {
       const errors = results.filter((r) => r.available < r.cartQty);
       if (errors.length > 0) {
         setStockErrors(errors);
-      } else {
-        router.push("/carrito/envio");
+        return;
       }
+
+      // Check for unshippable items using the new pickup-aware API
+      const cartItems = productsData.map((item: any) => ({
+        weight: item.weight || 0.5,
+        dimensions: item.dimensions || {
+          length: item.length || 15,
+          width: item.width || 15,
+          height: item.height || 10,
+        },
+        quantity: item.quantity || 1,
+        price: item.price || 0,
+        title: item.title || item.name || "Producto",
+        name: item._id,
+      }));
+
+      console.log(
+        "🚚 [Checkout] Calling shipping calculation API with items:",
+        cartItems,
+      );
+
+      try {
+        const response = await fetch("/api/shipping/calculate-with-pickup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: cartItems }),
+        });
+
+        console.log("📡 [Checkout] API Response status:", response.status);
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log("📦 [Checkout] Shipping calculation result:", result);
+
+          if (
+            result.hasUnshippableItems &&
+            result.unshippableItems.length > 0
+          ) {
+            console.warn(
+              "⚠️ [Checkout] Unshippable items found - forcing pickup mode:",
+              result.unshippableItems,
+            );
+            // Store unshippable items in sessionStorage to force pickup mode in shipping page
+            sessionStorage.setItem(
+              "unshippableItems",
+              JSON.stringify(result.unshippableItems),
+            );
+            sessionStorage.setItem("forcePickupOnly", "true");
+          } else {
+            console.log(
+              "✓ [Checkout] All items are shippable - normal checkout",
+            );
+            sessionStorage.removeItem("unshippableItems");
+            sessionStorage.removeItem("forcePickupOnly");
+          }
+        }
+      } catch (pickupError) {
+        console.error(
+          "❌ [Checkout] Error checking for unshippable items:",
+          pickupError,
+        );
+        // Don't block checkout if this fails
+      }
+
+      // If no stock errors, proceed to shipping selection
+      console.log("→ [Checkout] Navigating to /carrito/envio");
+      router.push("/carrito/envio");
     } catch {
       setStockErrors([
         {
@@ -151,6 +286,64 @@ const CheckOutForm = () => {
 
         {isLoggedIn ? (
           <div className="flex flex-col items-center gap-1">
+            {/* Pickup warning for unshippable items */}
+            {showPickupWarning && unshippableItems.length > 0 && (
+              <div className="w-full rounded-xl border border-orange-300 bg-orange-50 dark:bg-orange-950/30 dark:border-orange-800 px-3 py-3 mb-3">
+                <p className="text-xs font-semibold text-orange-700 dark:text-orange-400 mb-2">
+                  ⚠️ Algunos productos requieren recogida en tienda:
+                </p>
+                <div className="flex flex-col gap-3">
+                  {unshippableItems.map((item) => (
+                    <div
+                      key={item.productId}
+                      className="border-b border-orange-200 dark:border-orange-800 pb-2 last:border-0"
+                    >
+                      <p className="text-xs font-medium text-orange-700 dark:text-orange-300 mb-1">
+                        {item.title} (Cantidad: {item.quantity})
+                      </p>
+                      <p className="text-xs text-orange-600 dark:text-orange-400 mb-2">
+                        Dimensiones: {item.dimensions.length}×
+                        {item.dimensions.width}×{item.dimensions.height}cm -{" "}
+                        {item.reason}
+                      </p>
+                      {item.availableStores.length > 0 ? (
+                        <div className="ml-2">
+                          <p className="text-xs font-semibold text-orange-700 dark:text-orange-300 mb-1">
+                            Disponible en:
+                          </p>
+                          <ul className="text-xs text-orange-600 dark:text-orange-400 space-y-1">
+                            {item.availableStores.map((store) => (
+                              <li key={store.storeId} className="ml-2">
+                                <strong>{store.storeName}</strong>
+                                {store.address && (
+                                  <span> - {store.address}</span>
+                                )}
+                                {store.city && <span> ({store.city}</span>}
+                                {store.state && <span>, {store.state}</span>}
+                                {store.city && <span>)</span>}
+                                {store.phone && (
+                                  <span> - Tel: {store.phone}</span>
+                                )}
+                                <br />
+                                <span className="text-orange-500">
+                                  Stock: {store.quantity} unidad(es)
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-orange-500 dark:text-orange-400 ml-2">
+                          No hay información de tienda disponible en este
+                          momento.
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Stock error list */}
             {stockErrors.length > 0 && (
               <div className="w-full rounded-xl border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 px-3 py-3 mb-1">

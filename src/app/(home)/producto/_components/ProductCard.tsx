@@ -77,7 +77,7 @@ const ProductCard = ({ item, index, storeInventoryData }: ProductCardProps) => {
       "PSA",
       "Beckett",
       "CGC",
-      "AGC",
+      "AGS",
       "Icons",
       "GMA",
       "SGC",

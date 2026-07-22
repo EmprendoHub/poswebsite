@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import BreadCrumbs from "@/components/layouts/BreadCrumbs";
 import PaymentForm from "./PaymentForm";
@@ -19,6 +19,22 @@ const Shipping = ({ addresses }: { addresses: any }) => {
     "shipping",
   );
   const [pickupStore, setPickupStore] = useState<string>("");
+
+  // Check if pickup-only mode is forced
+  useEffect(() => {
+    const forcePickupOnly = sessionStorage.getItem("forcePickupOnly");
+    console.log("🔍 [Shipping] Checking forcePickupOnly:", forcePickupOnly);
+
+    if (forcePickupOnly === "true") {
+      console.log(
+        "🚫 [Shipping] Forcing pickup mode - unshippable items detected",
+      );
+      setFulfillmentType("pickup");
+      setIsPickupForced(true);
+    }
+  }, []);
+
+  const [isPickupForced, setIsPickupForced] = useState(false);
 
   const breadCrumbs = [
     {
@@ -126,21 +142,44 @@ const Shipping = ({ addresses }: { addresses: any }) => {
                 </article>
               )}
 
-              {/* Pickup Confirmation - Only show for pickup fulfillment */}
-              {fulfillmentType === "pickup" && pickupStore && (
-                <article className="border border-green-300 bg-green-50 dark:bg-green-950/20 shadow-sm rounded-xl p-4 lg:p-6 mb-5">
-                  <h2 className="text-xl font-semibold text-green-800 dark:text-green-200 mb-2">
-                    ✓ Retiro en Tienda Confirmado
-                  </h2>
-                  <p className="text-sm text-green-700 dark:text-green-300">
-                    Tu pedido será pagado en línea y podrás recogerlo en la
-                    sucursal seleccionada dentro de 24-48 horas.
-                  </p>
-                </article>
-              )}
+              {/* Pickup Confirmation - Show for pickup fulfillment OR when forced */}
+              {fulfillmentType === "pickup" &&
+                (pickupStore || isPickupForced) && (
+                  <article
+                    className={`border rounded-xl p-4 lg:p-6 mb-5 shadow-sm ${
+                      isPickupForced
+                        ? "border-orange-300 bg-orange-50 dark:bg-orange-950/20"
+                        : "border-green-300 bg-green-50 dark:bg-green-950/20"
+                    }`}
+                  >
+                    <h2
+                      className={`text-xl font-semibold mb-2 ${
+                        isPickupForced
+                          ? "text-orange-800 dark:text-orange-200"
+                          : "text-green-800 dark:text-green-200"
+                      }`}
+                    >
+                      {isPickupForced
+                        ? "🛑 Recogida en Tienda - REQUERIDA"
+                        : "✓ Retiro en Tienda Confirmado"}
+                    </h2>
+                    <p
+                      className={`text-sm ${
+                        isPickupForced
+                          ? "text-orange-700 dark:text-orange-300"
+                          : "text-green-700 dark:text-green-300"
+                      }`}
+                    >
+                      {isPickupForced
+                        ? "Los artículos en tu carrito no pueden ser enviados. Tu pedido será pagado en línea y podrás recogerlo en la sucursal seleccionada dentro de 24-48 horas."
+                        : "Tu pedido será pagado en línea y podrás recogerlo en la sucursal seleccionada dentro de 24-48 horas."}
+                    </p>
+                  </article>
+                )}
 
-              {/* Shipping Options Section - Only show for shipping fulfillment */}
-              {fulfillmentType === "shipping" && (
+              {/* Shipping Options Section - Show for normal shipping OR when pickup forced */}
+              {(fulfillmentType === "shipping" ||
+                (fulfillmentType === "pickup" && isPickupForced)) && (
                 <ShippingOptions
                   onShippingSelect={handleShippingSelect}
                   selectedShipping={selectedShipping}
