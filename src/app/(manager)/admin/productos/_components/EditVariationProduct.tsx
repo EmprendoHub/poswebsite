@@ -83,6 +83,7 @@ const EditVariationProduct = ({
   const [featured, setFeatured] = useState(product?.featured);
   const [removeBackground, setRemoveBackground] = useState(true);
   const [updatePrice, setUpdatePrice] = useState(product?.updatePrice ?? false);
+  const [generatingLink, setGeneratingLink] = useState(false);
   const [discountPercentage, setDiscountPercentage] = useState(
     product?.discountPercentage || 0,
   );
@@ -942,6 +943,67 @@ const EditVariationProduct = ({
     }
   };
 
+  async function handleGeneratePaymentLink() {
+    try {
+      setGeneratingLink(true);
+
+      if (!product?._id || !variations?.[0]?._id) {
+        toast({
+          title: "Error",
+          description:
+            "No se pueden generar el enlace. Guarda el producto primero.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log("🔗 [Generate Link] Creating payment link token...");
+
+      const response = await fetch("/api/auth-token/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: product._id,
+          variationId: variations[0]._id,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to generate token: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Copy link to clipboard
+      navigator.clipboard.writeText(data.paymentLink);
+
+      toast({
+        title: "Enlace generado",
+        description: "El enlace de pago se ha copiado al portapapeles",
+      });
+
+      // Optionally show the link in a modal or log it
+      console.log("✅ [Generate Link] Payment link generated:", {
+        link: data.paymentLink,
+        expiresAt: data.expiresAt,
+      });
+
+      // Also create alert to show the link
+      alert(
+        `Enlace de pago generado:\n\n${data.paymentLink}\n\nExpira: ${new Date(data.expiresAt).toLocaleString()}\n\n(Ya está copiado al portapapeles)`,
+      );
+    } catch (error) {
+      console.error("❌ [Generate Link] Error:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo generar el enlace de pago",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingLink(false);
+    }
+  }
+
   async function hanldeFormSubmit(e: any) {
     e.preventDefault();
 
@@ -1147,6 +1209,21 @@ const EditVariationProduct = ({
       </div>
     );
   }
+
+  // Check if product brand requires a quote
+  const isQuoteRequiredBrand = () => {
+    const quoteBrands = [
+      "PSA",
+      "Beckett",
+      "CGC",
+      "AGS",
+      "Icons",
+      "GMA",
+      "SGC",
+      "BGS",
+    ];
+    return quoteBrands.some((b) => brand?.toLowerCase() === b.toLowerCase());
+  };
 
   return (
     <main className="w-full min-h-screen bg-gradient-to-b from-background to-muted/5">
@@ -2146,6 +2223,41 @@ const EditVariationProduct = ({
                   "Actualizar Producto"
                 )}
               </button>
+
+              {isQuoteRequiredBrand() && (
+                <button
+                  type="button"
+                  disabled={
+                    generatingLink || !product?._id || !variations?.[0]?._id
+                  }
+                  onClick={handleGeneratePaymentLink}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:from-green-600/50 disabled:to-green-700/50 text-white rounded-lg font-semibold transition-all disabled:cursor-not-allowed shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                >
+                  {generatingLink ? (
+                    <>
+                      <span className="inline-block w-4 h-4 border-2 border-white border-r-transparent rounded-full animate-spin"></span>
+                      Generando...
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.658 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                        />
+                      </svg>
+                      Generar Enlace de Pago
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>

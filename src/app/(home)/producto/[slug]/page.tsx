@@ -3,9 +3,13 @@ import ProductDetailsComponent from "../_components/ProductDetailsComponent";
 
 export async function generateMetadata(
   { params }: { params: any },
-  parent: any
+  parent: any,
 ) {
   // fetch data
+  console.log(
+    "🔍 [ProductDetailsPage] Fetching product data for slug:",
+    params.slug,
+  );
   const data = await getOneProduct(params.slug, false);
   const product = JSON.parse(data.product);
 

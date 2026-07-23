@@ -41,7 +41,8 @@ const ProductCard = ({ item, index, storeInventoryData }: ProductCardProps) => {
     v.item = item._id;
     v.variation = v._id;
     v.title = item.title;
-    v.image = [{ url: variation.image }];
+    // Use product's main image (displayed on card) or fallback to variation.image
+    v.image = [{ url: item?.images[0]?.url || variation.image }];
     v.quantity = 1;
     v.brand = item.brand;
     v.weight = item.weight || 0.5;

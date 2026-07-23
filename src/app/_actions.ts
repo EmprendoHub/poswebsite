@@ -2420,10 +2420,18 @@ export async function getOneProduct(slug: any, id: any = "") {
   try {
     await dbConnect();
     let product;
-    if (id) {
-      product = await Product.findOne({ _id: id });
-    } else {
+
+    // Check if slug parameter is actually a MongoDB ObjectId (24 hex characters)
+    const isObjectId = /^[a-f0-9]{24}$/.test(slug);
+
+    if (isObjectId) {
+      // slug parameter contains an ID
+      product = await Product.findOne({ _id: slug });
+    } else if (slug) {
+      // slug parameter contains an actual slug
       product = await Product.findOne({ slug: slug });
+    } else {
+      throw new Error("Either slug or id must be provided");
     }
 
     // Apply 10% online markup before sending to client
@@ -2454,10 +2462,18 @@ export async function getOneProductWithTrending(slug: string, id: string) {
   try {
     await dbConnect();
     let product;
-    if (id) {
-      product = await Product.findOne({ _id: id });
-    } else {
+
+    // Check if slug parameter is actually a MongoDB ObjectId (24 hex characters)
+    const isObjectId = /^[a-f0-9]{24}$/.test(slug);
+
+    if (isObjectId) {
+      // slug parameter contains an ID
+      product = await Product.findOne({ _id: slug });
+    } else if (slug) {
+      // slug parameter contains an actual slug
       product = await Product.findOne({ slug: slug });
+    } else {
+      throw new Error("Either slug or id must be provided");
     }
     let trendingProducts: any = await Product.find({
       gender: { $regex: product.gender, $options: "i" },

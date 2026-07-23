@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { calculatePercentage } from "@/backend/helpers";
 import { useDispatch, useSelector } from "react-redux";
 import { addToCart } from "@/redux/shoppingSlice";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Image from "next/image";
 import Link from "next/link";
@@ -37,6 +37,9 @@ const ProductDetailsComponent = ({
   const dispatch = useDispatch();
   const { productsData } = useSelector((state: any) => state?.compras);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [tokenValid, setTokenValid] = useState(false);
+  const [tokenChecking, setTokenChecking] = useState(true);
   const [images, setImages] = useState(product?.images);
   const [mainImage, setMainImage] = useState(product?.images[0].url);
   const slideRef = useRef<HTMLDivElement | null>(null);
@@ -61,6 +64,41 @@ const ProductDetailsComponent = ({
     width: 0,
     height: 0,
   });
+
+  // Verify token from URL on component mount
+  useEffect(() => {
+    const verifyToken = async () => {
+      const token = searchParams.get("token");
+
+      if (!token) {
+        setTokenChecking(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/auth-token/verify?token=${token}`);
+
+        if (response.ok) {
+          const data = await response.json();
+
+          setTokenValid(true);
+        } else {
+          console.warn(
+            "⚠️ [ProductDetails] Token verification failed:",
+            response.status,
+          );
+          setTokenValid(false);
+        }
+      } catch (error) {
+        console.error("❌ [ProductDetails] Error verifying token:", error);
+        setTokenValid(false);
+      } finally {
+        setTokenChecking(false);
+      }
+    };
+
+    verifyToken();
+  }, [searchParams]);
 
   // Fetch store inventory data in batch for trending products
   useEffect(() => {
@@ -105,7 +143,8 @@ const ProductDetailsComponent = ({
     v.product = product._id;
     v.variation = v._id;
     v.title = product.title;
-    v.image = [{ url: variation.image }];
+    // Use mainImage (currently displayed) or fallback to variation.image
+    v.image = [{ url: mainImage || variation.image }];
     v.quantity = 1;
     v.brand = product.brand;
     v.weight = product.weight || 0.5;
@@ -320,18 +359,20 @@ const ProductDetailsComponent = ({
                   transition={{ duration: 0.5 }}
                   className="w-full space-y-3"
                 >
-                  {/* Brand */}
-                  <p className="text-3xl lg:text-4xl font-semibold font-EB_Garamond text-white">
-                    {product?.brand}
-                  </p>
+                  {/* Brand - Hidden for quote brands unless token valid */}
+                  {(!isQuoteRequiredBrand() || tokenValid) && (
+                    <p className="text-3xl lg:text-4xl font-semibold font-EB_Garamond text-white">
+                      {product?.brand}
+                    </p>
+                  )}
 
                   {/* Title */}
                   <p className="text-lg lg:text-xl text-gray-300 font-light">
                     {product?.title}
                   </p>
 
-                  {/* Discount Badge and Old Price - Hidden for quote brands */}
-                  {!isQuoteRequiredBrand() &&
+                  {/* Discount Badge and Old Price - Hidden for quote brands unless token valid */}
+                  {(!isQuoteRequiredBrand() || tokenValid) &&
                   (product?.sale_price || product?.discountPercentage > 0) ? (
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-2">
                       {product?.sale_price && (
@@ -359,8 +400,8 @@ const ProductDetailsComponent = ({
                     </div>
                   ) : null}
 
-                  {/* Price - Main - Hidden for quote brands */}
-                  {!isQuoteRequiredBrand() && (
+                  {/* Price - Main - Hidden for quote brands unless token valid */}
+                  {(!isQuoteRequiredBrand() || tokenValid) && (
                     <div className="pt-2">
                       <p className="font-semibold text-4xl lg:text-5xl text-white font-bodyFont">
                         {product?.sale_price > 0 ? (
@@ -448,8 +489,8 @@ const ProductDetailsComponent = ({
                     </div>
                   </motion.div>
                 )}
-                {/* Add to Cart Button - Hidden for quote brands */}
-                {!isQuoteRequiredBrand() && (
+                {/* Add to Cart Button - Show if no quote required OR token is valid */}
+                {(!isQuoteRequiredBrand() || tokenValid) && (
                   <motion.div
                     initial={{ y: 50, opacity: 0 }}
                     whileInView={{ y: 0, opacity: 1 }}
@@ -481,8 +522,8 @@ const ProductDetailsComponent = ({
                   </motion.div>
                 )}
 
-                {/* WhatsApp Get Quote Button - Replaces Add to Cart for specific brands */}
-                {isQuoteRequiredBrand() && (
+                {/* WhatsApp Get Quote Button - Show only for quote brands AND no valid token */}
+                {isQuoteRequiredBrand() && !tokenValid && !tokenChecking && (
                   <motion.div
                     initial={{ y: 50, opacity: 0 }}
                     whileInView={{ y: 0, opacity: 1 }}
