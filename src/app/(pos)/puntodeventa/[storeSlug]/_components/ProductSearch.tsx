@@ -183,7 +183,7 @@ export default function ProductSearch({
               ? "Buscar por nombre, ID, Cert o categoría..."
               : "Modo sin conexión — buscando en caché local..."
           }
-          className="flex-1 bg-transparent outline-none text-sm placeholder:text-slate-300"
+          className="flex-1 bg-transparent outline-none text-sm placeholder:text-slate-300 rounded-xl"
           // Recapture focus if user clicks away (keeps scanner working)
           onBlur={() => {
             if (!pauseFocus) setTimeout(() => inputRef.current?.focus(), 150);
@@ -206,7 +206,7 @@ export default function ProductSearch({
 
       {/* Results dropdown */}
       {(loading || results.length > 0) && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border border-muted rounded-xl shadow-xl max-h-[420px] overflow-y-auto">
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border border-muted rounded-xl shadow-xl max-h-[420px]overflow-y-auto">
           {loading && (
             <p className="text-xs text-muted-foreground p-4 animate-pulse">
               Buscando...
@@ -217,21 +217,6 @@ export default function ProductSearch({
               key={product._id}
               className="border-b border-muted last:border-0"
             >
-              {/* Product header row */}
-              <div className="flex items-center gap-3 px-4 py-2.5 bg-muted/30 pointer-events-none">
-                {product.images?.[0]?.url && (
-                  <Image
-                    src={product.images[0].url}
-                    alt={product.title}
-                    width={32}
-                    height={32}
-                    className="rounded object-cover w-8 h-8 flex-shrink-0"
-                  />
-                )}
-                <p className="text-sm font-semibold truncate flex-1">
-                  {product.title}
-                </p>
-              </div>
               {/* One row per in-stock variation */}
               {product.variations.map((v) => {
                 const label =
@@ -241,18 +226,33 @@ export default function ProductSearch({
                   <button
                     key={v._id}
                     onClick={() => handleAdd(product, v)}
-                    className="w-full flex items-center gap-3 pl-8 pr-4 py-2 hover:bg-muted transition-colors text-left"
+                    className="w-full flex items-center gap-3 pl-1 pr-2 py-2 hover:bg-muted transition-colors text-left"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-foreground">
-                        {label}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {v.stock} disponible{v.stock !== 1 ? "s" : ""} en
-                        sucursal
-                      </p>
+                      {/* Product header row */}
+                      <div className="flex items-center gap-3 px-2 py-2.5 bg-muted/30 pointer-events-none">
+                        {product.images?.[0]?.url && (
+                          <Image
+                            src={product.images[0].url}
+                            alt={product.title}
+                            width={64}
+                            height={64}
+                            className="rounded object-cover w-16 h-16 flex-shrink-0"
+                          />
+                        )}
+                        <div className="text-sm font-semibold truncate flex-1">
+                          {product.title}
+                          <p className="text-xs text-muted-foreground">
+                            {v.stock} disponible{v.stock !== 1 ? "s" : ""} en
+                            sucursal
+                          </p>
+                        </div>
+                        {/* <p className="text-xs font-medium text-foreground">
+                          {label}
+                        </p> */}
+                      </div>
                     </div>
-                    <span className="text-sm font-semibold text-primary flex-shrink-0">
+                    <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-500 flex-shrink-0">
                       ${(product.currentPrice ?? v.price)?.toFixed(2)}
                     </span>
                   </button>

@@ -148,7 +148,7 @@ export default function POSSalesPage() {
     <div className="flex h-screen bg-background">
       <POSSidebar storeSlug={storeSlug} storeName={storeName} />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col">
         {/* ── Offline banner ───────────────────────────────────────────── */}
         {!isOnline && (
           <div className="flex items-center gap-3 bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-300 dark:border-yellow-700 px-4 py-2 text-sm">
@@ -195,7 +195,7 @@ export default function POSSalesPage() {
         )}
 
         {/* ── Refresh Products banner (always visible when online) ────── */}
-        {isOnline && (
+        {/* {isOnline && (
           <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-700 px-4 py-2 text-sm">
             <MdRefresh
               size={18}
@@ -214,7 +214,7 @@ export default function POSSalesPage() {
               {isSyncing ? "Actualizando…" : "Actualizar ahora"}
             </button>
           </div>
-        )}
+        )} */}
 
         {/* ── Sync success toast ────────────────────────────────────────── */}
         {syncToast && (
@@ -235,10 +235,10 @@ export default function POSSalesPage() {
         {/* ── Main content row ──────────────────────────────────────────── */}
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           {/* Left: product search area */}
-          <div className="flex-1 flex flex-col p-4 overflow-y-auto bg-card dark:bg-gradient-to-br dark:from-slate-700 dark:to-slate-900 rounded-lg">
-            <div className="mb-4">
+          <div className="flex-1 flex flex-col p-4 overflow-y-auto bg-card dark:bg-gradient-to-br dark:from-slate-700 dark:to-slate-900 rounded-[20px] m-4  min-h-[220px]  ">
+            <div className="mb-4 flex justify-between items-center">
               <h1 className="text-lg font-bold">{storeName || storeSlug}</h1>
-              <p className="text-xs text-muted-foreground">Nueva venta</p>
+              <span className="text-xs text-muted-foreground">Nueva venta</span>
             </div>
             <ProductSearch
               storeId={storeId ?? ""}
@@ -273,7 +273,7 @@ export default function POSSalesPage() {
           </div>
 
           {/* Right: cart */}
-          <div className="w-full lg:w-80 xl:w-96 flex-shrink-0 border-t lg:border-t-0 lg:border-l border-muted p-4 flex flex-col">
+          <div className="w-full lg:w-1/2 xl:w-1/2 flex-shrink-0 border-t lg:border-t-0 lg:border-l border-muted p-4 flex flex-col  ">
             <POSCart
               items={cart}
               onUpdateQty={handleUpdateQty}

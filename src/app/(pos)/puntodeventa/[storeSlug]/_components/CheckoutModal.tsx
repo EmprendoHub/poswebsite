@@ -451,10 +451,10 @@ export default function CheckoutModal({
               <div className="flex flex-col gap-2">
                 <input
                   type="number"
-                  placeholder="Efectivo recibido"
+                  placeholder="0.00"
                   value={cashReceived}
                   onChange={(e) => setCashReceived(e.target.value)}
-                  className="bg-muted rounded-lg px-3 py-2.5 text-2xl outline-none placeholder:text-muted-foreground text-black font-bold"
+                  className="bg-muted rounded-lg px-3 py-2.5 text-2xl outline-none placeholder:text-slate-700 text-black font-bold"
                 />
                 {Number(cashReceived) > 0 && (
                   <div className="flex justify-between text-lg px-1">
@@ -473,7 +473,7 @@ export default function CheckoutModal({
                 placeholder="Referencia / Nº de transacción"
                 value={transactionRef}
                 onChange={(e) => setTransactionRef(e.target.value)}
-                className="bg-muted rounded-lg px-3 py-2.5 text-2xl outline-none placeholder:text-muted-foreground text-black font-bold"
+                className="bg-muted rounded-lg px-3 py-2.5 text-xl outline-none placeholder:text-slate-700 text-black font-bold"
               />
             )}
 
@@ -489,14 +489,14 @@ export default function CheckoutModal({
                       placeholder="0.00"
                       value={cashPart}
                       onChange={(e) => setCashPart(e.target.value)}
-                      className="bg-muted rounded-lg px-3 py-2.5 text-2xl outline-none placeholder:text-muted-foreground text-black font-bold"
+                      className="bg-muted rounded-lg px-3 py-2.5 text-2xl outline-none placeholder:text-slate-700 text-black font-bold"
                     />
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-xs text-muted-foreground font-medium px-1">
                       Cargo a terminal
                     </label>
-                    <div className="bg-muted/50 border border-muted rounded-lg px-3 py-2.5 text-lg font-bold text-blue-600 dark:text-blue-400">
+                    <div className="bg-muted/50 border border-muted rounded-lg px-3 py-2.5 text-lg font-bold text-emerald-600 dark:text-emerald-400">
                       $
                       {Math.max(0, subtotal - Number(cashPart || 0)).toFixed(2)}
                     </div>
@@ -507,7 +507,7 @@ export default function CheckoutModal({
                   placeholder="Referencia / Nº de transacción terminal"
                   value={mixedCardRef}
                   onChange={(e) => setMixedCardRef(e.target.value)}
-                  className="bg-muted rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground text-foreground font-semibold"
+                  className="bg-muted rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-slate-700 text-foreground font-semibold"
                 />
               </div>
             )}

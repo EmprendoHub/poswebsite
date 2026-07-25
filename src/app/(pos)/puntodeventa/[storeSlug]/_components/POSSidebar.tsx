@@ -124,26 +124,29 @@ export default function POSSidebar({ storeSlug, storeName }: POSSidebarProps) {
           )}
 
           {/* Nav items */}
-          <ul className="flex flex-col gap-2 px-2 mt-1">
+          <ul className="flex flex-col gap-2 px-0.5 mt-1">
             {navItems.map((item) => {
               const isActive = item.exact
                 ? pathname === item.href
                 : pathname.startsWith(item.href);
               return (
-                <li key={item.href}>
+                <li
+                  key={item.href}
+                  className={` ${expanded ? "w-full" : "w-12"}`}
+                >
                   <Link
                     href={item.href}
-                    className={`flex items-center rounded-[20px] text-sm transition-colors  ${
+                    className={`flex items-center rounded-full text-xs lg:text-sm transition-colors  ${
                       expanded
                         ? "px-3 py-2.5 gap-3"
-                        : "px-3 py-3 justify-center"
+                        : "px-0 py-3 justify-center"
                     } ${
                       isActive
                         ? "bg-primary text-primary-foreground font-semibold"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                   >
-                    <span>{item.icon}</span>
+                    {item.icon}
                     {expanded && (
                       <span
                         className={`overflow-hidden transition-all ${
@@ -163,7 +166,7 @@ export default function POSSidebar({ storeSlug, storeName }: POSSidebarProps) {
         </div>
 
         {/* Footer: theme toggle + back + logout */}
-        <div className="px-2 pb-4 flex flex-col gap-1">
+        <div className="px-.5 pb-4 flex flex-col gap-1">
           {/* Dark / light toggle */}
           <button
             onClick={() =>
