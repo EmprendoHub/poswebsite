@@ -7,6 +7,8 @@ import {
   MdClose,
   MdInventory2,
   MdStorefront,
+  MdNavigateBefore,
+  MdNavigateNext,
 } from "react-icons/md";
 
 /* ─── Types ─────────────────────────────────────────────────────────── */
@@ -180,7 +182,6 @@ function CardexPrintView({
         <span style={{ width: "140px" }}>Fecha</span>
         <span style={{ width: "70px" }}>Ref.</span>
         <span style={{ width: "170px" }}>Detalle</span>
-        <span style={{ width: "35px", textAlign: "right" }}>Cant.</span>
         <span style={{ width: "50px", textAlign: "right" }}>Impacto</span>
         <span style={{ width: "80px", textAlign: "right" }}>Total</span>
       </div>
@@ -218,9 +219,7 @@ function CardexPrintView({
             >
               {detail}
             </span>
-            <span style={{ width: "35px", textAlign: "right" }}>
-              {m.quantity}
-            </span>
+
             <span style={{ width: "50px", textAlign: "right" }}>
               {impact > 0 ? `+${impact}` : `${impact}`}
             </span>
@@ -277,6 +276,13 @@ export default function AdminCardexPage() {
   const [loadingCardex, setLoadingCardex] = useState(false);
   const [cardexError, setCardexError] = useState("");
   const [showPrint, setShowPrint] = useState(false);
+
+  const [movementPage, setMovementPage] = useState(1);
+  const [movementType, setMovementType] = useState<"all" | Movement["type"]>(
+    "all",
+  );
+  const [movementSearch, setMovementSearch] = useState("");
+  const movementsPerPage = 10;
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -354,6 +360,35 @@ export default function AdminCardexPage() {
       ? cardex.movements.filter((m) => m.variationId === selectedVariationId)
       : cardex.movements
     : [];
+
+  /* ── Filter movements by type and search ── */
+  const typeFilteredMovements = filteredMovements.filter((m) => {
+    if (movementType !== "all" && m.type !== movementType) return false;
+    if (movementSearch.trim()) {
+      const searchLower = movementSearch.toLowerCase();
+      return (
+        (m.reference && m.reference.toLowerCase().includes(searchLower)) ||
+        (m.customerName &&
+          m.customerName.toLowerCase().includes(searchLower)) ||
+        (m.details && m.details.toLowerCase().includes(searchLower)) ||
+        (m.variationName && m.variationName.toLowerCase().includes(searchLower))
+      );
+    }
+    return true;
+  });
+
+  /* ── Pagination calculation ── */
+  const totalPages = Math.ceil(typeFilteredMovements.length / movementsPerPage);
+  const startIdx = (movementPage - 1) * movementsPerPage;
+  const paginatedMovements = typeFilteredMovements.slice(
+    startIdx,
+    startIdx + movementsPerPage,
+  );
+
+  /* ── Reset page on filter change ── */
+  useEffect(() => {
+    setMovementPage(1);
+  }, [movementType, movementSearch, selectedVariationId]);
   const currentStock = cardex
     ? selectedVariationId
       ? (cardex.inventoryRecords.find(
@@ -629,119 +664,214 @@ export default function AdminCardexPage() {
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
             Historial de movimientos
           </h3>
+
+          {/* Movement type filter */}
+          {filteredMovements.length > 0 && (
+            <div className="mb-4 flex flex-wrap gap-2">
+              <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide mr-2 flex items-center">
+                Filtrar por tipo:
+              </label>
+              {[
+                { value: "all", label: "Todos" },
+                { value: "sale", label: "Ventas" },
+                { value: "transfer_in", label: "Entradas" },
+                { value: "transfer_out", label: "Salidas" },
+                { value: "adjustment", label: "Ajustes" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setMovementType(opt.value as any)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    movementType === opt.value
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-muted text-muted-foreground hover:border-foreground"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Movement search */}
+          {filteredMovements.length > 0 && (
+            <div className="mb-4 flex gap-2">
+              <div className="flex-1 flex items-center gap-2 bg-card border border-muted rounded-lg px-3 py-2">
+                <MdSearch
+                  size={16}
+                  className="text-muted-foreground flex-shrink-0"
+                />
+                <input
+                  type="text"
+                  value={movementSearch}
+                  onChange={(e) => setMovementSearch(e.target.value)}
+                  placeholder="Buscar en movimientos (ref., cliente, detalle, variación)…"
+                  className="flex-1 bg-transparent outline-none text-sm"
+                />
+                {movementSearch && (
+                  <button
+                    onClick={() => setMovementSearch("")}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <MdClose size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Movement counter */}
+          {filteredMovements.length > 0 && (
+            <div className="mb-2 text-xs text-muted-foreground">
+              Mostrando {paginatedMovements.length} de{" "}
+              {typeFilteredMovements.length} movimiento(s)
+            </div>
+          )}
+
           {filteredMovements.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No hay movimientos registrados para este producto en esta
               sucursal.
             </p>
+          ) : typeFilteredMovements.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No hay movimientos que coincidan con los filtros aplicados.
+            </p>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-muted">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/30 text-xs text-muted-foreground uppercase">
-                  <tr>
-                    <th className="px-4 py-3 text-left">Tipo</th>
-                    <th className="px-4 py-3 text-left">Fecha</th>
-                    <th className="px-4 py-3 text-left">Referencia</th>
-                    <th className="px-4 py-3 text-left">Detalle</th>
-                    <th className="px-4 py-3 text-left">Variación</th>
-                    <th className="px-4 py-3 text-left">Autorizado por</th>
-                    <th className="px-4 py-3 text-left">Sucursales</th>
-                    <th className="px-4 py-3 text-right">Cant.</th>
-                    <th className="px-4 py-3 text-right">Impacto</th>
-                    <th className="px-4 py-3 text-right">Precio unit.</th>
-                    <th className="px-4 py-3 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredMovements.map((m, idx) => {
-                    const ref =
-                      m.reference || (m.orderId ? `#${m.orderId}` : "—");
-                    const detail =
-                      m.type === "sale"
-                        ? `${m.customerName || "—"} · ${payLabel(m.payMethod)} · ${m.orderStatus || "—"}`
-                        : m.details || "—";
-                    const v = cardex!.product.variations.find(
-                      (vv) => vv._id === m.variationId,
-                    );
-                    const impact = Number(m.stockImpact ?? 0);
-                    return (
-                      <tr key={idx} className="border-t border-muted">
-                        <td className="px-4 py-3">
-                          <span
-                            className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                              m.type === "sale"
-                                ? "bg-blue-100 text-blue-700"
-                                : m.type === "transfer_in"
-                                  ? "bg-green-100 text-green-700"
-                                  : m.type === "transfer_out"
-                                    ? "bg-orange-100 text-orange-700"
-                                    : "bg-purple-100 text-purple-700"
+            <>
+              <div className="overflow-x-auto rounded-xl border border-muted">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/30 text-xs text-muted-foreground uppercase">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Tipo</th>
+                      <th className="px-4 py-3 text-left">Fecha</th>
+                      <th className="px-4 py-3 text-left">Referencia</th>
+                      <th className="px-4 py-3 text-left">Detalle</th>
+
+                      <th className="px-4 py-3 text-left">Autorizado por</th>
+                      <th className="px-4 py-3 text-left">Sucursales</th>
+
+                      <th className="px-4 py-3 text-right">Impacto</th>
+                      <th className="px-4 py-3 text-right">Precio unit.</th>
+                      <th className="px-4 py-3 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedMovements.map((m, idx) => {
+                      const ref =
+                        m.reference || (m.orderId ? `#${m.orderId}` : "—");
+                      const detail =
+                        m.type === "sale"
+                          ? `${m.customerName || "—"} · ${payLabel(m.payMethod)} · ${m.orderStatus || "—"}`
+                          : m.details || "—";
+                      const v = cardex!.product.variations.find(
+                        (vv) => vv._id === m.variationId,
+                      );
+                      const impact = Number(m.stockImpact ?? 0);
+                      return (
+                        <tr key={idx} className="border-t border-muted">
+                          <td className="px-4 py-3">
+                            <span
+                              className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                m.type === "sale"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : m.type === "transfer_in"
+                                    ? "bg-green-100 text-green-700"
+                                    : m.type === "transfer_out"
+                                      ? "bg-orange-100 text-orange-700"
+                                      : "bg-purple-100 text-purple-700"
+                              }`}
+                            >
+                              {movementTypeLabel(m.type)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            {fmtDate(m.date)}
+                          </td>
+                          <td className="px-4 py-3 font-bold">{ref}</td>
+                          <td className="px-4 py-3 text-xs">{detail}</td>
+
+                          <td className="px-4 py-3 text-xs font-medium">
+                            {m.authorizedBy || "—"}
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            {m.branches && m.branches.length > 0
+                              ? m.branches.join(", ")
+                              : "—"}
+                          </td>
+
+                          <td
+                            className={`px-4 py-3 text-right font-bold ${
+                              impact > 0
+                                ? "text-green-600"
+                                : impact < 0
+                                  ? "text-red-500"
+                                  : "text-muted-foreground"
                             }`}
                           >
-                            {movementTypeLabel(m.type)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-xs">{fmtDate(m.date)}</td>
-                        <td className="px-4 py-3 font-bold">{ref}</td>
-                        <td className="px-4 py-3 text-xs">{detail}</td>
-                        <td className="px-4 py-3 text-xs">
-                          {v?.title ?? m.variationName ?? "—"}
-                        </td>
-                        <td className="px-4 py-3 text-xs font-medium">
-                          {m.authorizedBy || "—"}
-                        </td>
-                        <td className="px-4 py-3 text-xs">
-                          {m.branches && m.branches.length > 0
-                            ? m.branches.join(", ")
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-right font-bold">
-                          {m.quantity}
-                        </td>
-                        <td
-                          className={`px-4 py-3 text-right font-bold ${
-                            impact > 0
-                              ? "text-green-600"
-                              : impact < 0
-                                ? "text-red-500"
+                            {impact > 0 ? `+${impact}` : impact}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {fmt(m.unitPrice)}
+                          </td>
+                          <td
+                            className={`px-4 py-3 text-right font-bold ${
+                              m.total > 0
+                                ? "text-green-600"
                                 : "text-muted-foreground"
-                          }`}
-                        >
-                          {impact > 0 ? `+${impact}` : impact}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {fmt(m.unitPrice)}
-                        </td>
-                        <td
-                          className={`px-4 py-3 text-right font-bold ${
-                            m.total > 0
-                              ? "text-green-600"
-                              : "text-muted-foreground"
-                          }`}
-                        >
-                          {fmt(m.total)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot className="bg-muted/30 font-bold text-sm">
-                  <tr className="border-t-2 border-muted">
-                    <td
-                      colSpan={8}
-                      className="px-4 py-3 text-right text-xs text-muted-foreground"
-                    >
-                      TOTALES
-                    </td>
-                    <td className="px-4 py-3 text-right">{totalSold}</td>
-                    <td className="px-4 py-3 text-right">{netStockImpact}</td>
-                    <td className="px-4 py-3 text-right text-green-600">
-                      {fmt(totalRevenue)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+                            }`}
+                          >
+                            {fmt(m.total)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot className="bg-muted/30 font-bold text-sm">
+                    <tr className="border-t-2 border-muted">
+                      <td
+                        colSpan={6}
+                        className="px-4 py-3 text-right text-xs text-muted-foreground"
+                      >
+                        TOTALES
+                      </td>
+                      <td className="px-4 py-3 text-right">{totalSold}</td>
+                      <td className="px-4 py-3 text-right">{netStockImpact}</td>
+                      <td className="px-4 py-3 text-right text-green-600">
+                        {fmt(totalRevenue)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              {/* Pagination controls */}
+              {totalPages > 1 && (
+                <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+                  <button
+                    onClick={() =>
+                      setMovementPage(Math.max(1, movementPage - 1))
+                    }
+                    disabled={movementPage === 1}
+                    className="flex items-center gap-1 px-3 py-2 rounded-lg border border-muted hover:border-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <MdNavigateBefore size={16} /> Anterior
+                  </button>
+                  <span className="font-medium">
+                    Página {movementPage} de {totalPages}
+                  </span>
+                  <button
+                    onClick={() =>
+                      setMovementPage(Math.min(totalPages, movementPage + 1))
+                    }
+                    disabled={movementPage === totalPages}
+                    className="flex items-center gap-1 px-3 py-2 rounded-lg border border-muted hover:border-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Siguiente <MdNavigateNext size={16} />
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </>
       )}

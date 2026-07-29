@@ -198,17 +198,17 @@ export default function WorkOrderDetailPage() {
     }
   }
 
-  if (!pageUnlocked) {
-    return (
-      <div className="flex h-screen bg-background">
-        <POSSidebar storeSlug={storeSlug} storeName={storeName} />
-        <ManagerCodeModal
-          onAuthorized={() => setPageUnlocked(true)}
-          onCancel={() => router.push(`/puntodeventa/${storeSlug}/`)}
-        />
-      </div>
-    );
-  }
+  // if (!pageUnlocked) {
+  //   return (
+  //     <div className="flex h-screen bg-background">
+  //       <POSSidebar storeSlug={storeSlug} storeName={storeName} />
+  //       <ManagerCodeModal
+  //         onAuthorized={() => setPageUnlocked(true)}
+  //         onCancel={() => router.push(`/puntodeventa/${storeSlug}/`)}
+  //       />
+  //     </div>
+  //   );
+  // }
 
   if (loading)
     return (

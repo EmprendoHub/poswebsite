@@ -9,6 +9,9 @@ import {
   MdInventory2,
   MdLock,
   MdShield,
+  MdNavigateBefore,
+  MdNavigateNext,
+  MdDownload,
 } from "react-icons/md";
 
 /* ─── Manager code modal ─────────────────────────────────────────── */
@@ -147,6 +150,7 @@ interface CardexData {
   inventoryRecords: InventoryRecord[];
   movements: Movement[];
   storeName: string;
+  storeStockMap?: { [storeName: string]: { [variationId: string]: number } };
 }
 
 /* ─── Helpers ─────────────────────────────────────────────────────── */
@@ -199,6 +203,16 @@ export default function POSCardexPage() {
   const [cardex, setCardex] = useState<CardexData | null>(null);
   const [loadingCardex, setLoadingCardex] = useState(false);
   const [cardexError, setCardexError] = useState("");
+
+  // Pagination & filters for movements
+  const [movementPage, setMovementPage] = useState(1);
+  const [movementType, setMovementType] = useState<Movement["type"] | "all">(
+    "all",
+  );
+  const [movementSearch, setMovementSearch] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const movementsPerPage = 10;
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -281,6 +295,163 @@ export default function POSCardexPage() {
       ? cardex.movements.filter((m) => m.variationId === selectedVariationId)
       : cardex.movements
     : [];
+
+  // Apply type and search filters
+  const typeFilteredMovements = filteredMovements.filter((m) => {
+    if (movementType !== "all" && m.type !== movementType) return false;
+    if (movementSearch.trim()) {
+      const searchLower = movementSearch.toLowerCase();
+      if (
+        !(m.reference && m.reference.toLowerCase().includes(searchLower)) &&
+        !(
+          m.customerName && m.customerName.toLowerCase().includes(searchLower)
+        ) &&
+        !(m.details && m.details.toLowerCase().includes(searchLower)) &&
+        !(
+          m.variationName && m.variationName.toLowerCase().includes(searchLower)
+        )
+      ) {
+        return false;
+      }
+    }
+    if (startDate || endDate) {
+      const movementDate = new Date(m.date);
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        if (movementDate < start) return false;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        if (movementDate > end) return false;
+      }
+    }
+    return true;
+  });
+
+  // Calculate pagination
+  const totalPages = Math.ceil(typeFilteredMovements.length / movementsPerPage);
+  const startIdx = (movementPage - 1) * movementsPerPage;
+  const paginatedMovements = typeFilteredMovements.slice(
+    startIdx,
+    startIdx + movementsPerPage,
+  );
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setMovementPage(1);
+  }, [selectedVariationId, movementType, movementSearch, startDate, endDate]);
+
+  // Generate PDF report
+  const generatePDFReport = () => {
+    if (!cardex || !selectedProduct) return;
+
+    const htmlContent = `
+      <html>
+      <head>
+        <title>Cardex - ${selectedProduct.title}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 10mm; font-size: 12px; }
+          h1 { font-size: 18px; text-align: center; margin: 0 0 5px 0; }
+          h2 { font-size: 14px; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 15px; margin-bottom: 10px; }
+          .header-info { text-align: center; font-size: 10px; color: #666; margin-bottom: 10px; }
+          .kpi-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 15px; }
+          .kpi-card { border: 1px solid #ddd; padding: 8px; border-radius: 4px; }
+          .kpi-label { font-size: 10px; color: #666; }
+          .kpi-value { font-size: 16px; font-weight: bold; color: #333; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th { background: #f5f5f5; border: 1px solid #ddd; padding: 6px; text-align: left; font-size: 10px; font-weight: bold; }
+          td { border: 1px solid #ddd; padding: 6px; font-size: 9px; }
+          tr:nth-child(even) { background: #fafafa; }
+          .date-range { font-size: 10px; color: #666; margin-bottom: 10px; }
+          .footer { text-align: center; font-size: 9px; color: #999; margin-top: 20px; border-top: 1px solid #ddd; padding-top: 10px; }
+        </style>
+      </head>
+      <body>
+        <h1>Super Collectibles - Cardex</h1>
+        <div class="header-info">${storeName}</div>
+        <div class="header-info" style="margin-bottom: 15px;"><strong>${selectedProduct.title}</strong></div>
+        ${selectedProduct.brand ? `<div class="header-info">Cert: ${selectedProduct.brand}</div>` : ""}
+        ${selectedProduct.ASIN ? `<div class="header-info">ASIN: ${selectedProduct.ASIN}</div>` : ""}
+        <div class="date-range"><strong>Período:</strong> ${startDate ? new Date(startDate).toLocaleDateString("es-MX") : "Inicio"} al ${endDate ? new Date(endDate).toLocaleDateString("es-MX") : "Fin"}</div>
+
+        <div class="kpi-container">
+          <div class="kpi-card">
+            <div class="kpi-label">Stock actual</div>
+            <div class="kpi-value">${currentStock}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Movimientos</div>
+            <div class="kpi-value">${typeFilteredMovements.length}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Uds. vendidas</div>
+            <div class="kpi-value">${typeFilteredMovements.filter((m) => m.type === "sale").reduce((s, m) => s + m.quantity, 0)}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Ingresos</div>
+            <div class="kpi-value">${fmt(typeFilteredMovements.filter((m) => m.type === "sale").reduce((s, m) => s + m.total, 0))}</div>
+          </div>
+        </div>
+
+        <h2>Historial de movimientos (${typeFilteredMovements.length})</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Fecha</th>
+              <th>Referencia</th>
+              <th>Detalle</th>
+              <th style="text-align: right;">Impacto</th>
+              <th style="text-align: right;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${typeFilteredMovements
+              .map((m) => {
+                const ref = m.reference || (m.orderId ? `#${m.orderId}` : "—");
+                const detail =
+                  m.type === "sale"
+                    ? `${m.customerName || "—"} · ${payLabel(m.payMethod)} · ${m.orderStatus || "—"}`
+                    : m.details || "—";
+                const v = selectedProduct.variations.find(
+                  (vv) => vv._id === m.variationId,
+                );
+                const impact = Number(m.stockImpact ?? 0);
+                return `
+                  <tr>
+                    <td>${movementTypeLabel(m.type)}</td>
+                    <td>${fmtDate(m.date)}</td>
+                    <td>${ref}</td>
+                    <td>${detail}</td>
+                    <td style="text-align: right;">${impact > 0 ? `+${impact}` : impact}</td>
+                    <td style="text-align: right;">${fmt(m.total)}</td>
+                  </tr>
+                `;
+              })
+              .join("")}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          Reporte generado el ${new Date().toLocaleString("es-MX")}
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+    }
+  };
+
   const currentStock = cardex
     ? selectedVariationId
       ? (cardex.inventoryRecords.find(
@@ -431,7 +602,7 @@ export default function POSCardexPage() {
             </div>
 
             {/* KPI cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               {[
                 {
                   label: "Stock actual",
@@ -451,7 +622,7 @@ export default function POSCardexPage() {
                 {
                   label: "Uds. vendidas",
                   value: totalSold,
-                  color: "text-primary",
+                  color: "text-blue-600",
                 },
                 {
                   label: "Ingresos totales",
@@ -471,99 +642,298 @@ export default function POSCardexPage() {
               ))}
             </div>
 
+            {/* Stock per store */}
+            {cardex.storeStockMap &&
+              Object.keys(
+                cardex.storeStockMap as Record<string, Record<string, number>>,
+              ).length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                    Stock por sucursal
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-3 gap-4">
+                    {Object.entries(
+                      cardex.storeStockMap as Record<
+                        string,
+                        Record<string, number>
+                      >,
+                    ).map(([storeNameKey, variationStocks]) => (
+                      <div
+                        key={storeNameKey}
+                        className="bg-card border border-muted rounded-lg p-4"
+                      >
+                        <div className="space-y-2">
+                          {Object.entries(variationStocks).map(
+                            ([varId, qty]) => {
+                              const v = cardex.product.variations.find(
+                                (vv) => vv._id === varId,
+                              );
+                              return (
+                                <div
+                                  key={varId}
+                                  className="flex justify-between items-center text-xs"
+                                >
+                                  <h4 className="font-semibold text-sm mb-3">
+                                    {storeNameKey}
+                                  </h4>
+                                  <span
+                                    className={`font-semibold ${
+                                      qty <= 0
+                                        ? "text-red-500"
+                                        : qty <= 3
+                                          ? "text-amber-500"
+                                          : "text-green-600"
+                                    }`}
+                                  >
+                                    {qty}
+                                  </span>
+                                </div>
+                              );
+                            },
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
             {/* Movement history */}
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
               Historial de movimientos
             </h3>
-            {filteredMovements.length === 0 ? (
+
+            {/* Filters */}
+            <div className="mb-4 space-y-3">
+              <div className="flex flex-col sm:flex-row gap-3">
+                {/* Type filter */}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setMovementType("all")}
+                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                      movementType === "all"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-muted text-muted-foreground hover:border-foreground"
+                    }`}
+                  >
+                    Todos
+                  </button>
+                  {["sale", "transfer_in", "transfer_out", "adjustment"].map(
+                    (type) => (
+                      <button
+                        key={type}
+                        onClick={() =>
+                          setMovementType(type as Movement["type"])
+                        }
+                        className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                          movementType === type
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "border-muted text-muted-foreground hover:border-foreground"
+                        }`}
+                      >
+                        {movementTypeLabel(type as Movement["type"])}
+                      </button>
+                    ),
+                  )}
+                </div>
+
+                {/* Search in movements */}
+                <div className="flex-1 flex items-center gap-2 bg-card border border-muted rounded-lg px-3 py-2">
+                  <MdSearch
+                    size={16}
+                    className="text-muted-foreground flex-shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={movementSearch}
+                    onChange={(e) => setMovementSearch(e.target.value)}
+                    placeholder="Buscar por referencia, cliente…"
+                    className="flex-1 bg-transparent outline-none text-xs"
+                  />
+                  {movementSearch && (
+                    <button
+                      onClick={() => setMovementSearch("")}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <MdClose size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Date range filter and PDF export */}
+              <div className="flex flex-col sm:flex-row gap-3 items-end">
+                <div className="flex gap-2 flex-1 items-end">
+                  <div className="flex-1">
+                    <label className="text-xs text-muted-foreground block mb-1 font-medium">
+                      Desde:
+                    </label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full text-xs px-3 py-2 bg-card border border-muted rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-xs text-muted-foreground block mb-1 font-medium">
+                      Hasta:
+                    </label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full text-xs px-3 py-2 bg-card border border-muted rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  {(startDate || endDate) && (
+                    <button
+                      onClick={() => {
+                        setStartDate("");
+                        setEndDate("");
+                      }}
+                      className="px-3 py-0 h-8 text-xs bg-muted text-slate-900 hover:bg-muted/80 rounded-lg transition-colors"
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+                <button
+                  onClick={generatePDFReport}
+                  disabled={!typeFilteredMovements.length}
+                  className="flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+                >
+                  <MdDownload size={16} /> Exportar PDF
+                </button>
+              </div>
+            </div>
+
+            {/* Movement count */}
+            <div className="mb-4 text-xs text-muted-foreground">
+              Mostrando {paginatedMovements.length > 0 ? startIdx + 1 : 0} -{" "}
+              {Math.min(
+                startIdx + movementsPerPage,
+                typeFilteredMovements.length,
+              )}{" "}
+              de {typeFilteredMovements.length} movimientos
+            </div>
+
+            {typeFilteredMovements.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No hay movimientos registrados para este producto.
               </p>
             ) : (
-              <div className="overflow-x-auto rounded-xl border border-muted">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/30 text-xs text-muted-foreground uppercase">
-                    <tr>
-                      <th className="px-4 py-3 text-left">Tipo</th>
-                      <th className="px-4 py-3 text-left">Fecha</th>
-                      <th className="px-4 py-3 text-left">Referencia</th>
-                      <th className="px-4 py-3 text-left">Detalle</th>
-                      <th className="px-4 py-3 text-left">Variación</th>
-                      <th className="px-4 py-3 text-right">Cant.</th>
-                      <th className="px-4 py-3 text-right">Impacto</th>
-                      <th className="px-4 py-3 text-right">Precio unit.</th>
-                      <th className="px-4 py-3 text-right">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredMovements.map((m, idx) => {
-                      const ref =
-                        m.reference || (m.orderId ? `#${m.orderId}` : "—");
-                      const detail =
-                        m.type === "sale"
-                          ? `${m.customerName || "—"} · ${payLabel(m.payMethod)} · ${m.orderStatus || "—"}`
-                          : m.details || "—";
-                      const v = cardex.product.variations.find(
-                        (vv) => vv._id === m.variationId,
-                      );
-                      const impact = Number(m.stockImpact ?? 0);
-                      return (
-                        <tr key={idx} className="border-t border-muted">
-                          <td className="px-4 py-3">
-                            <span
-                              className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                                m.type === "sale"
-                                  ? "bg-blue-100 text-blue-700"
-                                  : m.type === "transfer_in"
-                                    ? "bg-green-100 text-green-700"
-                                    : m.type === "transfer_out"
-                                      ? "bg-orange-100 text-orange-700"
-                                      : "bg-purple-100 text-purple-700"
+              <>
+                <div className="overflow-x-auto rounded-xl border border-muted mb-4">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/30 text-xs text-muted-foreground uppercase">
+                      <tr>
+                        <th className="px-2 py-2 text-left">Tipo</th>
+                        <th className="px-2 py-2 text-left">Fecha</th>
+                        <th className="px-2 py-2 text-left">Ref.</th>
+                        <th className="px-2 py-2 text-left">Detalle</th>
+                        <th className="px-2 py-2 text-left">Impacto</th>
+                        <th className="px-2 py-2 text-right">Precio unit.</th>
+                        <th className="px-2 py-2 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedMovements.map((m, idx) => {
+                        const ref =
+                          m.reference || (m.orderId ? `#${m.orderId}` : "—");
+                        const detail =
+                          m.type === "sale"
+                            ? `${m.customerName || "—"} · ${payLabel(m.payMethod)} · ${m.orderStatus || "—"}`
+                            : m.details || "—";
+                        const v = cardex.product.variations.find(
+                          (vv) => vv._id === m.variationId,
+                        );
+                        const impact = Number(m.stockImpact ?? 0);
+                        return (
+                          <tr key={idx} className="border-t border-muted">
+                            <td className="pl-2 py-2">
+                              <span
+                                className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                  m.type === "sale"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : m.type === "transfer_in"
+                                      ? "bg-green-100 text-green-700"
+                                      : m.type === "transfer_out"
+                                        ? "bg-orange-100 text-orange-700"
+                                        : "bg-purple-100 text-purple-700"
+                                }`}
+                              >
+                                {movementTypeLabel(m.type)}
+                              </span>
+                            </td>
+                            <td className="px-2 py-2 text-xs">
+                              {fmtDate(m.date)}
+                            </td>
+                            <td className="px-2 py-2 font-bold">{ref}</td>
+                            <td className="px-2 py-2 text-xs">{detail}</td>
+                            <td
+                              className={`px-2 py-2 text-right font-bold ${
+                                impact > 0
+                                  ? "text-green-600"
+                                  : impact < 0
+                                    ? "text-red-500"
+                                    : "text-muted-foreground"
                               }`}
                             >
-                              {movementTypeLabel(m.type)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-xs">
-                            {fmtDate(m.date)}
-                          </td>
-                          <td className="px-4 py-3 font-bold">{ref}</td>
-                          <td className="px-4 py-3 text-xs">{detail}</td>
-                          <td className="px-4 py-3 text-xs">
-                            {v?.title ?? m.variationName ?? "—"}
-                          </td>
-                          <td className="px-4 py-3 text-right font-bold">
-                            {m.quantity}
-                          </td>
-                          <td
-                            className={`px-4 py-3 text-right font-bold ${
-                              impact > 0
-                                ? "text-green-600"
-                                : impact < 0
-                                  ? "text-red-500"
+                              {impact > 0 ? `+${impact}` : impact}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              {fmt(m.unitPrice)}
+                            </td>
+                            <td
+                              className={`px-4 py-3 text-right font-bold ${
+                                m.total > 0
+                                  ? "text-green-600"
                                   : "text-muted-foreground"
-                            }`}
-                          >
-                            {impact > 0 ? `+${impact}` : impact}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            {fmt(m.unitPrice)}
-                          </td>
-                          <td
-                            className={`px-4 py-3 text-right font-bold ${
-                              m.total > 0
-                                ? "text-green-600"
-                                : "text-muted-foreground"
-                            }`}
-                          >
-                            {fmt(m.total)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                              }`}
+                            >
+                              {fmt(m.total)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination controls */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between bg-card border border-muted rounded-lg px-4 py-3">
+                    <div className="text-xs text-muted-foreground">
+                      Página {movementPage} de {totalPages}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() =>
+                          setMovementPage(Math.max(1, movementPage - 1))
+                        }
+                        disabled={movementPage === 1}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-muted rounded-lg hover:bg-muted/80 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-colors"
+                      >
+                        <MdNavigateBefore size={14} />
+                        Anterior
+                      </button>
+                      <button
+                        onClick={() =>
+                          setMovementPage(
+                            Math.min(totalPages, movementPage + 1),
+                          )
+                        }
+                        disabled={movementPage === totalPages}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-muted rounded-lg hover:bg-muted/80 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-colors"
+                      >
+                        Siguiente
+                        <MdNavigateNext size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
