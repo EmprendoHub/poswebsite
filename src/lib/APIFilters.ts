@@ -36,7 +36,16 @@ class APIFilters {
   filter(): this {
     const queryCopy: Record<string, string> = {};
     this.queryStr.forEach((value, key) => {
-      if (!["keyword", "page", "per_page"].includes(key)) {
+      if (
+        ![
+          "keyword",
+          "page",
+          "per_page",
+          "perpage",
+          "sortBy",
+          "sortDir",
+        ].includes(key)
+      ) {
         queryCopy[key] = value;
       }
     });

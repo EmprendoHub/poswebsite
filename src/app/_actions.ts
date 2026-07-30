@@ -3034,8 +3034,30 @@ export async function getAllProduct(searchQuery: any) {
     const searchParams = new URLSearchParams(searchQuery);
     const resPerPage = Number(searchParams.get("perpage")) || 20;
     const page = Number(searchParams.get("page")) || 1;
+    const sortBy = searchParams.get("sortBy");
+    const sortDir = searchParams.get("sortDir") === "desc" ? -1 : 1;
 
-    productQuery = productQuery.sort({ createdAt: -1 });
+    // Apply sorting if specified, otherwise default to createdAt
+    if (sortBy) {
+      if (sortBy === "title") {
+        productQuery = productQuery.sort({ title: sortDir });
+      } else if (sortBy === "category") {
+        productQuery = productQuery.sort({ category: sortDir });
+      } else if (sortBy === "gender") {
+        productQuery = productQuery.sort({ gender: sortDir });
+      } else if (sortBy === "brand") {
+        productQuery = productQuery.sort({ brand: sortDir });
+      } else if (sortBy === "price") {
+        productQuery = productQuery.sort({ "variations.0.price": sortDir });
+      } else if (sortBy === "stock") {
+        // Stock sorting will be handled after fetching inventory data
+        productQuery = productQuery.sort({ createdAt: -1 });
+      } else {
+        productQuery = productQuery.sort({ createdAt: -1 });
+      }
+    } else {
+      productQuery = productQuery.sort({ createdAt: -1 });
+    }
 
     const productsCount = await Product.countDocuments();
 
@@ -3051,13 +3073,39 @@ export async function getAllProduct(searchQuery: any) {
     let productsData = await apiProductFilters.query.exec();
     const filteredProductsCount = productsData.length;
 
-    apiProductFilters.pagination(resPerPage, page);
-    productsData = await apiProductFilters.query.clone().exec();
+    // For stock sorting, we need inventory data first to sort properly
+    if (sortBy === "stock" && productsData.length > 0) {
+      const allProductIds = productsData.map((p: any) => p._id);
+
+      // Get stock totals for all products
+      const allStockTotals = await StoreInventory.aggregate([
+        { $match: { product: { $in: allProductIds } } },
+        { $group: { _id: "$product", total: { $sum: "$quantity" } } },
+      ]);
+      const allStockMap = new Map<string, number>(
+        allStockTotals.map((r: any) => [r._id.toString(), r.total]),
+      );
+
+      // Sort by stock before pagination
+      productsData.sort((a: any, b: any) => {
+        const stockA = allStockMap.get(a._id.toString()) || 0;
+        const stockB = allStockMap.get(b._id.toString()) || 0;
+        return sortDir === 1 ? stockA - stockB : stockB - stockA;
+      });
+    }
+
+    // Apply pagination after sorting
+    const startIndex = (page - 1) * resPerPage;
+    const endIndex = startIndex + resPerPage;
+    let paginatedProducts = productsData.slice(startIndex, endIndex);
 
     // Overlay Product.stock with the live sum from StoreInventory so the
     // admin table always shows the correct total across all branches.
-    if (productsData.length > 0) {
-      const productIds = productsData.map((p: any) => p._id);
+    // Also fetch detailed inventory breakdown by store
+    if (paginatedProducts.length > 0) {
+      const productIds = paginatedProducts.map((p: any) => p._id);
+
+      // Get stock totals for summary
       const stockTotals = await StoreInventory.aggregate([
         { $match: { product: { $in: productIds } } },
         { $group: { _id: "$product", total: { $sum: "$quantity" } } },
@@ -3065,13 +3113,30 @@ export async function getAllProduct(searchQuery: any) {
       const stockMap = new Map<string, number>(
         stockTotals.map((r: any) => [r._id.toString(), r.total]),
       );
-      productsData = productsData.map((p: any) => {
+
+      // Get detailed inventory by store for each product
+      const detailedInventory = await StoreInventory.find({
+        product: { $in: productIds },
+      }).populate("store", "name");
+
+      // Group inventory by product ID
+      const inventoryByProduct: { [productId: string]: any[] } = {};
+      for (const inv of detailedInventory) {
+        const pid = inv.product.toString();
+        if (!inventoryByProduct[pid]) {
+          inventoryByProduct[pid] = [];
+        }
+        inventoryByProduct[pid].push(inv);
+      }
+
+      productsData = paginatedProducts.map((p: any) => {
         const pid = p._id?.toString();
         if (pid && stockMap.has(pid)) {
           // toObject() so we can safely mutate without touching the Mongoose doc
           const obj =
             typeof p.toObject === "function" ? p.toObject() : { ...p };
           obj.stock = stockMap.get(pid);
+          obj.storeInventory = inventoryByProduct[pid] || [];
           return obj;
         }
         return p;

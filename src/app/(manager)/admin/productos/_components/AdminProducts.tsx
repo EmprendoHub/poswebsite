@@ -21,7 +21,13 @@ import {
 import { FaShop } from "react-icons/fa6";
 import { TbWorldWww } from "react-icons/tb";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useTransition,
+} from "react";
 import { useSession } from "next-auth/react";
 import { SiMercadopago } from "react-icons/si";
 import ExportToTikTokButton from "./ExportToTikTokButton";
@@ -30,13 +36,16 @@ const AdminProducts = ({
   products,
   filteredProductsCount,
   search,
+  perPage,
 }: {
   products: any;
   filteredProductsCount: any;
   search: any;
+  perPage: number;
 }) => {
   const getPathname = usePathname();
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const { data: session } = useSession();
   const isSuperAdmin = (session?.user as any)?.role === "super_admin";
   let pathname: string = "";
@@ -49,6 +58,8 @@ const AdminProducts = ({
   }
   const searchParams = useSearchParams();
   const searchValue = searchParams.get("page");
+  const sortByParam = searchParams.get("sortBy");
+  const sortDirParam = searchParams.get("sortDir");
   const [currentPage, setCurrentPage] = useState<string>("");
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(
     new Set(),
@@ -78,7 +89,39 @@ const AdminProducts = ({
       details: { label: string; quantity: number }[];
     }[]
   >([]);
+  const [stockCache, setStockCache] = useState<{ [productId: string]: number }>(
+    {},
+  );
   const [showScanner, setShowScanner] = useState(false);
+
+  // Initialize stock cache from products' pre-fetched inventory data
+  useEffect(() => {
+    const cache: { [productId: string]: number } = {};
+    if (products && products.length > 0) {
+      products.forEach((product: any) => {
+        // Use pre-fetched store inventory from server if available
+        if (product.storeInventory && Array.isArray(product.storeInventory)) {
+          const total = product.storeInventory.reduce(
+            (sum: number, inv: any) => sum + (inv.quantity || 0),
+            0,
+          );
+          cache[product._id] = total;
+        } else {
+          // Fallback to product.stock if available
+          cache[product._id] = product.stock || 0;
+        }
+      });
+    }
+    setStockCache(cache);
+  }, [products]);
+
+  // Sorting state - initialize from URL params
+  const [sortKey, setSortKey] = useState<
+    "title" | "category" | "gender" | "brand" | "price" | "stock" | null
+  >((sortByParam as any) || null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(
+    (sortDirParam as "asc" | "desc") || "asc",
+  );
 
   const closePreview = useCallback(() => setPreviewImage(null), []);
   const closeStockPreview = useCallback(() => {
@@ -86,16 +129,55 @@ const AdminProducts = ({
     setStockPreviewRows([]);
   }, []);
 
+  const toggleSort = (
+    key: "title" | "category" | "gender" | "brand" | "price" | "stock",
+  ) => {
+    const newDir = sortKey === key && sortDir === "asc" ? "desc" : "asc";
+    setSortKey(key);
+    setSortDir(newDir);
+
+    // Update URL with sort params and reset to page 1
+    const params = new URLSearchParams(window.location.search);
+    const keyword = params.get("keyword") || "";
+    let newUrl = `?sortBy=${key}&sortDir=${newDir}&page=1`;
+    if (keyword) {
+      newUrl += `&keyword=${encodeURIComponent(keyword)}`;
+    }
+    startTransition(() => {
+      router.push(newUrl);
+    });
+  };
+
   const openStockPreview = useCallback(async (product: any) => {
     setStockPreview(product);
     setStockPreviewLoading(true);
     setStockPreviewRows([]);
     try {
-      const res = await fetch(`/api/store-inventory?productId=${product._id}`);
-      const data = await res.json();
-      if (!Array.isArray(data)) return;
+      // Use pre-fetched storeInventory from product if available
+      let inventoryData: any[] = [];
 
-      const grouped = data.reduce((acc: any, rec: any) => {
+      if (product.storeInventory && Array.isArray(product.storeInventory)) {
+        inventoryData = product.storeInventory;
+      } else {
+        // Fallback to API call if storeInventory is not pre-fetched
+        const res = await fetch(
+          `/api/store-inventory?productId=${product._id}`,
+        );
+        const data = await res.json();
+
+        // Handle array response (individual), object with productId key (batch), or data property
+        if (Array.isArray(data)) {
+          inventoryData = data;
+        } else if (typeof data === "object" && data[product._id]) {
+          inventoryData = data[product._id];
+        } else if (Array.isArray(data?.data)) {
+          inventoryData = data.data;
+        }
+      }
+
+      if (!Array.isArray(inventoryData) || inventoryData.length === 0) return;
+
+      const grouped = inventoryData.reduce((acc: any, rec: any) => {
         const storeName = rec.store?.name ?? "—";
         const variation = rec.product?.variations?.find(
           (vr: any) => vr._id?.toString() === rec.variationId?.toString(),
@@ -126,12 +208,24 @@ const AdminProducts = ({
           }))
           .sort((a, b) => b.total - a.total),
       );
+
+      // Cache the total stock for this product
+      const totalStockForProduct = Object.values(grouped).reduce(
+        (sum: number, store: any) => sum + store.total,
+        0,
+      );
+      setStockCache((prev) => ({
+        ...prev,
+        [product._id]: totalStockForProduct,
+      }));
     } catch {
       setStockPreviewRows([]);
     } finally {
       setStockPreviewLoading(false);
     }
   }, []);
+
+  // No need to fetch inventory on client - it's pre-populated from server via getAllProduct
 
   useEffect(() => {
     const fetchProductDetails = async () => {
@@ -448,10 +542,32 @@ const AdminProducts = ({
     <>
       <hr className="my-4 maxsm:my-1" />
       <div className="relative min-h-full shadow-md sm:rounded-xl">
-        <div className=" flex flex-row  maxsm:items-start items-center justify-between">
+        {/* Filter loading overlay */}
+        {isPending && (
+          <div className="absolute inset-0 z-40 flex items-start justify-center bg-background/50 rounded-xl backdrop-blur-sm">
+            <div className="flex flex-col items-start gap-3">
+              <div className="w-10 h-10 border-4 border-muted border-t-primary rounded-full animate-spin" />
+              <p className="text-sm font-medium text-muted-foreground">
+                Cargando filtros...
+              </p>
+            </div>
+          </div>
+        )}
+        <div className=" flex flex-col  maxsm:items-start items-start justify-between pr-4">
           <h1 className="text-3xl maxsm:text-base mb-2 maxsm:mb-1 ml-4 maxsm:ml-0 font-bold font-EB_Garamond w-1/2">
             {`${filteredProductsCount} Productos `}
           </h1>
+          {/* On product out of total */}
+          <p className="text-sm text-muted-foreground w-1/2 text-left ml-4 mb-2">
+            {(() => {
+              const page = parseInt(searchValue || "1", 10) || 1;
+              const startItem = (page - 1) * perPage + 1;
+              const endItem = Math.min(page * perPage, filteredProductsCount);
+              return `Mostrando ${startItem} a ${endItem} de ${filteredProductsCount.toLocaleString()} producto(s)`;
+            })()}
+          </p>
+        </div>
+        <div className="flex flex-col maxsm:flex-col-reverse gap-2 maxsm:gap-1 items-center justify-between mb-4">
           <div className="flex gap-2 items-center w-full">
             <button
               type="button"
@@ -608,7 +724,7 @@ const AdminProducts = ({
         )}
 
         <table className="w-full text-sm  text-left h-full">
-          <thead className="text-l dark:text-slate-300 text-gray-700 uppercase">
+          <thead className="text-l dark:text-slate-300 text-gray-700 capitalize border-b dark:border-slate-200 border-gray-300">
             <tr className="flex flex-row items-center">
               <th scope="col" className="w-fit px-2 py-3">
                 <input
@@ -623,19 +739,47 @@ const AdminProducts = ({
                 />
               </th>
               <th scope="col" className="w-full py-3 maxsm:hidden">
-                Titulo
+                <button
+                  type="button"
+                  onClick={() => toggleSort("title")}
+                  className="flex items-center gap-2 text-blue-600 dark:text-blue-500 font-semibold"
+                >
+                  *Titulo
+                  {sortKey === "title" && (sortDir === "asc" ? "▲" : "▼")}
+                </button>
               </th>
               <th scope="col" className="w-full py-3 ">
-                Categoría
-              </th>
-              <th scope="col" className="w-40 py-3 ">
-                Img
+                <button
+                  type="button"
+                  onClick={() => toggleSort("category")}
+                  className="flex items-center gap-2 text-blue-600 dark:text-blue-500 font-semibold"
+                >
+                  *Categoría
+                  {sortKey === "category" && (sortDir === "asc" ? "▲" : "▼")}
+                </button>
               </th>
               <th scope="col" className="w-full py-3 ">
-                Dempt
+                Imagen
               </th>
               <th scope="col" className="w-full py-3 ">
-                Cert
+                <button
+                  type="button"
+                  onClick={() => toggleSort("gender")}
+                  className="flex items-center gap-2 text-blue-600 dark:text-blue-500 font-semibold"
+                >
+                  *Género
+                  {sortKey === "gender" && (sortDir === "asc" ? "▲" : "▼")}
+                </button>
+              </th>
+              <th scope="col" className="w-full py-3 ">
+                <button
+                  type="button"
+                  onClick={() => toggleSort("brand")}
+                  className="flex items-center gap-2 text-blue-600 dark:text-blue-500 font-semibold"
+                >
+                  *Cert.
+                  {sortKey === "brand" && (sortDir === "asc" ? "▲" : "▼")}
+                </button>
               </th>
               {/* <th scope="col" className="w-full py-3 ">
                 Linea
@@ -644,16 +788,30 @@ const AdminProducts = ({
                 ASIN
               </th>
               <th scope="col" className="w-full py-3 ">
-                Precio
+                <button
+                  type="button"
+                  onClick={() => toggleSort("price")}
+                  className="flex items-center gap-2 text-blue-600 dark:text-blue-500 font-semibold"
+                >
+                  *Precio
+                  {sortKey === "price" && (sortDir === "asc" ? "▲" : "▼")}
+                </button>
               </th>
               <th scope="col" className="w-full px-1 py-3 ">
-                Exst.
+                <button
+                  type="button"
+                  onClick={() => toggleSort("stock")}
+                  className="flex items-center gap-2 text-blue-600 dark:text-blue-500 font-semibold"
+                >
+                  *Exst.
+                  {sortKey === "stock" && (sortDir === "asc" ? "▲" : "▼")}
+                </button>
               </th>
               <th scope="col" className="w-full px-1 py-3 maxsm:hidden">
                 Dims
               </th>
               <th scope="col" className="w-full px-1 py-3 text-center">
-                ...
+                Acciones
               </th>
             </tr>
           </thead>
@@ -679,16 +837,16 @@ const AdminProducts = ({
                   />
                 </td>
                 <td
-                  className={`w-full py-0 font-bold maxsm:hidden text-[12px]`}
+                  className={`w-full py-0 px-2 font-bold maxsm:hidden text-[12px]`}
                 >
                   {product?.title?.substring(0, 30)}
                 </td>
                 <td
-                  className={`w-full py-0 font-bold maxsm:hidden text-[12px]`}
+                  className={`w-full py-0 px-2 font-bold maxsm:hidden text-[12px]`}
                 >
                   {product?.category}
                 </td>
-                <td className="w-full px-0 maxsm:px-0 py-0  ">
+                <td className="w-full px-2 maxsm:px-0 py-0  ">
                   <span className="relative flex items-center justify-center text-foreground w-20 h-20 maxsm:w-8 maxsm:h-8 shadow mt-2">
                     <button
                       type="button"
@@ -729,7 +887,7 @@ const AdminProducts = ({
                     <FormattedPrice amount={product?.variations[0]?.price} />
                   </b>
                 </td>
-
+                {/* Full Stock Preview */}
                 <td className="w-full px-1 py-0 ">
                   <button
                     type="button"
@@ -737,7 +895,13 @@ const AdminProducts = ({
                     className="inline-flex min-w-14 items-center justify-center rounded-[20px] border border-border bg-background px-2 py-1 text-sm font-bold text-foreground hover:bg-muted transition-colors"
                     title="Ver stock por sucursal"
                   >
-                    {product?.stock ?? 0}
+                    {product.storeInventory &&
+                    Array.isArray(product.storeInventory)
+                      ? product.storeInventory.reduce(
+                          (sum: number, inv: any) => sum + (inv.quantity || 0),
+                          0,
+                        )
+                      : (stockCache[product._id] ?? 0)}
                   </button>
                 </td>
                 <td className="w-full px-1 py-0 maxsm:hidden text-[11px] text-muted-foreground">
@@ -864,7 +1028,10 @@ const AdminProducts = ({
                 <span>
                   Total en inventario:{" "}
                   <strong className="text-foreground">
-                    {stockPreview.stock ?? 0}
+                    {stockPreviewRows.reduce(
+                      (sum, branch) => sum + branch.total,
+                      0,
+                    )}
                   </strong>
                 </span>
               </div>
@@ -927,6 +1094,23 @@ const AdminProducts = ({
                 </p>
               )}
             </div>
+
+            {/* Summary footer */}
+            {stockPreviewRows.length > 0 && (
+              <div className="border-t border-muted bg-muted/30 px-5 py-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-muted-foreground">
+                    Stock Total Combinado
+                  </p>
+                  <p className="text-2xl font-bold text-emerald-600">
+                    {stockPreviewRows.reduce(
+                      (sum, branch) => sum + branch.total,
+                      0,
+                    )}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

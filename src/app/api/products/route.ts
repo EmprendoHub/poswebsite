@@ -23,6 +23,9 @@ export const GET = async (request: any) => {
     const resPerPage = Number(request.nextUrl.searchParams.get("limit")) || 15;
     const page = Number(request.nextUrl.searchParams.get("page")) || 1;
     const storeId = request.nextUrl.searchParams.get("storeId");
+    const sortBy = request.nextUrl.searchParams.get("sortBy");
+    const sortDir =
+      request.nextUrl.searchParams.get("sortDir") === "desc" ? -1 : 1;
 
     // Build search filter - only search by title and ASIN
     let searchFilter: any = { "availability.online": true };
@@ -39,17 +42,37 @@ export const GET = async (request: any) => {
     const allCategories = await Product.distinct("category");
     const allBrands = await Product.distinct("brand");
 
-    // Get filtered count
-    let productsData = await productQuery.clone().exec();
-    const filteredProductsCount = productsData.length;
-
     // Apply pagination
     const skip = (page - 1) * resPerPage;
-    productsData = await Product.find(searchFilter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(resPerPage)
-      .exec();
+    let query = Product.find(searchFilter);
+
+    // Apply sorting if sortBy is specified
+    if (sortBy) {
+      if (sortBy === "title") {
+        query = query.sort({ title: sortDir });
+      } else if (sortBy === "category") {
+        query = query.sort({ category: sortDir });
+      } else if (sortBy === "gender") {
+        query = query.sort({ gender: sortDir });
+      } else if (sortBy === "brand") {
+        query = query.sort({ brand: sortDir });
+      } else if (sortBy === "price") {
+        query = query.sort({ "variations.0.price": sortDir });
+      } else if (sortBy === "stock") {
+        // For stock sorting, we'll handle it after fetching
+        query = query.sort({ createdAt: -1 });
+      } else {
+        query = query.sort({ createdAt: -1 });
+      }
+    } else {
+      query = query.sort({ createdAt: -1 });
+    }
+
+    // Get total count of filtered products (before pagination)
+    const filteredProductsCount = await Product.countDocuments(searchFilter);
+
+    // Apply pagination
+    const productsData = await query.skip(skip).limit(resPerPage).exec();
 
     // If storeId provided, check StoreInventory for each variation
     if (storeId) {
@@ -99,17 +122,60 @@ export const GET = async (request: any) => {
       );
     }
 
-    // Default behavior: check product.variations.stock
-    const sortedProducts = productsData
-      .slice()
-      .sort(
-        (a: any, b: any) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      )
-      .filter((p: any) => p.variations?.some((v: any) => v.stock > 0));
+    // Fetch storeInventory data for all products
+    const productIds = productsData.map((p: any) => p._id);
+
+    // Get detailed inventory records for all products
+    const detailedInventory = await StoreInventory.find({
+      product: { $in: productIds },
+    }).populate("store", "name");
+
+    // Group inventory by product ID
+    const inventoryByProduct: { [productId: string]: any[] } = {};
+    for (const inv of detailedInventory) {
+      const pid = inv.product.toString();
+      if (!inventoryByProduct[pid]) {
+        inventoryByProduct[pid] = [];
+      }
+      inventoryByProduct[pid].push(inv);
+    }
+
+    // Attach storeInventory to each product
+    let productsWithInventory = productsData.map((product: any) => {
+      const productObj =
+        typeof product.toObject === "function"
+          ? product.toObject()
+          : { ...product };
+      const pid = product._id?.toString();
+      productObj.storeInventory = inventoryByProduct[pid] || [];
+      return productObj;
+    });
+
+    // Sort by stock if requested
+    if (sortBy === "stock") {
+      productsWithInventory.sort((a: any, b: any) => {
+        const stockA = (a.storeInventory || []).reduce(
+          (sum: number, inv: any) => sum + (inv.quantity || 0),
+          0,
+        );
+        const stockB = (b.storeInventory || []).reduce(
+          (sum: number, inv: any) => sum + (inv.quantity || 0),
+          0,
+        );
+        return sortDir === 1 ? stockA - stockB : stockB - stockA;
+      });
+    }
+
+    // Default behavior: filter products with stock
+    const filteredProducts = productsWithInventory.filter((p: any) =>
+      p.variations?.some((v: any) => v.stock > 0),
+    );
+
+    // For accurate total count, use the pre-calculated filteredProductsCount which is already correct
+    // filteredProductsCount comes from line 73 and counts all products matching the search filter
 
     const products = {
-      products: sortedProducts,
+      products: filteredProducts,
     };
 
     const dataPacket = {
