@@ -1,7 +1,11 @@
 import EditVariationProduct from "../../_components/EditVariationProduct";
-import { getOneProduct } from "@/app/_actions";
+import { getOneProductForEdit } from "@/app/_actions";
 import { getCookiesName } from "@/backend/helpers";
 import { cookies } from "next/headers";
+
+// Disable caching for this page to ensure fresh product data on every visit
+export const revalidate = 0;
+export const dynamic = "force-dynamic"; // Force dynamic rendering on every request
 
 const ProductDetailsPage = async ({ params }: { params: any }) => {
   const nextCookies = cookies();
@@ -9,11 +13,15 @@ const ProductDetailsPage = async ({ params }: { params: any }) => {
   const nextAuthSessionToken = nextCookies.get(cookieName);
   const currentCookies = `${cookieName}=${nextAuthSessionToken?.value}`;
 
-  const data = await getOneProduct(params.slug, false);
+  const data = await getOneProductForEdit(params.slug, false);
   const product = JSON.parse(data.product);
 
   return (
-    <EditVariationProduct product={product} currentCookies={currentCookies} />
+    <EditVariationProduct
+      key={product._id}
+      product={product}
+      currentCookies={currentCookies}
+    />
   );
 };
 

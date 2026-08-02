@@ -2447,10 +2447,41 @@ export async function getOneProduct(slug: any, id: any = "") {
           ? Math.round(v.price * ONLINE_MARKUP * 100) / 100
           : v.price,
       }));
+
       return { product: JSON.stringify(p) };
     }
 
     product = JSON.stringify(product);
+    revalidatePath(`/admin/productos/variacion/${slug}`, "page");
+    return { product: product };
+  } catch (error: any) {
+    console.log(error);
+    throw Error(error);
+  }
+}
+
+// Get product for editing - returns raw data without price markup
+export async function getOneProductForEdit(slug: any, id: any = "") {
+  try {
+    await dbConnect();
+    let product;
+
+    // Check if slug parameter is actually a MongoDB ObjectId (24 hex characters)
+    const isObjectId = /^[a-f0-9]{24}$/.test(slug);
+
+    if (isObjectId) {
+      // slug parameter contains an ID
+      product = await Product.findOne({ _id: slug });
+    } else if (slug) {
+      // slug parameter contains an actual slug
+      product = await Product.findOne({ slug: slug });
+    } else {
+      throw new Error("Either slug or id must be provided");
+    }
+
+    // Return raw product data without markup for editing
+    product = JSON.stringify(product);
+    revalidatePath(`/admin/productos/variacion/${slug}`, "page");
     return { product: product };
   } catch (error: any) {
     console.log(error);

@@ -157,6 +157,37 @@ const EditVariationProduct = ({
     newPrice: number;
   } | null>(null);
 
+  // Reinitialize all state when product prop changes (e.g., after navigation back from save)
+  useEffect(() => {
+    if (product) {
+      setTitle(product?.title);
+      setBrand(product?.brand);
+      setGrade(product?.rating);
+      setDescription(product?.description);
+      setCategory(product?.category);
+      setGender(product?.gender);
+      setAsin(product?.ASIN || "");
+      setFeatured(product?.featured);
+      setUpdatePrice(product?.updatePrice ?? false);
+      setDiscountPercentage(product?.discountPercentage || 0);
+      setActive(product?.active ?? true);
+      setOnlineAvailability(product?.availability?.online);
+      setWeight(product?.weight || 0.5);
+      setDimensions(
+        product?.dimensions || { length: 15, width: 15, height: 10 },
+      );
+      setMainImage(product?.images[0]?.url || "");
+      setVariations(product?.variations);
+      setSecondaryImages(product?.images?.slice(1) || []);
+      // Update price input with the fresh product variations price
+      setPriceInputValue(product?.variations?.[0]?.price?.toString() || "");
+      console.log(
+        "🔄 Product state reinitialized with price:",
+        product?.variations?.[0]?.price,
+      );
+    }
+  }, [product]); // Reinitialize when product prop changes
+
   // Sync price input when price change is cancelled or modal closes
   useEffect(() => {
     if (!showPriceVerification && variations?.[0]?.price !== undefined) {
