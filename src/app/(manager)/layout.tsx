@@ -33,7 +33,7 @@ export default function UserRootLayout({
           >
             <div className="flex items-start w-full ">
               <SideBarRender />
-              <div className="relative w-full mb-5 p-4 pr-4">{children}</div>
+              <div className="relative w-full mb-5 p-4 pl-20">{children}</div>
             </div>
             <Toaster />
           </ThemeProvider>

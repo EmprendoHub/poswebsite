@@ -143,14 +143,14 @@ const SideBarRender = () => {
         />
       )}
 
-      {userRole === "super_admin" && (
+      {/* {userRole === "super_admin" && (
         <SideBarItem
           icon={<TbDatabaseImport size={20} />}
           text={"Actualizar Inventario"}
           active={pathname === "/admin/productos/inventario" ? "true" : "false"}
           url={"/admin/productos/inventario"}
         />
-      )}
+      )} */}
       {userRole === "super_admin" && (
         <SideBarItem
           icon={<MdStorefront size={20} />}
@@ -159,7 +159,7 @@ const SideBarRender = () => {
           url={"/admin/sucursales"}
         />
       )}
-      {userRole === "super_admin" && (
+      {/* {userRole === "super_admin" && (
         <SideBarItem
           icon={<MdInventory size={20} />}
           text={"Inventario Inicial"}
@@ -168,7 +168,7 @@ const SideBarRender = () => {
           }
           url={"/admin/inventario-inicial"}
         />
-      )}
+      )} */}
       <SideBarItem
         icon={<MdFactCheck size={20} />}
         text={"Conteo de Inventario"}

@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState, useCallback } from "react";
 import {
   MdAttachMoney,
   MdOutlineSavings,
@@ -39,44 +40,95 @@ function delta(current: number, previous: number) {
   return { pct: Math.abs(pct).toFixed(1), up };
 }
 
-const DashComponent = ({ data }: { data: any }) => {
+const DashComponent = () => {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Get today and date ranges
+  const today = new Date();
+  const from = new Date(today.getFullYear(), 0, 1).toISOString().split("T")[0];
+  const to = today.toISOString().split("T")[0];
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams({ from, to, section: "all" });
+
+    try {
+      const res = await fetch(`/api/reports/full?${params}`);
+      const json = await res.json();
+      console.log("✅ Dashboard data received:", json);
+      setData(json);
+    } catch (e) {
+      console.error("❌ Error loading dashboard:", e);
+    } finally {
+      setLoading(false);
+    }
+  }, [from, to]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return <div>No data available</div>;
+  }
+
   /* ── parse incoming data ──────────────────────────────────────────────── */
-  const weeklyData: WeeklyDataItem[] = JSON.parse(data?.weeklyData ?? "[]");
-  // Data arrives pre-sorted from MongoDB (YYYY-MM-DD ascending)
-  // Format labels for display: "2026-05-11" → "11/05"
-  const clients = JSON.parse(data?.clients ?? "[]");
-  const products = JSON.parse(data?.products ?? "[]");
-  const orders = JSON.parse(data?.orders ?? "[]");
-  const posts = JSON.parse(data?.posts ?? "[]");
+  const ventas = data?.ventas || {};
+  const finanzas = data?.finanzas || {};
+  const gastos = data?.gastos || {};
+  const nomina = data?.nomina || {};
+  const inventario = data?.inventario || {};
+  // Extract data from API response
+  const dailyTotal = ventas?.todayRevenue ?? 0;
+  const weeklyTotal = ventas?.weekRevenue ?? 0;
+  const monthlyTotal = ventas?.monthRevenue ?? 0;
+  const yearlyTotal = ventas?.yearRevenue ?? 0;
 
-  const dailyTotal = data?.dailyPaymentsTotals ?? 0;
-  const yesterdayTotal = data?.yesterdaysOrdersTotals ?? 0;
-  const weeklyTotal = data?.totalPaymentsThisWeek ?? 0;
-  const lastWeekTotal = data?.lastWeeksPaymentsTotals ?? 0;
-  const monthlyTotal = data?.monthlyOrdersTotals ?? 0;
-  const lastMonthTotal = data?.lastMonthsPaymentsTotals ?? 0;
-  const yearlyTotal = data?.yearlyOrdersTotals ?? 0;
-  const lastYearTotal = data?.lastYearsPaymentsTotals ?? 0;
+  // Comparison values (these would need to be calculated in API if needed)
+  const yesterdayTotal = 0;
+  const lastWeekTotal = 0;
+  const lastMonthTotal = 0;
+  const lastYearTotal = 0;
 
-  const totalCustomerCount = data?.totalCustomerCount ?? 0;
-  const totalOrderCount = data?.totalOrderCount ?? 0;
-  const totalProductCount = data?.totalProductCount ?? 0;
-  const totalPostCount = data?.totalPostCount ?? 0;
-  const orderCountPrev = data?.orderCountPreviousMonth ?? 0;
+  const totalOrderCount = ventas?.totalOrders ?? 0;
+  const totalCustomerCount = 0; // Not available in new API, keep at 0
+  const totalProductCount = 0; // Not available in new API, keep at 0
+  const totalPostCount = 0; // Not available in new API, keep at 0
+  const orderCountPrev = 0; // Not available in new API
 
-  // New model stats
-  const pendingWorkOrders = data?.pendingWorkOrders ?? 0;
-  const lowStockCount = data?.lowStockCount ?? 0;
-  const totalExpensesThisMonth = data?.totalExpensesThisMonth ?? 0;
-  const totalPayrollThisMonth = data?.totalPayrollThisMonth ?? 0;
+  // Financial stats
+  const totalExpensesThisMonth = gastos?.total ?? 0;
+  const totalPayrollThisMonth = nomina?.totalNet ?? 0;
+  const totalCOGS = finanzas?.totalCOGS ?? 0;
+
+  // Inventory stats
+  const lowStockCount = inventario?.lowStockCount ?? 0;
+  const pendingWorkOrders = inventario?.pendingWorkOrders ?? 0;
 
   /* ── chart ────────────────────────────────────────────────────────────── */
-  // Format YYYY-MM-DD labels as "DD/MM" for display
-  const chartLabels = weeklyData.map((d) => {
-    const [y, m, day] = d.date.split("-");
-    return `${day}/${m}`;
+  // Format daily trend data for chart
+  const dailyTrend = ventas?.dailyTrend || [];
+  const chartLabels = dailyTrend.map((d: any) => {
+    // d._id could be a Date or string like "2026-07-15"
+    let dateStr = "";
+    if (d._id instanceof Date) {
+      dateStr = d._id.toISOString().split("T")[0];
+    } else if (typeof d._id === "string") {
+      dateStr = d._id;
+    }
+    const [year, month, day] = dateStr.split("-").map(Number);
+    return `${day || "?"}/${month || "?"}`;
   });
-  const chartValues = weeklyData.map((d) => d.Total ?? 0);
+  const chartValues = dailyTrend.map((d: any) => d.revenue ?? 0);
 
   const chartData = {
     labels: chartLabels,
@@ -171,13 +223,13 @@ const DashComponent = ({ data }: { data: any }) => {
 
       {/* ── Count + ops cards ──────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
-        <CountCard
+        {/* <CountCard
           label="Clientes"
           value={totalCustomerCount}
           icon={<HiOutlineUserGroup />}
           color="bg-blue-600"
           href="/admin/clientes"
-        />
+        /> */}
         <CountCard
           label="Pedidos"
           value={totalOrderCount}
@@ -186,20 +238,20 @@ const DashComponent = ({ data }: { data: any }) => {
           color="bg-teal-600"
           href="/admin/pedidos"
         />
-        <CountCard
+        {/* <CountCard
           label="Productos"
           value={totalProductCount}
           icon={<GiClothes />}
           color="bg-indigo-600"
           href="/admin/productos"
-        />
-        <CountCard
+        /> */}
+        {/* <CountCard
           label="Publicaciones"
           value={totalPostCount}
           icon={<HiDocumentText />}
           color="bg-orange-500"
           href="/admin/blog"
-        />
+        /> */}
 
         {/* New model cards */}
         <CountCard
@@ -242,7 +294,7 @@ const DashComponent = ({ data }: { data: any }) => {
       <div className="bg-card border border-muted rounded-2xl p-5">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h2 className="font-semibold text-base">
-            Ventas de los últimos 7 días
+            Ventas de los últimos 30 días
           </h2>
           <span className="text-xs text-muted-foreground">
             (pagos registrados)
@@ -261,7 +313,7 @@ const DashComponent = ({ data }: { data: any }) => {
           href="/admin/pedidos"
           cols={["No.", "Estado", "Cliente"]}
         >
-          {orders.map((o: any) => (
+          {(ventas?.orderList || []).slice(0, 5).map((o: any) => (
             <tr
               key={o._id}
               className="border-t border-muted hover:bg-muted/20 text-sm"
@@ -299,97 +351,62 @@ const DashComponent = ({ data }: { data: any }) => {
           ))}
         </RecentTable>
 
-        {/* Clientes */}
+        {/* Resumen Gastos */}
         <RecentTable
-          title="Clientes recientes"
-          href="/admin/clientes"
-          cols={["", "Nombre"]}
+          title="Gastos recientes"
+          href="/admin/finanzas"
+          cols={["Categoría", "Monto"]}
         >
-          {clients.map((c: any) => (
+          {(gastos?.expByCategory || []).slice(0, 5).map((g: any) => (
             <tr
-              key={c._id}
+              key={g._id}
               className="border-t border-muted hover:bg-muted/20 text-sm"
             >
-              <td className="px-3 py-2 w-8">
-                <Image
-                  src={c.avatar || "/images/avatar_placeholder.jpg"}
-                  alt="avatar"
-                  width={24}
-                  height={24}
-                  className="w-6 h-6 rounded-full object-cover"
-                />
-              </td>
+              <td className="px-3 py-2 capitalize text-xs">{g._id}</td>
               <td className="px-3 py-2 flex items-center justify-between gap-1">
-                <span className="capitalize truncate max-w-[100px]">
-                  {c.name}
-                </span>
-                <Link href={`/admin/cliente/${c._id}`}>
-                  <IoArrowRedoSharp className="text-blue-500 shrink-0" />
-                </Link>
+                <span className="font-mono text-xs">{fmt(g.total)}</span>
               </td>
             </tr>
           ))}
         </RecentTable>
 
-        {/* Productos */}
+        {/* Resumen Nómina */}
         <RecentTable
-          title="Productos recientes"
-          href="/admin/productos"
-          cols={["", "Nombre"]}
+          title="Nómina recientes"
+          href="/admin/finanzas"
+          cols={["Empleado", "Neto"]}
         >
-          {products.map((p: any) => (
+          {(nomina?.entries || []).slice(0, 5).map((n: any) => (
+            <tr
+              key={n._id}
+              className="border-t border-muted hover:bg-muted/20 text-sm"
+            >
+              <td className="px-3 py-2 text-xs">
+                {n.employeeName?.substring(0, 15)}
+              </td>
+              <td className="px-3 py-2 flex items-center justify-between gap-1">
+                <span className="font-mono text-xs">{fmt(n.netAmount)}</span>
+              </td>
+            </tr>
+          ))}
+        </RecentTable>
+
+        {/* Top Productos */}
+        <RecentTable
+          title="Productos top"
+          href="/admin/productos"
+          cols={["Producto", "Ventas"]}
+        >
+          {(ventas?.topProducts || []).slice(0, 5).map((p: any) => (
             <tr
               key={p._id}
               className="border-t border-muted hover:bg-muted/20 text-sm"
             >
-              <td className="px-3 py-2 w-8">
-                <Image
-                  src={p?.images?.[0]?.url || "/images/avatar_placeholder.jpg"}
-                  alt="product"
-                  width={24}
-                  height={24}
-                  className="w-6 h-6 object-cover"
-                />
+              <td className="px-3 py-2 truncate max-w-[100px] capitalize text-xs">
+                {p.title?.substring(0, 18)}
               </td>
               <td className="px-3 py-2 flex items-center justify-between gap-1">
-                <span className="truncate max-w-[100px] capitalize text-xs">
-                  {p.title?.substring(0, 18)}
-                </span>
-                <Link href={`/admin/productos/ver/${p.slug}`}>
-                  <IoArrowRedoSharp className="text-indigo-500 shrink-0" />
-                </Link>
-              </td>
-            </tr>
-          ))}
-        </RecentTable>
-
-        {/* Posts */}
-        <RecentTable
-          title="Publicaciones recientes"
-          href="/admin/blog"
-          cols={["", "Título"]}
-        >
-          {posts.map((post: any) => (
-            <tr
-              key={post._id}
-              className="border-t border-muted hover:bg-muted/20 text-sm"
-            >
-              <td className="px-3 py-2 w-8">
-                <Image
-                  src={post.mainImage || "/next.svg"}
-                  alt="post"
-                  width={24}
-                  height={24}
-                  className="w-6 h-6 object-cover"
-                />
-              </td>
-              <td className="px-3 py-2 flex items-center justify-between gap-1">
-                <span className="truncate max-w-[100px] text-xs">
-                  {post.mainTitle?.substring(0, 18)}
-                </span>
-                <Link href={`/admin/blog/editar/${post.slug}`}>
-                  <IoArrowRedoSharp className="text-orange-500 shrink-0" />
-                </Link>
+                <span className="font-mono text-xs">{p.totalQty}</span>
               </td>
             </tr>
           ))}

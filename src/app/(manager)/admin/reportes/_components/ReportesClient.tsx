@@ -14,24 +14,37 @@ import {
   MdSend,
   MdCheckCircle,
 } from "react-icons/md";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import { Line, Bar } from "react-chartjs-2";
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+);
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Tab =
-  | "ventas"
-  | "finanzas"
-  | "inventario"
-  | "nomina"
-  | "gastos"
-  | "impuestos"
-  | "enviar";
+type Tab = "ventas" | "finanzas" | "inventario" | "enviar";
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: "ventas", label: "Ventas", icon: <MdShoppingCart size={16} /> },
   { id: "finanzas", label: "Finanzas", icon: <MdAttachMoney size={16} /> },
   { id: "inventario", label: "Inventario", icon: <MdInventory size={16} /> },
-  { id: "nomina", label: "Nómina", icon: <MdPeople size={16} /> },
-  { id: "gastos", label: "Gastos", icon: <MdOutlineReceipt size={16} /> },
-  { id: "impuestos", label: "Impuestos (IVA)", icon: <MdPercent size={16} /> },
   { id: "enviar", label: "Enviar Reporte", icon: <MdEmail size={16} /> },
 ];
 
@@ -82,31 +95,75 @@ export default function ReportesClient() {
   const [from, setFrom] = useState(firstYear());
   const [to, setTo] = useState(today());
   const [storeId, setStoreId] = useState("");
+  const [category, setCategory] = useState("");
+  const [brand, setBrand] = useState("");
+  const [gender, setGender] = useState("");
+  const [categories, setCategories] = useState<any[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
+  const [genders, setGenders] = useState<any[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams({ from, to, section: "all" });
     if (storeId) params.set("storeId", storeId);
+    if (category) params.set("category", category);
+    if (brand) params.set("brand", brand);
+    if (gender) params.set("gender", gender);
+
+    console.log("🔍 Loading report with params:", {
+      from,
+      to,
+      storeId,
+      category,
+      brand,
+      gender,
+      fullUrl: `/api/reports/full?${params}`,
+    });
+
     try {
       const res = await fetch(`/api/reports/full?${params}`);
       const json = await res.json();
+      console.log("✅ Report data received:", json);
       setData(json);
     } catch (e) {
-      console.error(e);
+      console.error("❌ Error loading report:", e);
     } finally {
       setLoading(false);
     }
-  }, [from, to, storeId]);
+  }, [from, to, storeId, category, brand, gender]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  // Clear product filters when switching away from ventas tab
   useEffect(() => {
-    fetch("/api/stores")
-      .then((r) => r.json())
-      .then((d) => setStores(Array.isArray(d) ? d : (d?.stores ?? [])))
-      .catch(() => {});
+    if (tab !== "ventas") {
+      setCategory("");
+      setBrand("");
+      setGender("");
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/stores")
+        .then((r) => r.json())
+        .then((d) => setStores(Array.isArray(d) ? d : (d?.stores ?? [])))
+        .catch(() => {}),
+      fetch("/api/product-details?catType=category")
+        .then((r) => r.json())
+        .then((d) => setCategories(d.details ?? []))
+        .catch(() => {}),
+      fetch("/api/product-details?catType=brand")
+        .then((r) => r.json())
+        .then((d) => setBrands(d.details ?? []))
+        .catch(() => {}),
+      fetch("/api/product-details?catType=gender")
+        .then((r) => r.json())
+        .then((d) => setGenders(d.details ?? []))
+        .catch(() => {}),
+    ]);
   }, []);
 
   /* ── CSV export ─────────────────────────────────────────────────────────── */
@@ -119,6 +176,12 @@ export default function ReportesClient() {
       rows.push(["Año", "Mes", "Ingresos", "Pedidos"]);
       data.ventas.monthlyTrend.forEach((r: any) =>
         rows.push([r._id.year, r._id.month, r.revenue, r.orders]),
+      );
+      rows.push([]);
+      rows.push(["Ventas por Día"]);
+      rows.push(["Año", "Mes", "Día", "Ingresos", "Pedidos"]);
+      data.ventas.dailyTrend.forEach((d: any) =>
+        rows.push([d._id.year, d._id.month, d._id.day, d.revenue, d.orders]),
       );
       rows.push([]);
       rows.push(["Top Productos"]);
@@ -157,59 +220,6 @@ export default function ReportesClient() {
           new Date(r.createdAt).toLocaleDateString("es-MX"),
         ]),
       );
-    } else if (tab === "nomina" && data.nomina) {
-      rows.push([
-        "Empleado",
-        "Inicio",
-        "Fin",
-        "Base",
-        "Bonos",
-        "Deds.",
-        "Neto",
-        "Pagado",
-      ]);
-      data.nomina.entries.forEach((e: any) =>
-        rows.push([
-          e.employeeName,
-          new Date(e.periodStart).toLocaleDateString("es-MX"),
-          new Date(e.periodEnd).toLocaleDateString("es-MX"),
-          e.baseSalary,
-          e.bonuses,
-          e.deductions,
-          e.netAmount,
-          e.isPaid ? "Sí" : "No",
-        ]),
-      );
-    } else if (tab === "gastos" && data.gastos) {
-      rows.push(["Fecha", "Categoría", "Descripción", "Sucursal", "Monto"]);
-      data.gastos.expenseList.forEach((e: any) =>
-        rows.push([
-          new Date(e.date).toLocaleDateString("es-MX"),
-          CAT_LABELS[e.category] ?? e.category,
-          `"${e.description}"`,
-          e.storeName,
-          e.amount,
-        ]),
-      );
-    } else if (tab === "impuestos" && data.impuestos) {
-      rows.push([
-        "Pedido",
-        "Cliente",
-        "Sucursal",
-        "Fecha",
-        "Total",
-        "IVA (16%)",
-      ]);
-      data.impuestos.ivaOrders.forEach((o: any) =>
-        rows.push([
-          o.orderId,
-          `"${o.customerName ?? ""}"`,
-          o.branch ?? "WWW",
-          new Date(o.createdAt).toLocaleDateString("es-MX"),
-          o.paymentInfo?.amountPaid ?? 0,
-          o.paymentInfo?.taxPaid ?? 0,
-        ]),
-      );
     }
 
     const csv = rows.map((r) => r.map(String).join(",")).join("\n");
@@ -222,7 +232,7 @@ export default function ReportesClient() {
   }
 
   return (
-    <div className="p-6 max-w-6xl">
+    <div className="p-2 max-w-6xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3 no-print">
         <h1 className="text-2xl font-bold font-EB_Garamond">Reportes</h1>
@@ -292,6 +302,53 @@ export default function ReportesClient() {
             ))}
           </select>
         </Field>
+        {/* Product filters - only show on ventas tab */}
+        {tab === "ventas" && (
+          <>
+            <Field label="Categoría">
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="border rounded-lg px-3 py-1.5 text-sm bg-background"
+              >
+                <option value="">Todas</option>
+                {categories.map((c: any) => (
+                  <option key={c._id} value={c.catTitle}>
+                    {c.catTitle}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Certificador">
+              <select
+                value={brand}
+                onChange={(e) => setBrand(e.target.value)}
+                className="border rounded-lg px-3 py-1.5 text-sm bg-background"
+              >
+                <option value="">Todas</option>
+                {brands.map((b: any) => (
+                  <option key={b._id} value={b.catTitle}>
+                    {b.catTitle}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Género">
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                className="border rounded-lg px-3 py-1.5 text-sm bg-background"
+              >
+                <option value="">Todos</option>
+                {genders.map((g: any) => (
+                  <option key={g._id} value={g.catTitle}>
+                    {g.catTitle}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </>
+        )}
         <button
           onClick={load}
           className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground
@@ -330,11 +387,8 @@ export default function ReportesClient() {
       ) : !data ? null : (
         <>
           {tab === "ventas" && <VentasTab data={data.ventas} />}
-          {tab === "finanzas" && <FinanzasTab data={data.finanzas} />}
+          {tab === "finanzas" && <FinanzasTab data={data} />}
           {tab === "inventario" && <InventarioTab data={data.inventario} />}
-          {tab === "nomina" && <NominaTab data={data.nomina} />}
-          {tab === "gastos" && <GastosTab data={data.gastos} />}
-          {tab === "impuestos" && <ImpuestosTab data={data.impuestos} />}
         </>
       )}
     </div>
@@ -375,8 +429,8 @@ function VentasTab({ data }: { data: any }) {
         <Kpi label="Artículos" value={data.totalItems} />
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        <Section title="Por Método de Pago">
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* <Section title="Por Método de Pago">
           <Table
             cols={["Método", "Pedidos", "Total"]}
             rows={(data.byPayMethod ?? []).map((r: any) => [
@@ -385,52 +439,138 @@ function VentasTab({ data }: { data: any }) {
               fmt(r.total),
             ])}
           />
-        </Section>
-        <Section title="Por Estado">
+        </Section> */}
+        <Section title="Top 7 Productos">
           <Table
-            cols={["Estado", "Pedidos", "Total"]}
-            rows={data.byStatus.map((r: any) => [
-              <span key={r._id} className={STATUS_COLOR[r._id] ?? ""}>
-                {r._id}
-              </span>,
-              r.count,
-              fmt(r.total),
+            cols={["Producto", "Unidades", "Ingresos"]}
+            rows={data.topProducts.map((p: any) => [
+              p.name,
+              p.totalQty,
+              fmt(p.totalRevenue),
             ])}
           />
         </Section>
-        <Section title="Por Sucursal / Canal">
-          <Table
-            cols={["Sucursal", "Pedidos", "Total"]}
-            rows={data.byBranch.map((r: any) => [
-              r._id || "WWW",
-              r.count,
-              fmt(r.total),
-            ])}
-          />
-        </Section>
+        <div className="grid md:grid-cols-1 gap-4">
+          <Section title="Por Estado">
+            <Table
+              cols={["Estado", "Pedidos", "Total"]}
+              rows={data.byStatus.map((r: any) => [
+                <span key={r._id} className={STATUS_COLOR[r._id] ?? ""}>
+                  {r._id}
+                </span>,
+                r.count,
+                fmt(r.total),
+              ])}
+            />
+          </Section>
+          <Section title="Por Sucursal / Canal">
+            <Table
+              cols={["Sucursal", "Pedidos", "Total"]}
+              rows={data.byBranch.map((r: any) => [
+                r._id || "WWW",
+                r.count,
+                fmt(r.total),
+              ])}
+            />
+          </Section>
+        </div>
       </div>
 
-      <Section title="Top 10 Productos">
-        <Table
-          cols={["Producto", "Unidades", "Ingresos"]}
-          rows={data.topProducts.map((p: any) => [
-            p.name,
-            p.totalQty,
-            fmt(p.totalRevenue),
-          ])}
-        />
+      <Section title="Tendencia Mensual">
+        {data.monthlyTrend && data.monthlyTrend.length > 0 ? (
+          <div className="w-full">
+            <Line
+              data={{
+                labels: data.monthlyTrend.map(
+                  (m: any) => `${m._id.month}/${m._id.year}`,
+                ),
+                datasets: [
+                  {
+                    label: "Ingresos",
+                    data: data.monthlyTrend.map((m: any) => m.revenue),
+                    borderColor: "#10b981",
+                    backgroundColor: "rgba(16, 185, 129, 0.1)",
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true,
+                  },
+                  {
+                    label: "Pedidos",
+                    data: data.monthlyTrend.map((m: any) => m.orders),
+                    borderColor: "#3b82f6",
+                    backgroundColor: "rgba(59, 130, 246, 0.1)",
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true,
+                    yAxisID: "y1",
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                  legend: { position: "top" },
+                },
+                scales: {
+                  y: {
+                    type: "linear",
+                    display: true,
+                    position: "left",
+                    title: { display: true, text: "Ingresos ($)" },
+                  },
+                  y1: {
+                    type: "linear",
+                    display: true,
+                    position: "right",
+                    title: { display: true, text: "Pedidos" },
+                    grid: { drawOnChartArea: false },
+                  },
+                },
+              }}
+            />
+          </div>
+        ) : (
+          <p className="text-muted-foreground">No hay datos disponibles</p>
+        )}
       </Section>
 
-      <Section title="Tendencia Mensual">
-        <Table
-          cols={["Año", "Mes", "Ingresos", "Pedidos"]}
-          rows={data.monthlyTrend.map((r: any) => [
-            r._id.year,
-            r._id.month,
-            fmt(r.revenue),
-            r.orders,
-          ])}
-        />
+      <Section title="Ventas por Día">
+        {data.dailyTrend && data.dailyTrend.length > 0 ? (
+          <div className="w-full">
+            <Bar
+              data={{
+                labels: data.dailyTrend.map(
+                  (d: any) =>
+                    `${d._id.day}/${d._id.month}/${d._id.year.toString().slice(-2)}`,
+                ),
+                datasets: [
+                  {
+                    label: "Ingresos",
+                    data: data.dailyTrend.map((d: any) => d.revenue),
+                    backgroundColor: "rgba(16, 185, 129, 0.6)",
+                    borderColor: "#10b981",
+                    borderWidth: 1,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                  legend: { position: "top" },
+                },
+                scales: {
+                  y: {
+                    title: { display: true, text: "Ingresos ($)" },
+                  },
+                },
+              }}
+            />
+          </div>
+        ) : (
+          <p className="text-muted-foreground">No hay datos disponibles</p>
+        )}
       </Section>
 
       {/* Detailed orders toggle */}
@@ -564,55 +704,269 @@ function VentasTab({ data }: { data: any }) {
 
 // ── Finanzas ──────────────────────────────────────────────────────────────────
 function FinanzasTab({ data }: { data: any }) {
-  if (!data) return null;
+  if (!data.finanzas || !data.gastos || !data.nomina || !data.impuestos)
+    return null;
+
+  const fin = data.finanzas;
+  const gas = data.gastos;
+  const nom = data.nomina;
+  const imp = data.impuestos;
+
+  console.log("🏦 FinanzasTab received data:");
+  console.log("  - fin:", fin);
+  console.log("  - fin.totalRevForMargin:", fin.totalRevForMargin);
+  console.log("  - fin.totalExpenses:", fin.totalExpenses);
+  console.log("  - fin.totalPayroll:", fin.totalPayroll);
+  console.log("  - fin.totalCOGS:", fin.totalCOGS);
+  console.log("  - imp.totalIVA:", imp.totalIVA);
+
+  const totalOperatingCosts =
+    fin.totalExpenses + fin.totalPayroll + fin.totalCOGS;
+  const grossProfit = fin.totalRevForMargin - fin.totalCOGS;
+  const operatingIncome = fin.totalRevForMargin - totalOperatingCosts;
+  // Net profit after deducting IVA
+  const netProfitAfterTax =
+    fin.totalRevForMargin -
+    fin.totalCOGS -
+    fin.totalExpenses -
+    fin.totalPayroll -
+    imp.totalIVA;
+  const netMarginPercent =
+    fin.totalRevForMargin > 0
+      ? ((netProfitAfterTax / fin.totalRevForMargin) * 100).toFixed(2)
+      : "0.00";
+
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Kpi
-          label="Total Gastos"
-          value={fmt(data.totalExpenses)}
-          color="text-red-500"
-        />
-        <Kpi
-          label="Nómina"
-          value={fmt(data.totalPayroll)}
-          color="text-amber-600"
-        />
-        <Kpi
-          label="Costo de Venta"
-          value={fmt(data.totalCOGS)}
-          color="text-purple-600"
-        />
-        <Kpi
-          label="Margen Neto"
-          value={fmt(data.netMargin)}
-          color={data.netMargin >= 0 ? "text-green-600" : "text-red-600"}
-        />
-      </div>
+      <div className="grid md:grid-cols-2 gap-4">
+        {/* Income Statement Summary */}
+        <div>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-4">
+            Estado de Resultados Resumido
+          </h2>
+          <div className="bg-card border border-muted rounded-xl p-6 space-y-3">
+            <div className="flex justify-between items-center pb-3 border-b border-muted">
+              <span className="text-sm font-medium">Ingresos Totales</span>
+              <span className="text-lg font-bold text-green-600">
+                {fmt(fin.totalRevForMargin)}
+              </span>
+            </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Section title="Gastos por Categoría">
+            <div className="pl-4 space-y-2 pb-3 border-b border-muted">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Costo de Ventas</span>
+                <span className="text-red-400">−{fmt(fin.totalCOGS)}</span>
+              </div>
+              <div className="flex justify-between items-center font-semibold text-sm">
+                <span>Utilidad Bruta</span>
+                <span className="text-blue-500">{fmt(grossProfit)}</span>
+              </div>
+            </div>
+
+            <div className="pl-4 space-y-2 pb-3 border-b border-muted">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Gastos Operativos</span>
+                <span className="text-red-400">−{fmt(fin.totalExpenses)}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Nómina/Salarios</span>
+                <span className="text-red-400">−{fmt(fin.totalPayroll)}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Iva Recaudado</span>
+                <span className="text-red-400">−{fmt(imp.totalIVA)}</span>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-2">
+              <span className="text-sm font-semibold">Utilidad Neta</span>
+              <span
+                className={`text-xl font-bold ${netProfitAfterTax >= 0 ? "text-green-600" : "text-red-400"}`}
+              >
+                {fmt(netProfitAfterTax)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-xs text-muted-foreground">
+              <span>Margen Neto (%)</span>
+              <span
+                className={
+                  netProfitAfterTax >= 0 ? "text-green-600" : "text-red-400"
+                }
+              >
+                {netMarginPercent}%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Expenses & Payroll Details */}
+        <div className="grid md:grid-cols-1 gap-6">
+          {/* <Section title="Gastos por Categoría">
           <Table
             cols={["Categoría", "Registros", "Total"]}
-            rows={data.expByCategory.map((r: any) => [
+            rows={gas.expByCategory.map((r: any) => [
               CAT_LABELS[r._id] ?? r._id,
               r.count,
               fmt(r.total),
             ])}
           />
-        </Section>
-        <Section title="Nómina por Empleado">
+        </Section> */}
+
+          <Section title="Nómina por Empleado">
+            <Table
+              cols={["Empleado", "Períodos", "Pagados", "Neto"]}
+              rows={nom.entries
+                .slice(0, 10)
+                .map((e: any) => [
+                  e.employeeName,
+                  1,
+                  e.isPaid ? "✓" : "−",
+                  fmt(e.netAmount),
+                ])}
+            />
+          </Section>
+          {/* 
+        <Section title="IVA por Mes">
           <Table
-            cols={["Empleado", "Períodos", "Pagados", "Neto"]}
-            rows={data.payByEmployee.map((r: any) => [
-              r._id,
-              r.periods,
-              r.paid,
-              fmt(r.total),
+            cols={["Año", "Mes", "Pedidos", "IVA"]}
+            rows={imp.ivaByMonth.map((r: any) => [
+              r._id.year,
+              r._id.month,
+              r.count,
+              fmt(r.totalIVA),
             ])}
           />
+        </Section> */}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        {/* Payroll Summary */}
+        <Section title="Resumen Nómina">
+          <div className="p-4 space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-muted/50 p-3 rounded">
+                <p className="text-xs text-muted-foreground mb-1">Entradas</p>
+                <p className="text-lg font-bold">{nom.count}</p>
+              </div>
+              <div className="bg-muted/50 p-3 rounded">
+                <p className="text-xs text-muted-foreground mb-1">Neto Total</p>
+                <p className="text-lg font-bold text-amber-600">
+                  {fmt(nom.totalNet)}
+                </p>
+              </div>
+              <div className="bg-muted/50 p-3 rounded">
+                <p className="text-xs text-muted-foreground mb-1">Pagado</p>
+                <p className="text-lg font-bold text-green-600">
+                  {fmt(nom.totalPaid)}
+                </p>
+              </div>
+              <div className="bg-muted/50 p-3 rounded">
+                <p className="text-xs text-muted-foreground mb-1">Pendiente</p>
+                <p className="text-lg font-bold text-red-500">
+                  {fmt(nom.totalPending)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </Section>
+
+        {/* Tax Summary */}
+        <Section title="Resumen de Impuestos (IVA)">
+          <div className="p-4 space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-muted/50 p-3 rounded">
+                <p className="text-xs text-muted-foreground mb-1">
+                  IVA Recaudado
+                </p>
+                <p className="text-lg font-bold text-blue-600">
+                  {fmt(imp.totalIVA)}
+                </p>
+              </div>
+              <div className="bg-muted/50 p-3 rounded">
+                <p className="text-xs text-muted-foreground mb-1">
+                  Ingresos Base
+                </p>
+                <p className="text-lg font-bold text-green-600">
+                  {fmt(imp.totalRevenue)}
+                </p>
+              </div>
+              <div className="bg-muted/50 p-3 rounded">
+                <p className="text-xs text-muted-foreground mb-1">
+                  Pedidos c/ IVA
+                </p>
+                <p className="text-lg font-bold">{imp.count}</p>
+              </div>
+              <div className="bg-muted/50 p-3 rounded">
+                <p className="text-xs text-muted-foreground mb-1">
+                  Tasa Efectiva
+                </p>
+                <p className="text-lg font-bold text-indigo-600">
+                  {imp.totalRevenue > 0
+                    ? ((imp.totalIVA / imp.totalRevenue) * 100).toFixed(2)
+                    : "0.00"}
+                  %
+                </p>
+              </div>
+            </div>
+          </div>
         </Section>
       </div>
+      {/* Detailed Expense List */}
+      <Section title="Detalle de Gastos">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[700px]">
+            <thead className="bg-muted/50 text-xs text-muted-foreground uppercase">
+              <tr>
+                {["Fecha", "Categoría", "Descripción", "Sucursal", "Monto"].map(
+                  (h) => (
+                    <th key={h} className="px-4 py-2 text-left">
+                      {h}
+                    </th>
+                  ),
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {gas.expenseList.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-8 text-center text-muted-foreground"
+                  >
+                    Sin gastos
+                  </td>
+                </tr>
+              ) : (
+                gas.expenseList.slice(0, 20).map((e: any) => (
+                  <tr
+                    key={e._id}
+                    className="border-t border-muted hover:bg-muted/20"
+                  >
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
+                      {new Date(e.date).toLocaleDateString("es-MX")}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-black">
+                        {CAT_LABELS[e.category] ?? e.category}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 max-w-[220px] truncate">
+                      {e.description}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                      {e.storeName}
+                    </td>
+                    <td className="px-4 py-2.5 font-semibold text-red-500">
+                      {fmt(e.amount)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Section>
     </div>
   );
 }
@@ -673,336 +1027,6 @@ function InventarioTab({ data }: { data: any }) {
             new Date(r.createdAt).toLocaleDateString("es-MX"),
           ])}
         />
-      </Section>
-    </div>
-  );
-}
-
-// ── Nómina ────────────────────────────────────────────────────────────────────
-function NominaTab({ data }: { data: any }) {
-  if (!data) return null;
-  return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Kpi label="Entradas" value={data.count} />
-        <Kpi
-          label="Neto Total"
-          value={fmt(data.totalNet)}
-          color="text-amber-600"
-        />
-        <Kpi
-          label="Pagado"
-          value={fmt(data.totalPaid)}
-          color="text-green-600"
-        />
-        <Kpi
-          label="Pendiente"
-          value={fmt(data.totalPending)}
-          color="text-red-500"
-        />
-      </div>
-
-      <Section title="Detalle de Entradas">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[700px]">
-            <thead className="bg-muted/50 text-xs text-muted-foreground uppercase">
-              <tr>
-                {[
-                  "Empleado",
-                  "Período",
-                  "Base",
-                  "Bonos",
-                  "Deds.",
-                  "Neto",
-                  "Estado",
-                ].map((h) => (
-                  <th key={h} className="px-4 py-2 text-left">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.entries.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-8 text-center text-muted-foreground"
-                  >
-                    Sin entradas
-                  </td>
-                </tr>
-              ) : (
-                data.entries.map((e: any) => (
-                  <tr
-                    key={e._id}
-                    className="border-t border-muted hover:bg-muted/20"
-                  >
-                    <td className="px-4 py-2.5 font-medium">
-                      {e.employeeName}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
-                      {new Date(e.periodStart).toLocaleDateString("es-MX")} –{" "}
-                      {new Date(e.periodEnd).toLocaleDateString("es-MX")}
-                    </td>
-                    <td className="px-4 py-2.5">{fmt(e.baseSalary)}</td>
-                    <td className="px-4 py-2.5 text-green-600">
-                      +{fmt(e.bonuses)}
-                    </td>
-                    <td className="px-4 py-2.5 text-red-500">
-                      −{fmt(e.deductions)}
-                    </td>
-                    <td className="px-4 py-2.5 font-bold">
-                      {fmt(e.netAmount)}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${
-                          e.isPaid
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                            : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                        }`}
-                      >
-                        {e.isPaid ? "Pagado" : "Pendiente"}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Section>
-    </div>
-  );
-}
-
-// ── Gastos ────────────────────────────────────────────────────────────────────
-function GastosTab({ data }: { data: any }) {
-  if (!data) return null;
-  return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <Kpi
-          label="Total Gastos"
-          value={fmt(data.total)}
-          color="text-red-500"
-        />
-        <Kpi label="Registros" value={data.count} />
-        <Kpi
-          label="Promedio por registro"
-          value={data.count > 0 ? fmt(data.total / data.count) : "—"}
-          color="text-amber-600"
-        />
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        <Section title="Por Categoría">
-          <Table
-            cols={["Categoría", "Registros", "Total"]}
-            rows={data.expByCategory.map((r: any) => [
-              CAT_LABELS[r._id] ?? r._id,
-              r.count,
-              fmt(r.total),
-            ])}
-          />
-        </Section>
-
-        <Section title="Tendencia Mensual">
-          <Table
-            cols={["Año", "Mes", "Categoría", "Total"]}
-            rows={data.expMonthlyTrend.map((r: any) => [
-              r._id.year,
-              r._id.month,
-              CAT_LABELS[r._id.category] ?? r._id.category,
-              fmt(r.total),
-            ])}
-          />
-        </Section>
-      </div>
-
-      <Section title="Detalle de Gastos">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[700px]">
-            <thead className="bg-muted/50 text-xs text-muted-foreground uppercase">
-              <tr>
-                {["Fecha", "Categoría", "Descripción", "Sucursal", "Monto"].map(
-                  (h) => (
-                    <th key={h} className="px-4 py-2 text-left">
-                      {h}
-                    </th>
-                  ),
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {data.expenseList.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-8 text-center text-muted-foreground"
-                  >
-                    Sin gastos
-                  </td>
-                </tr>
-              ) : (
-                data.expenseList.map((e: any) => (
-                  <tr
-                    key={e._id}
-                    className="border-t border-muted hover:bg-muted/20"
-                  >
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
-                      {new Date(e.date).toLocaleDateString("es-MX")}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                        {CAT_LABELS[e.category] ?? e.category}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 max-w-[220px] truncate">
-                      {e.description}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                      {e.storeName}
-                    </td>
-                    <td className="px-4 py-2.5 font-semibold text-red-500">
-                      {fmt(e.amount)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Section>
-    </div>
-  );
-}
-
-// ── Impuestos ─────────────────────────────────────────────────────────────────
-function ImpuestosTab({ data }: { data: any }) {
-  if (!data) return null;
-  const effectiveRate =
-    data.totalRevenue > 0
-      ? ((data.totalIVA / data.totalRevenue) * 100).toFixed(2)
-      : "0.00";
-  return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Kpi
-          label="IVA Total Recaudado"
-          value={fmt(data.totalIVA)}
-          color="text-blue-600"
-        />
-        <Kpi
-          label="Ingresos Base"
-          value={fmt(data.totalRevenue)}
-          color="text-green-600"
-        />
-        <Kpi label="Pedidos con IVA" value={data.count} />
-        <Kpi
-          label="Tasa Efectiva"
-          value={`${effectiveRate}%`}
-          color="text-indigo-600"
-        />
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        <Section title="IVA por Mes">
-          <Table
-            cols={["Año", "Mes", "Pedidos", "Ingresos", "IVA (16%)"]}
-            rows={data.ivaByMonth.map((r: any) => [
-              r._id.year,
-              r._id.month,
-              r.count,
-              fmt(r.totalRevenue),
-              fmt(r.totalIVA),
-            ])}
-          />
-        </Section>
-
-        <Section title="IVA por Sucursal / Canal">
-          <Table
-            cols={["Sucursal", "Pedidos", "Ingresos", "IVA (16%)"]}
-            rows={data.ivaByBranch.map((r: any) => [
-              r._id || "WWW",
-              r.count,
-              fmt(r.totalRevenue),
-              fmt(r.totalIVA),
-            ])}
-          />
-        </Section>
-      </div>
-
-      <Section title="Detalle de Pedidos">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[700px]">
-            <thead className="bg-muted/50 text-xs text-muted-foreground uppercase">
-              <tr>
-                {[
-                  "# Pedido",
-                  "Cliente",
-                  "Sucursal",
-                  "Fecha",
-                  "Estado",
-                  "Total",
-                  "IVA (16%)",
-                ].map((h) => (
-                  <th key={h} className="px-4 py-2 text-left">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.ivaOrders.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-8 text-center text-muted-foreground"
-                  >
-                    Sin pedidos con IVA registrado
-                  </td>
-                </tr>
-              ) : (
-                data.ivaOrders.map((o: any) => (
-                  <tr
-                    key={o._id}
-                    className="border-t border-muted hover:bg-muted/20"
-                  >
-                    <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                      {o.orderId}
-                    </td>
-                    <td className="px-4 py-2.5 truncate max-w-[140px]">
-                      {o.customerName ?? "—"}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                      {o.branch ?? "WWW"}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
-                      {new Date(o.createdAt).toLocaleDateString("es-MX")}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${
-                          STATUS_COLOR[o.orderStatus] ? "bg-muted" : "bg-muted"
-                        } ${STATUS_COLOR[o.orderStatus] ?? "text-muted-foreground"}`}
-                      >
-                        {o.orderStatus}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 font-medium">
-                      {fmt(o.paymentInfo?.amountPaid ?? 0)}
-                    </td>
-                    <td className="px-4 py-2.5 font-bold text-blue-600">
-                      {fmt(o.paymentInfo?.taxPaid ?? 0)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
       </Section>
     </div>
   );

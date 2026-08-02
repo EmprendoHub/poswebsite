@@ -10,6 +10,7 @@ import Store from "@/backend/models/Store";
 import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 
 const ALLOWED_ROLES = ["manager", "director", "super_admin"];
 
@@ -30,6 +31,9 @@ export async function GET(req: Request) {
     const to = url.searchParams.get("to");
     const storeId = url.searchParams.get("storeId");
     const section = url.searchParams.get("section") || "all";
+    const category = url.searchParams.get("category");
+    const brand = url.searchParams.get("brand");
+    const gender = url.searchParams.get("gender");
 
     // Parse "YYYY-MM-DD" strings as LOCAL midnight to avoid the UTC-parse + local
     // setHours mismatch that causes same-day ranges to return zero results.
@@ -62,7 +66,77 @@ export async function GET(req: Request) {
       999,
     );
 
+    // For monthly trend: from Jan 1 of current year to selected "hasta" date
+    const yearStart = new Date(new Date().getFullYear(), 0, 1);
+    const monthlyTrendStart = new Date(
+      yearStart.getFullYear(),
+      yearStart.getMonth(),
+      yearStart.getDate(),
+      0,
+      0,
+      0,
+      0,
+    );
+    const monthlyTrendEnd = end; // Use the same end date as the selected range
+
+    // Calculate date ranges for dashboard metrics
+    const now = new Date();
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      0,
+      0,
+      0,
+      0,
+    );
+    const todayEnd = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      23,
+      59,
+      59,
+      999,
+    );
+
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay()); // Sunday of current week
+    weekStart.setHours(0, 0, 0, 0);
+
+    const monthStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1,
+      0,
+      0,
+      0,
+      0,
+    );
+    const monthEnd = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
+
+    const yearStart_Dashboard = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+    const yearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+
     const result: any = {};
+
+    // Convert storeId to ObjectId if provided
+    let storeObjId: mongoose.Types.ObjectId | null = null;
+    if (storeId) {
+      try {
+        storeObjId = new mongoose.Types.ObjectId(storeId);
+      } catch (err) {
+        console.log("⚠️ Invalid storeId format:", storeId);
+      }
+    }
 
     // Resolve storeId → branch values used in Order.branch field.
     // Orders store branch as store.slug (sometimes branchLegacyName), NOT the _id.
@@ -82,6 +156,23 @@ export async function GET(req: Request) {
       }
     }
 
+    // Build product filter for category, brand, gender
+    let productFilter: any = {};
+    if (category) productFilter.category = category;
+    if (brand) productFilter.brand = brand;
+    if (gender) productFilter.gender = gender;
+
+    // Get filtered product IDs if any filters are applied
+    let filteredProductIds: string[] | null = null;
+    if (Object.keys(productFilter).length > 0) {
+      const filteredProducts = await Product.find(productFilter)
+        .select("_id")
+        .lean<any>();
+      filteredProductIds = filteredProducts.map((p: any) => p._id.toString());
+    } else {
+      console.log("📊 No product filters applied - showing all products");
+    }
+
     // ── VENTAS ───────────────────────────────────────────────────────────────────────────────
     if (section === "all" || section === "ventas") {
       const orderMatch: any = {
@@ -89,121 +180,278 @@ export async function GET(req: Request) {
         orderStatus: { $ne: "Cancelado" },
       };
       if (branchFilter) orderMatch.branch = { $in: branchFilter };
+      if (filteredProductIds && filteredProductIds.length > 0) {
+        // Use $elemMatch to properly match array elements
+        orderMatch.orderItems = {
+          $elemMatch: { product: { $in: filteredProductIds } },
+        };
+      }
+
+      // Count matching orders for debugging
+      const orderCount = await Order.countDocuments(orderMatch);
+
+      // Build simplified aggregation match (used for ALL aggregations in this section)
+      let matchingOrderIds: any[] = [];
+      if (filteredProductIds && filteredProductIds.length > 0) {
+        const orders = await Order.find(orderMatch).select("_id").lean<any>();
+        matchingOrderIds = orders.map((o: any) => o._id);
+      }
+
+      const aggMatch: any = {
+        createdAt: { $gte: start, $lte: end },
+        orderStatus: { $ne: "Cancelado" },
+      };
+      if (branchFilter) aggMatch.branch = { $in: branchFilter };
+      if (matchingOrderIds.length > 0) {
+        aggMatch._id = { $in: matchingOrderIds };
+      }
 
       // Summary
-      const [venSummary] = await Order.aggregate([
-        { $match: orderMatch },
-        {
-          $group: {
-            _id: null,
-            totalRevenue: { $sum: "$paymentInfo.amountPaid" },
-            totalOrders: { $sum: 1 },
-            totalItems: { $sum: { $size: "$orderItems" } },
+      let venSummary: any = null;
+      try {
+        const venSummaryResults = await Order.aggregate([
+          { $match: aggMatch },
+          {
+            $group: {
+              _id: null,
+              totalRevenue: {
+                $sum: {
+                  $cond: [
+                    { $isNumber: "$paymentInfo.amountPaid" },
+                    "$paymentInfo.amountPaid",
+                    0,
+                  ],
+                },
+              },
+              totalOrders: { $sum: 1 },
+              totalItems: { $sum: { $size: "$orderItems" } },
+            },
           },
-        },
-      ]);
+        ]);
+
+        if (venSummaryResults.length > 0) {
+          [venSummary] = venSummaryResults;
+        } else {
+          console.warn("⚠️ Aggregation returned empty array");
+          // Fallback: count orders manually
+          const orderCount = await Order.countDocuments(aggMatch);
+
+          venSummary = {
+            totalRevenue: 0,
+            totalOrders: orderCount,
+            totalItems: 0,
+          };
+        }
+      } catch (aggErr: any) {
+        console.error("❌ Ventas Summary aggregation error:", aggErr.message);
+        console.error("❌ Error details:", aggErr);
+        venSummary = null;
+      }
 
       // By status
-      const byStatus = await Order.aggregate([
-        { $match: orderMatch },
-        {
-          $group: {
-            _id: "$orderStatus",
-            count: { $sum: 1 },
-            total: { $sum: "$paymentInfo.amountPaid" },
+      let byStatus: any[] = [];
+      try {
+        byStatus = await Order.aggregate([
+          { $match: aggMatch },
+          {
+            $group: {
+              _id: "$orderStatus",
+              count: { $sum: 1 },
+              total: {
+                $sum: {
+                  $cond: [
+                    { $isNumber: "$paymentInfo.amountPaid" },
+                    "$paymentInfo.amountPaid",
+                    0,
+                  ],
+                },
+              },
+            },
           },
-        },
-        { $sort: { total: -1 } },
-      ]);
+          { $sort: { total: -1 } },
+        ]);
+      } catch (err: any) {
+        console.error("❌ byStatus aggregation error:", err.message);
+      }
 
       // By branch
-      const byBranch = await Order.aggregate([
-        { $match: orderMatch },
-        {
-          $group: {
-            _id: "$branch",
-            count: { $sum: 1 },
-            total: { $sum: "$paymentInfo.amountPaid" },
+      let byBranch: any[] = [];
+      try {
+        byBranch = await Order.aggregate([
+          { $match: aggMatch },
+          {
+            $group: {
+              _id: "$branch",
+              count: { $sum: 1 },
+              total: {
+                $sum: {
+                  $cond: [
+                    { $isNumber: "$paymentInfo.amountPaid" },
+                    "$paymentInfo.amountPaid",
+                    0,
+                  ],
+                },
+              },
+            },
           },
-        },
-        { $sort: { total: -1 } },
-      ]);
+          { $sort: { total: -1 } },
+        ]);
+      } catch (err: any) {
+        console.error("❌ byBranch aggregation error:", err.message);
+      }
 
       // Top products
-      const topProducts = await Order.aggregate([
-        { $match: orderMatch },
-        { $unwind: "$orderItems" },
-        {
-          $group: {
-            _id: "$orderItems.product",
-            name: { $first: "$orderItems.name" },
-            totalQty: { $sum: "$orderItems.quantity" },
-            totalRevenue: {
-              $sum: {
-                $multiply: ["$orderItems.price", "$orderItems.quantity"],
+      let topProducts: any[] = [];
+      try {
+        topProducts = await Order.aggregate([
+          { $match: aggMatch },
+          { $unwind: "$orderItems" },
+          {
+            $group: {
+              _id: "$orderItems.product",
+              name: { $first: "$orderItems.name" },
+              totalQty: { $sum: "$orderItems.quantity" },
+              totalRevenue: {
+                $sum: {
+                  $multiply: ["$orderItems.price", "$orderItems.quantity"],
+                },
               },
             },
           },
-        },
-        { $sort: { totalRevenue: -1 } },
-        { $limit: 10 },
-      ]);
+          { $sort: { totalRevenue: -1 } },
+          { $limit: 7 },
+        ]);
+      } catch (err: any) {
+        console.error("❌ topProducts aggregation error:", err.message);
+      }
 
-      // Monthly trend
-      const monthlyTrend = await Order.aggregate([
-        { $match: orderMatch },
-        {
-          $group: {
-            _id: {
-              year: { $year: "$createdAt" },
-              month: { $month: "$createdAt" },
+      // Monthly trend (from Jan 1 of current year to selected "hasta" date)
+      let monthlyTrend: any[] = [];
+      try {
+        monthlyTrend = await Order.aggregate([
+          {
+            $match: {
+              ...aggMatch,
+              createdAt: { $gte: monthlyTrendStart, $lte: monthlyTrendEnd },
             },
-            revenue: { $sum: "$paymentInfo.amountPaid" },
-            orders: { $sum: 1 },
           },
-        },
-        { $sort: { "_id.year": 1, "_id.month": 1 } },
-      ]);
+          {
+            $group: {
+              _id: {
+                year: { $year: "$createdAt" },
+                month: { $month: "$createdAt" },
+              },
+              revenue: {
+                $sum: {
+                  $cond: [
+                    { $isNumber: "$paymentInfo.amountPaid" },
+                    "$paymentInfo.amountPaid",
+                    0,
+                  ],
+                },
+              },
+              orders: { $sum: 1 },
+            },
+          },
+          { $sort: { "_id.year": 1, "_id.month": 1 } },
+        ]);
+      } catch (err: any) {
+        console.error("❌ monthlyTrend aggregation error:", err.message);
+      }
+
+      // Daily trend (sales per day)
+      let dailyTrend: any[] = [];
+      try {
+        dailyTrend = await Order.aggregate([
+          { $match: aggMatch },
+          {
+            $group: {
+              _id: {
+                year: { $year: "$createdAt" },
+                month: { $month: "$createdAt" },
+                day: { $dayOfMonth: "$createdAt" },
+              },
+              revenue: {
+                $sum: {
+                  $cond: [
+                    { $isNumber: "$paymentInfo.amountPaid" },
+                    "$paymentInfo.amountPaid",
+                    0,
+                  ],
+                },
+              },
+              orders: { $sum: 1 },
+            },
+          },
+          { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } },
+        ]);
+      } catch (err: any) {
+        console.error("❌ dailyTrend aggregation error:", err.message);
+      }
 
       // By payment method — 3 buckets: Efectivo / Mixto / Terminal
-      const byPayMethod = await Order.aggregate([
-        { $match: orderMatch },
-        {
-          $group: {
-            _id: {
-              $switch: {
-                branches: [
-                  {
-                    case: { $eq: ["$paymentInfo.id", "EFECTIVO"] },
-                    then: "Efectivo",
-                  },
-                  {
-                    case: {
-                      $regexMatch: {
-                        input: { $ifNull: ["$paymentInfo.id", ""] },
-                        regex: "^MIXTO",
-                      },
+      let byPayMethod: any[] = [];
+      try {
+        byPayMethod = await Order.aggregate([
+          { $match: aggMatch },
+          {
+            $group: {
+              _id: {
+                $switch: {
+                  branches: [
+                    {
+                      case: { $eq: ["$paymentInfo.id", "EFECTIVO"] },
+                      then: "Efectivo",
                     },
-                    then: "Mixto",
-                  },
-                ],
-                default: "Terminal",
+                    {
+                      case: {
+                        $regexMatch: {
+                          input: { $ifNull: ["$paymentInfo.id", ""] },
+                          regex: "^MIXTO",
+                        },
+                      },
+                      then: "Mixto",
+                    },
+                  ],
+                  default: "Terminal",
+                },
               },
+              total: {
+                $sum: {
+                  $cond: [
+                    { $isNumber: "$paymentInfo.amountPaid" },
+                    "$paymentInfo.amountPaid",
+                    0,
+                  ],
+                },
+              },
+              count: { $sum: 1 },
             },
-            total: { $sum: "$paymentInfo.amountPaid" },
-            count: { $sum: 1 },
           },
-        },
-        { $sort: { total: -1 } },
-      ]);
+          { $sort: { total: -1 } },
+        ]);
+      } catch (err: any) {
+        console.error("❌ byPayMethod aggregation error:", err.message);
+      }
 
-      // Detailed per-order list (including cancelled for full picture)
+      // Detailed per-order list (include cancelled in list for full picture, but will skip when calculating totals)
       const orderListMatch: any = { createdAt: { $gte: start, $lte: end } };
       if (branchFilter) orderListMatch.branch = { $in: branchFilter };
+      if (matchingOrderIds.length > 0) {
+        orderListMatch._id = { $in: matchingOrderIds };
+      } else if (
+        filteredProductIds &&
+        filteredProductIds.length > 0 &&
+        matchingOrderIds.length === 0
+      ) {
+        // If product filters were applied but no matching orders found, return empty list
+        orderListMatch._id = { $in: [] };
+      }
+
+      // Fetch ALL orders matching the filter (no limit) for accurate revenue calculations
       const orderList = await Order.find(orderListMatch)
         .select("orderId customerName branch createdAt paymentInfo orderStatus")
         .sort({ createdAt: -1 })
-        .limit(1000)
         .lean();
 
       // Split MIXTO cash vs terminal components from orderList
@@ -230,25 +478,84 @@ export async function GET(req: Request) {
       revenueEfectivo = Math.round(revenueEfectivo * 100) / 100;
       revenueTerminal = Math.round(revenueTerminal * 100) / 100;
 
+      // Calculate period-specific revenues for dashboard
+      const calculatePeriodRevenue = async (matchCriteria: any) => {
+        try {
+          const results = await Order.aggregate([
+            { $match: { ...matchCriteria, orderStatus: { $ne: "Cancelado" } } },
+            {
+              $group: {
+                _id: null,
+                totalRevenue: {
+                  $sum: {
+                    $cond: [
+                      { $isNumber: "$paymentInfo.amountPaid" },
+                      "$paymentInfo.amountPaid",
+                      0,
+                    ],
+                  },
+                },
+              },
+            },
+          ]);
+          return results[0]?.totalRevenue ?? 0;
+        } catch (err) {
+          console.error("Error calculating period revenue:", err);
+          return 0;
+        }
+      };
+
+      // Calculate revenues for different periods
+      const baseMatch: any = { orderStatus: { $ne: "Cancelado" } };
+      if (branchFilter) baseMatch.branch = { $in: branchFilter };
+      if (matchingOrderIds.length > 0)
+        baseMatch._id = { $in: matchingOrderIds };
+
+      const todayRevenue = await calculatePeriodRevenue({
+        ...baseMatch,
+        createdAt: { $gte: todayStart, $lte: todayEnd },
+      });
+
+      const weekRevenue = await calculatePeriodRevenue({
+        ...baseMatch,
+        createdAt: { $gte: weekStart, $lte: todayEnd },
+      });
+
+      const monthRevenue = await calculatePeriodRevenue({
+        ...baseMatch,
+        createdAt: { $gte: monthStart, $lte: monthEnd },
+      });
+
+      const yearRevenue = await calculatePeriodRevenue({
+        ...baseMatch,
+        createdAt: { $gte: yearStart_Dashboard, $lte: yearEnd },
+      });
+
       result.ventas = {
         totalRevenue: venSummary?.totalRevenue ?? 0,
         totalOrders: venSummary?.totalOrders ?? 0,
         totalItems: venSummary?.totalItems ?? 0,
         revenueEfectivo,
         revenueTerminal,
+        todayRevenue,
+        weekRevenue,
+        monthRevenue,
+        yearRevenue,
         byStatus,
         byBranch,
         byPayMethod,
         topProducts,
         monthlyTrend,
+        dailyTrend,
         orderList,
       };
     }
 
     // ── FINANZAS ──────────────────────────────────────────────────────────────
     if (section === "all" || section === "finanzas") {
+      // Expenses and Payroll can be filtered by store when selected
       const expMatch: any = { date: { $gte: start, $lte: end } };
-      if (storeId) expMatch.store = storeId;
+      if (storeObjId) expMatch.store = storeObjId;
 
       const expByCategory = await Expense.aggregate([
         { $match: expMatch },
@@ -268,7 +575,7 @@ export async function GET(req: Request) {
       ]);
 
       const payMatch: any = { periodStart: { $gte: start, $lte: end } };
-      if (storeId) payMatch.store = storeId;
+      if (storeObjId) payMatch.store = storeObjId;
 
       const [payTotal] = await PayrollEntry.aggregate([
         { $match: payMatch },
@@ -288,14 +595,15 @@ export async function GET(req: Request) {
         { $sort: { total: -1 } },
       ]);
 
-      const [cogsTotal] = await WorkOrder.aggregate([
-        {
-          $match: {
-            type: "receive",
-            status: "completed",
-            completedAt: { $gte: start, $lte: end },
-          },
-        },
+      const cogsMatch: any = {
+        type: "receive",
+        status: "completed",
+        completedAt: { $gte: start, $lte: end },
+      };
+      if (storeObjId) cogsMatch.toStore = storeObjId;
+
+      const cogsResult = await WorkOrder.aggregate([
+        { $match: cogsMatch },
         { $unwind: "$items" },
         {
           $group: {
@@ -312,12 +620,14 @@ export async function GET(req: Request) {
         },
       ]);
 
+      const cogsTotal = cogsResult[0];
       const totalExpenses = expTotal?.total ?? 0;
       const totalPayroll = payTotal?.total ?? 0;
       const totalCOGS = cogsTotal?.total ?? 0;
       const totalRevForMargin = result.ventas?.totalRevenue ?? 0;
 
       result.finanzas = {
+        totalRevForMargin,
         totalExpenses,
         totalPayroll,
         totalCOGS,
@@ -330,7 +640,10 @@ export async function GET(req: Request) {
     // ── INVENTARIO ────────────────────────────────────────────────────────────
     if (section === "all" || section === "inventario") {
       const invMatch: any = {};
-      if (storeId) invMatch.store = storeId;
+      if (storeObjId) invMatch.store = storeObjId;
+      if (filteredProductIds && filteredProductIds.length > 0) {
+        invMatch.product = { $in: filteredProductIds };
+      }
 
       const inventoryByStore = await StoreInventory.aggregate([
         { $match: invMatch },
@@ -406,13 +719,13 @@ export async function GET(req: Request) {
     // ── NÓMINA ────────────────────────────────────────────────────────────────
     if (section === "all" || section === "nomina") {
       const payMatch: any = { periodStart: { $gte: start, $lte: end } };
-      if (storeId) payMatch.store = storeId;
+      if (storeObjId) payMatch.store = storeObjId;
 
       const entries = await PayrollEntry.find(payMatch)
         .sort({ periodStart: -1 })
         .lean();
 
-      const [payAgg] = await PayrollEntry.aggregate([
+      const payAggResult = await PayrollEntry.aggregate([
         { $match: payMatch },
         {
           $group: {
@@ -424,6 +737,8 @@ export async function GET(req: Request) {
           },
         },
       ]);
+
+      const payAgg = payAggResult[0];
 
       result.nomina = {
         entries,
@@ -437,7 +752,7 @@ export async function GET(req: Request) {
     // ── GASTOS ────────────────────────────────────────────────────────────────
     if (section === "all" || section === "gastos") {
       const expMatch: any = { date: { $gte: start, $lte: end } };
-      if (storeId) expMatch.store = storeId;
+      if (storeObjId) expMatch.store = storeObjId;
 
       const expenseList = await Expense.find(expMatch)
         .populate({ path: "store", model: Store, select: "name" })
@@ -472,12 +787,14 @@ export async function GET(req: Request) {
         { $sort: { "_id.year": 1, "_id.month": 1 } },
       ]);
 
-      const [expTotals] = await Expense.aggregate([
+      const expTotalsResult = await Expense.aggregate([
         { $match: expMatch },
         {
           $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } },
         },
       ]);
+
+      const expTotals = expTotalsResult[0];
 
       result.gastos = {
         total: expTotals?.total ?? 0,

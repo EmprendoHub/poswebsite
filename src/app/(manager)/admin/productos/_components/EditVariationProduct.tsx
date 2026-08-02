@@ -1112,16 +1112,8 @@ const EditVariationProduct = ({
 
         // Log price changes to price tracker
         try {
-          console.log("💰 Price Tracker Check:", {
-            authorizedPriceChange,
-            priceChangeAuthorizedBy,
-            priceChangeAuthorizedUserId,
-            hasVariations: !!product?.variations,
-          });
-
           // If price was authorized during this session, use the stored values
           if (authorizedPriceChange && priceChangeAuthorizedBy) {
-            console.log("✅ Logging authorized price change to tracker");
             await fetch("/api/price-tracker", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -1175,6 +1167,11 @@ const EditVariationProduct = ({
         });
 
         await updateRevalidateProduct();
+        // Refresh client-side cache to ensure updated product data is loaded
+        router.refresh();
+
+        // Allow user to see the loading state briefly before redirect
+        await new Promise((resolve) => setTimeout(resolve, 500));
         router.push(`/${pathname}/productos?&page=${callBack}`);
       }
     } catch (error) {

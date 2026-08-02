@@ -32,7 +32,7 @@ const AdminSidebar = ({ children }: { children: any }) => {
     user = session?.user;
   }
   return (
-    <aside className="h-screen print:hidden ">
+    <aside className="h-screen print:hidden fixed z-50 ">
       <nav className="min-h-full flex justify-between flex-col bg-background border-r border-b border-r-muted shadow-sm">
         <div>
           <div
@@ -62,7 +62,7 @@ const AdminSidebar = ({ children }: { children: any }) => {
           </div>
 
           <SidebarContext.Provider value={{ expandSidebar }}>
-            <ul className="flex flex-col justify-center gap-4 px-2">
+            <ul className="flex flex-col justify-center gap-2 px-2">
               {children}
             </ul>
           </SidebarContext.Provider>
@@ -181,7 +181,7 @@ export function SideBarItem({
       onMouseEnter={() => setHoveredIndex("main")} // Set hoveredIndex to 'main' for the main item
       onMouseLeave={() => setHoveredIndex("")} // Reset on mouse leave
     >
-      <div className="flex items-center justify-center">
+      <div className="flex items-center justify-center h-6">
         {icon}
         <span
           className={`flex justify-between items-center overflow-hidden transition-all ease-in-out  ${
@@ -209,7 +209,7 @@ export function SideBarItem({
             transition={{ duration: 0.2 }}
             initial="initial"
             animate="animate"
-            className="absolute z-50 top-6 flex flex-col gap-1 mt-1  bg-foreground"
+            className="relative flex flex-col gap-1 mt-1  bg-foreground"
           >
             {dropdownItems.map(
               (
