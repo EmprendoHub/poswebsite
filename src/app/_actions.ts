@@ -4077,12 +4077,12 @@ export async function updateRevalidateProduct() {
   revalidatePath("/admin/productos", "page");
   revalidatePath("/(manager)/admin/productos", "page");
   revalidatePath("/(manager)/admin/productos/(.*)", "page");
-  
+
   // Customer-facing paths
   revalidatePath("/tienda", "page");
   revalidatePath("/(home)/tienda", "page");
   revalidatePath("/(home)/producto/(.*)", "page");
-  
+
   // API paths for data revalidation
   revalidatePath("/api/product", "layout");
   revalidatePath("/api/products", "layout");
