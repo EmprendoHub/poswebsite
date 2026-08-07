@@ -16,7 +16,7 @@ const AdminProductsPage = async ({ searchParams }: { searchParams: any }) => {
   );
   // Add perpage parameter for getAllProduct
   const allParams = new URLSearchParams(filteredUrlParams);
-  allParams.set("perpage", "20");
+  allParams.set("perpage", "40");
   const searchQuery = allParams.toString();
 
   const queryUrlParams = removeUndefinedAndPageKeys(urlParams);
@@ -28,7 +28,7 @@ const AdminProductsPage = async ({ searchParams }: { searchParams: any }) => {
   // pagination
   let page = parseInt(searchParams.page, 10);
   page = !page || page < 1 ? 1 : page;
-  const perPage = 20;
+  const perPage = 40;
   const itemCount = data?.filteredProductsCount || 0;
   const totalPages = itemCount > 0 ? Math.ceil(itemCount / perPage) : 0;
   const prevPage = page - 1 > 0 ? page - 1 : 1;

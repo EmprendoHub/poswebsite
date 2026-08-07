@@ -21,8 +21,8 @@ export interface ShippingBox {
 export const SHIPPING_BOXES: ShippingBox[] = [
   {
     id: "box-small",
-    label: "Pequeña - 13 × 13 × 13 cm",
-    dimensions: { length: 13, width: 13, height: 13 },
+    label: "Pequeña - 13 × 13 × 15 cm",
+    dimensions: { length: 13, width: 13, height: 15 },
     maxWeight: 1,
     price: 199,
   },
@@ -175,11 +175,6 @@ export function isTradingCard(item: CartItem): boolean {
       Math.abs(dims.width - card.dimensions.width) <= tolerance &&
       Math.abs(dims.height - card.dimensions.height) <= tolerance;
 
-    if (match) {
-      console.log(
-        `✅ Trading Card Detected: "${item.title || item.name}" | Type: ${card.name} | Dims: ${dims.length}×${dims.width}×${dims.height}cm (match: ${card.dimensions.length}×${card.dimensions.width}×${card.dimensions.height}cm)`,
-      );
-    }
     return match;
   });
 
@@ -249,6 +244,56 @@ function fitsInBox(
 }
 
 /**
+ * Calculate how many units of an item can fit in a box
+ * Tries all orientations and finds the maximum quantity that can be stacked
+ */
+function calculateItemsPerBox(
+  itemDims: { length: number; width: number; height: number },
+  boxDims: { length: number; width: number; height: number },
+): number {
+  // All possible orientations of the item [length, width, height]
+  const itemOrientations = [
+    { l: itemDims.length, w: itemDims.width, h: itemDims.height },
+    { l: itemDims.length, w: itemDims.height, h: itemDims.width },
+    { l: itemDims.width, w: itemDims.length, h: itemDims.height },
+    { l: itemDims.width, w: itemDims.height, h: itemDims.length },
+    { l: itemDims.height, w: itemDims.length, h: itemDims.width },
+    { l: itemDims.height, w: itemDims.width, h: itemDims.length },
+  ];
+
+  // All possible orientations of the box [length, width, height]
+  const boxOrientations = [
+    { l: boxDims.length, w: boxDims.width, h: boxDims.height },
+    { l: boxDims.length, w: boxDims.height, h: boxDims.width },
+    { l: boxDims.width, w: boxDims.length, h: boxDims.height },
+    { l: boxDims.width, w: boxDims.height, h: boxDims.length },
+    { l: boxDims.height, w: boxDims.length, h: boxDims.width },
+    { l: boxDims.height, w: boxDims.width, h: boxDims.length },
+  ];
+
+  let maxItems = 0;
+
+  // Try each item orientation against each box orientation
+  for (const itemOr of itemOrientations) {
+    for (const boxOr of boxOrientations) {
+      // Calculate how many items fit along each dimension
+      // We allow items to be stacked in the height dimension
+      const itemsAlongLength = Math.floor(boxOr.l / itemOr.l);
+      const itemsAlongWidth = Math.floor(boxOr.w / itemOr.w);
+      const itemsAlongHeight = Math.floor(boxOr.h / itemOr.h);
+
+      // Total items that can fit in this orientation
+      const itemsInThisOrientation =
+        itemsAlongLength * itemsAlongWidth * itemsAlongHeight;
+
+      maxItems = Math.max(maxItems, itemsInThisOrientation);
+    }
+  }
+
+  return maxItems;
+}
+
+/**
  * 3D BIN PACKING ALGORITHM
  * Empaca items en cajas disponibles de forma óptima
  * Retorna lista de cajas necesarias con items asignados
@@ -261,12 +306,6 @@ interface PackedBox {
 }
 
 export function packItemsIntoBoxes(items: CartItem[]): PackedBox[] {
-  console.group(
-    "🎁 BIN PACKING ALGORITHM START - Packing cart items into boxes",
-  );
-  console.log(
-    `Total cart items: ${items.length} | Total units: ${items.reduce((sum, i) => sum + i.quantity, 0)}`,
-  );
   const packedBoxes: PackedBox[] = [];
 
   // Expandir items a lista individual considerando cantidad
@@ -293,10 +332,6 @@ export function packItemsIntoBoxes(items: CartItem[]): PackedBox[] {
     }
   }
 
-  console.log(
-    `📊 Expanded to ${expandedItems.length} individual units for packing`,
-  );
-
   // Ordenar items: trading cards primero, luego por tamaño descendente
   expandedItems.sort((a, b) => {
     if (a.isTradingCard !== b.isTradingCard) {
@@ -307,12 +342,7 @@ export function packItemsIntoBoxes(items: CartItem[]): PackedBox[] {
     return sizeB - sizeA;
   });
 
-  console.log(
-    `🔀 Sort order: Trading cards first (${expandedItems.filter((i) => i.isTradingCard).length} units), then by descending size`,
-  );
-
   // First Fit Decreasing (FFD) bin packing
-  console.log(`\n📦 FFD Packing Process:\n`);
   for (let idx = 0; idx < expandedItems.length; idx++) {
     const packItem = expandedItems[idx];
     let placed = false;
@@ -321,10 +351,6 @@ export function packItemsIntoBoxes(items: CartItem[]): PackedBox[] {
     const itemType = packItem.isTradingCard ? "🃏 Card" : "📦 Regular";
     const itemSize = `${packItem.dims.length}×${packItem.dims.width}×${packItem.dims.height}cm`;
 
-    console.log(
-      `\n  [${idx + 1}/${expandedItems.length}] ${itemType} "${itemName}" | ${itemSize} | ${packItem.weight}kg`,
-    );
-
     // Intentar colocar en una caja existente
     for (let boxIdx = 0; boxIdx < packedBoxes.length; boxIdx++) {
       const packedBox = packedBoxes[boxIdx];
@@ -332,9 +358,6 @@ export function packItemsIntoBoxes(items: CartItem[]): PackedBox[] {
 
       // Verificar peso
       if (potentialWeight > packedBox.box.maxWeight) {
-        console.log(
-          `    ❌ Box ${boxIdx + 1} (${packedBox.box.label}): WEIGHT EXCEEDED (${packedBox.totalWeight}kg + ${packItem.weight}kg > ${packedBox.box.maxWeight}kg limit)`,
-        );
         continue;
       }
 
@@ -344,75 +367,168 @@ export function packItemsIntoBoxes(items: CartItem[]): PackedBox[] {
         const existingEntry = packedBox.items.find(
           (i) => i.item === packItem.original,
         );
-        if (existingEntry) {
-          existingEntry.quantity++;
-        } else {
-          packedBox.items.push({
-            item: packItem.original,
-            quantity: 1,
-          });
-        }
-        packedBox.totalWeight = potentialWeight;
-        console.log(
-          `    ✅ Box ${boxIdx + 1} (${packedBox.box.label}): PLACED | New weight: ${potentialWeight.toFixed(2)}kg`,
-        );
-        placed = true;
-        break;
-      } else {
-        console.log(
-          `    ❌ Box ${boxIdx + 1} (${packedBox.box.label}): DIMENSIONS DON'T FIT (${itemSize} vs ${packedBox.box.dimensions.length}×${packedBox.box.dimensions.width}×${packedBox.box.dimensions.height}cm)`,
-        );
-      }
-    }
 
-    // Si no cabe en ninguna existente, crear nueva caja
-    if (!placed) {
-      console.log(`    🆕 Need new box...`);
-      // Encontrar la caja más pequeña que quepa
-      for (const box of SHIPPING_BOXES) {
-        if (
-          packItem.weight <= box.maxWeight &&
-          fitsInBox(packItem.dims, box.dimensions)
-        ) {
-          packedBoxes.push({
-            box,
-            items: [{ item: packItem.original, quantity: 1 }],
-            totalWeight: packItem.weight,
-            usedSpace: 10, // estimado
-          });
-          console.log(
-            `    ✅ NEW BOX: ${box.label} | Price: $${box.price} MXN`,
-          );
+        // Get the max items of this type that can fit in the box
+        const maxItemsPerBox = calculateItemsPerBox(
+          packItem.dims,
+          packedBox.box.dimensions,
+        );
+
+        // Calculate how many of this item type are already in the box
+        const currentQuantity = existingEntry?.quantity || 0;
+
+        // Check if we can add one more
+        if (currentQuantity < maxItemsPerBox) {
+          if (existingEntry) {
+            existingEntry.quantity++;
+          } else {
+            packedBox.items.push({
+              item: packItem.original,
+              quantity: 1,
+            });
+          }
+          packedBox.totalWeight = potentialWeight;
+
           placed = true;
           break;
         }
       }
     }
 
+    // Si no cabe en ninguna existente, crear nueva caja
+    if (!placed) {
+      // Calculate total quantity of this item already packed
+      let totalQtyAlreadyPacked = 0;
+      let smallestFullBoxIndex = -1;
+      let smallestFullBoxCapacity = 0;
+
+      for (let i = 0; i < packedBoxes.length; i++) {
+        const packedBox = packedBoxes[i];
+        const hasThisItem = packedBox.items.some(
+          (it) => it.item === packItem.original,
+        );
+        if (hasThisItem) {
+          const itemEntry = packedBox.items.find(
+            (it) => it.item === packItem.original,
+          );
+          const qty = itemEntry?.quantity || 0;
+          totalQtyAlreadyPacked += qty;
+
+          const maxItemsPerBox = calculateItemsPerBox(
+            packItem.dims,
+            packedBox.box.dimensions,
+          );
+
+          // Track the first full box (smallest)
+          if (qty >= maxItemsPerBox && smallestFullBoxIndex === -1) {
+            smallestFullBoxIndex = i;
+            smallestFullBoxCapacity = maxItemsPerBox;
+          }
+        }
+      }
+
+      // Total quantity we need to fit: already packed + 1 new
+      const totalQtyNeeded = totalQtyAlreadyPacked + 1;
+
+      // Try to find a larger box that can fit all items at once
+      let consolidationBoxFound = false;
+      for (const box of SHIPPING_BOXES) {
+        const maxItemsPerBox = calculateItemsPerBox(
+          packItem.dims,
+          box.dimensions,
+        );
+
+        // Calculate total weight if consolidating
+        const totalWeightIfConsolidated =
+          packItem.weight * totalQtyNeeded +
+          packItem.weight * totalQtyAlreadyPacked; // current items + new item
+
+        if (
+          totalWeightIfConsolidated <= box.maxWeight &&
+          maxItemsPerBox >= totalQtyNeeded &&
+          fitsInBox(packItem.dims, box.dimensions)
+        ) {
+          // Check if this box is larger than the current full box
+          if (smallestFullBoxIndex !== -1) {
+            const currentFullBox = packedBoxes[smallestFullBoxIndex];
+            const currentBoxVolume =
+              currentFullBox.box.dimensions.length *
+              currentFullBox.box.dimensions.width *
+              currentFullBox.box.dimensions.height;
+            const newBoxVolume =
+              box.dimensions.length *
+              box.dimensions.width *
+              box.dimensions.height;
+
+            if (newBoxVolume > currentBoxVolume) {
+              // Remove the old full box and replace with new larger box
+              const itemsFromOldBox = packedBoxes[smallestFullBoxIndex].items;
+              packedBoxes.splice(smallestFullBoxIndex, 1);
+
+              // Create new consolidated box with all items
+              const consolidatedItems = itemsFromOldBox.map((item) => ({
+                item: item.item,
+                quantity:
+                  item.item === packItem.original
+                    ? totalQtyNeeded
+                    : item.quantity,
+              }));
+
+              packedBoxes.push({
+                box,
+                items: consolidatedItems,
+                totalWeight: totalWeightIfConsolidated,
+                usedSpace: 10,
+              });
+
+              placed = true;
+              consolidationBoxFound = true;
+              break;
+            }
+          }
+        }
+      }
+
+      // If no consolidation was possible, try to add a new box
+      if (!consolidationBoxFound) {
+        for (const box of SHIPPING_BOXES) {
+          if (
+            packItem.weight <= box.maxWeight &&
+            fitsInBox(packItem.dims, box.dimensions)
+          ) {
+            const maxItemsPerBox = calculateItemsPerBox(
+              packItem.dims,
+              box.dimensions,
+            );
+            packedBoxes.push({
+              box,
+              items: [{ item: packItem.original, quantity: 1 }],
+              totalWeight: packItem.weight,
+              usedSpace: 10,
+            });
+
+            placed = true;
+            break;
+          }
+        }
+      }
+    }
+
     // Si sigue sin encajar, necesita cotización especial
     if (!placed) {
-      console.log(
-        `    ⚠️  SPECIAL SHIPPING REQUIRED: Item doesn't fit in any standard box`,
-      );
       console.groupEnd();
       return []; // Señal de que necesita cotización especial
     }
   }
 
-  console.log(`\n✨ Packing Summary:`);
   const totalBoxes = packedBoxes.length;
   const totalBoxCost = packedBoxes.reduce((sum, pb) => sum + pb.box.price, 0);
   const totalWeight = packedBoxes.reduce((sum, pb) => sum + pb.totalWeight, 0);
-  console.log(
-    `  📦 Total boxes: ${totalBoxes} | Total cost: $${totalBoxCost} MXN | Total weight: ${totalWeight.toFixed(2)}kg`,
-  );
+
   packedBoxes.forEach((pb, idx) => {
     const itemsList = pb.items
       .map((i) => `${i.item.title || i.item.name}×${i.quantity}`)
       .join(", ");
-    console.log(
-      `    Box ${idx + 1}: ${pb.box.label} | $${pb.box.price} | Items: [${itemsList}] | Weight: ${pb.totalWeight.toFixed(2)}kg`,
-    );
   });
   console.groupEnd();
 
@@ -523,9 +639,6 @@ export async function calculateShippingQuotesWithPickup(
   items: CartItem[],
 ): Promise<ShippingCalculationResult> {
   console.group("💰 SHIPPING QUOTES CALCULATION WITH PICKUP SUPPORT");
-  console.log(
-    `Input: ${items.length} items | Total units: ${items.reduce((sum, i) => sum + i.quantity, 0)}`,
-  );
 
   // Step 1: Detect items that don't fit in any box
   const unshippableItems = detectUnshippableItems(items);
@@ -548,17 +661,9 @@ export async function calculateShippingQuotesWithPickup(
 
   const shippableItems = items.filter((_, idx) => !unshippableIndices.has(idx));
 
-  console.log(`\n🔍 Item Classification:`);
-  console.log(`  Shippable: ${shippableItems.length} items`);
-  console.log(`  Unshippable (Pick-up only): ${unshippableItems.length} items`);
-
   if (unshippableItems.length > 0) {
-    console.log(`  Unshippable item details:`);
     unshippableItems.forEach((item) => {
       const dims = normalizedDimensions(item);
-      console.log(
-        `    - ${item.title || item.name} (${dims.length}×${dims.width}×${dims.height}cm)`,
-      );
     });
   }
 
@@ -572,7 +677,6 @@ export async function calculateShippingQuotesWithPickup(
 
       for (const item of unshippableItems) {
         const itemName = item.title || item.name || "Unknown Product";
-        console.log(`\n📍 Fetching store inventory for: ${itemName}`);
 
         // Find stores with this product - use product name or ID as variationId
         try {
@@ -614,10 +718,6 @@ export async function calculateShippingQuotesWithPickup(
             reason: `No cabe en nuestra caja más grande (2XL: 70×60×40cm)`,
             availableStores,
           });
-
-          console.log(
-            `  ✓ Found in ${availableStores.length} store(s) with stock`,
-          );
         } catch (queryError) {
           console.warn(
             `  ⚠️  Error querying store inventory for ${itemName}:`,
@@ -657,7 +757,6 @@ export async function calculateShippingQuotesWithPickup(
   let shippableQuotes: ShippingQuote[] = [];
 
   if (shippableItems.length > 0) {
-    console.log(`\n📦 Packing shippable items...`);
     const packedBoxes = packItemsIntoBoxes(shippableItems);
 
     if (packedBoxes.length === 0) {
@@ -687,17 +786,8 @@ export async function calculateShippingQuotesWithPickup(
       const totalWeight = calculateTotalWeight(shippableItems);
       const weightCategory = boxCount > 1 ? `${boxCount} cajas` : "1 caja";
 
-      console.log(
-        `\n✅ Packing successful: ${boxCount} box(es) | Total weight: ${totalWeight.toFixed(2)}kg | Base cost: $${basePrice} MXN`,
-      );
-
       const expressPrice = Math.round(basePrice * 1.5);
       const sameDayPrice = Math.round(basePrice * 2);
-
-      console.log(`\n💵 Pricing Tiers:`);
-      console.log(`  Standard: $${basePrice} MXN`);
-      console.log(`  Express (1.5x): $${expressPrice} MXN`);
-      console.log(`  Same-Day (2x): $${sameDayPrice} MXN`);
 
       shippableQuotes = [
         {
@@ -741,13 +831,8 @@ export async function calculateShippingQuotesWithPickup(
         },
       ];
     }
-  } else {
-    console.log(`\n⚠️  No shippable items - all require pick-up`);
   }
 
-  console.log(`\n📤 Final Result:`);
-  console.log(`  Shipping quotes: ${shippableQuotes.length}`);
-  console.log(`  Pick-up items: ${unshippableWithStores.length}`);
   console.groupEnd();
 
   return {
@@ -765,9 +850,6 @@ export async function calculateShippingQuotesWithPickup(
  */
 export function calculateShippingQuotes(items: CartItem[]): ShippingQuote[] {
   console.group("💰 SHIPPING QUOTES CALCULATION");
-  console.log(
-    `Input: ${items.length} items | Total units: ${items.reduce((sum, i) => sum + i.quantity, 0)}`,
-  );
 
   // Empacar items en cajas
   const packedBoxes = packItemsIntoBoxes(items);
@@ -803,17 +885,8 @@ export function calculateShippingQuotes(items: CartItem[]): ShippingQuote[] {
   const totalWeight = calculateTotalWeight(items);
   const weightCategory = boxCount > 1 ? `${boxCount} cajas` : "1 caja";
 
-  console.log(
-    `\n✅ Packing successful: ${boxCount} box(es) | Total weight: ${totalWeight.toFixed(2)}kg | Base cost: $${basePrice} MXN`,
-  );
-
   const expressPrice = Math.round(basePrice * 1.5);
   const sameDayPrice = Math.round(basePrice * 2);
-
-  console.log(`\n💵 Pricing Tiers:`);
-  console.log(`  Standard: $${basePrice} MXN`);
-  console.log(`  Express (1.5x): $${expressPrice} MXN`);
-  console.log(`  Same-Day (2x): $${sameDayPrice} MXN`);
 
   const quotes: ShippingQuote[] = [
     {
@@ -856,9 +929,6 @@ export function calculateShippingQuotes(items: CartItem[]): ShippingQuote[] {
       weightCategory,
     },
   ];
-
-  console.log(`\n📤 Generated quotes: Standard | Express | Same-Day`);
-  console.groupEnd();
 
   return quotes;
 }

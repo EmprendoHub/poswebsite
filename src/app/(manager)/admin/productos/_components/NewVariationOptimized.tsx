@@ -51,9 +51,9 @@ const NewVariationOptimized = ({
   const [description, setDescription] = useState("");
   const [weight, setWeight] = useState(0.5);
   const [dimensions, setDimensions] = useState({
-    length: 15,
-    width: 15,
-    height: 10,
+    length: 9,
+    width: 1,
+    height: 14,
   });
   const [category, setCategory] = useState("");
   const [gender, setGender] = useState("");
@@ -1528,7 +1528,7 @@ const NewVariationOptimized = ({
                       </div>
                     </div>
                     <p className="text-xs text-gray-400 mt-2">
-                      Defaults: 0.5 kg, 15×15×10 cm
+                      Defaults: 0.5 kg, 9×1×14 cm
                     </p>
                   </div>
 
