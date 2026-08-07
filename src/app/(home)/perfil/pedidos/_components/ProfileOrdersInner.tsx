@@ -33,7 +33,7 @@ const ProfileOrdersInner = async ({ searchParams }: { searchParams: any }) => {
 
   // Filter out undefined values
   const filteredUrlParams = Object.fromEntries(
-    Object.entries(urlParams).filter(([key, value]) => value !== undefined)
+    Object.entries(urlParams).filter(([key, value]) => value !== undefined),
   );
   const searchQuery = new URLSearchParams(filteredUrlParams).toString();
 
@@ -62,7 +62,7 @@ const ProfileOrdersInner = async ({ searchParams }: { searchParams: any }) => {
 
   revalidatePath("/perfil/pedidos");
   return (
-    <>
+    <div className="pl-20">
       <figure className="flex maxsm:flex-col items-start sm:items-center text-foreground p-5">
         <div className="relative flex ">
           {user?.image ? (
@@ -95,7 +95,7 @@ const ProfileOrdersInner = async ({ searchParams }: { searchParams: any }) => {
             <span>
               {user?.createdAt &&
                 ` ${formatDate(
-                  user?.createdAt.substring(0, 24)
+                  user?.createdAt.substring(0, 24),
                 )} a las ${formatTime(user?.createdAt.substring(0, 24))}`}
             </span>
           </p>
@@ -112,7 +112,7 @@ const ProfileOrdersInner = async ({ searchParams }: { searchParams: any }) => {
         totalPages={totalPages}
         searchParams={keywordQuery}
       />
-    </>
+    </div>
   );
 };
 

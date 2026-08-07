@@ -13,6 +13,7 @@ import { StaticImport } from "next/dist/shared/lib/get-img-props";
 import { updateOrder } from "@/app/_actions";
 import { useSession } from "next-auth/react";
 import { buildItemRefundEmailHtml } from "@/lib/emailTemplates";
+import { RiRefund2Fill } from "react-icons/ri";
 
 const AdminOneOrder = ({
   order,
@@ -831,7 +832,7 @@ const AdminOneOrder = ({
                           onClick={() => openItemRefundModal(item, index)}
                           className="text-red-500 hover:text-red-700 p-1"
                         >
-                          <FaMoneyBillWave />
+                          <RiRefund2Fill className="ml-1 text-2xl" />
                         </button>
                       </div>
                     </td>

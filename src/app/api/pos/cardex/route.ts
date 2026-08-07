@@ -6,6 +6,7 @@ import StockAdjustmentLog from "@/backend/models/StockAdjustmentLog";
 import Store from "@/backend/models/Store";
 import StoreInventory from "@/backend/models/StoreInventory";
 import WorkOrder from "@/backend/models/WorkOrder";
+import CashRegisterMovement from "@/backend/models/CashRegisterMovement";
 import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
@@ -93,9 +94,8 @@ export async function GET(req: Request) {
       storeStockMap[storeName][inv.variationId] = inv.quantity || 0;
     }
 
-    // Get all orders (any branch, non-cancelled) that include this product
+    // Get all orders (any branch, including cancelled) that include this product
     const orders = (await Order.find({
-      orderStatus: { $ne: "Cancelado" },
       "orderItems.product": productId,
       ...(variationId ? { "orderItems.variation": variationId } : {}),
     })
@@ -143,6 +143,8 @@ export async function GET(req: Request) {
           (!variationId || item.variation === variationId),
       );
       for (const item of matchingItems) {
+        const discount = Number(item.discountPercentage) || 0;
+        const discountedPrice = item.price * (1 - discount / 100);
         movements.push({
           type: "sale",
           date: order.createdAt,
@@ -156,9 +158,9 @@ export async function GET(req: Request) {
           variationName: item.name,
           quantity: item.quantity,
           stockImpact: -Math.abs(Number(item.quantity) || 0),
-          unitPrice: item.price,
-          total: item.price * item.quantity,
-          details: "Venta POS",
+          unitPrice: discountedPrice,
+          total: discountedPrice * item.quantity,
+          details: `Venta POS${discount > 0 ? ` (-${discount}%)` : ""}`,
           authorizedBy: order.user?.name || "Sistema",
           branches: [order.branch || "Desconocida"],
         });
@@ -268,6 +270,47 @@ export async function GET(req: Request) {
         authorizedBy: adj.createdByName || "Sistema",
         branches: [adj.store?.name || "Desconocida"].filter(Boolean),
       });
+    }
+
+    // Get all cancellation movements (manual_in from cancelled orders)
+    const cancellationMovements = (await CashRegisterMovement.find({
+      type: "manual_in",
+      notes: { $regex: "Pedido Cancelado" },
+      order: { $exists: true },
+    })
+      .populate("order", "orderItems")
+      .populate("store", "name")
+      .sort({ createdAt: -1 })
+      .lean()) as any[];
+
+    for (const move of cancellationMovements) {
+      const order = move.order as any;
+      if (!order || !order.orderItems) continue;
+
+      const matchingItems = (order.orderItems as any[]).filter(
+        (item: any) =>
+          String(item.product) === String(productId) &&
+          (!variationId || item.variation === variationId),
+      );
+
+      for (const item of matchingItems) {
+        const discount = Number(item.discountPercentage) || 0;
+        const discountedPrice = item.price * (1 - discount / 100);
+        movements.push({
+          type: "adjustment", // Show as adjustment to distinguish from regular sales
+          date: move.createdAt,
+          reference: `#${String(order._id).slice(-6).toUpperCase()}`,
+          variationId: item.variation,
+          variationName: item.name,
+          quantity: item.quantity,
+          stockImpact: Math.abs(Number(item.quantity) || 0), // Returning to stock
+          unitPrice: discountedPrice,
+          total: discountedPrice * item.quantity,
+          details: `Retorno - ${move.notes || "Pedido Cancelado"}`,
+          authorizedBy: move.authorizedByName || "Sistema",
+          branches: [move.store?.name || "Desconocida"].filter(Boolean),
+        });
+      }
     }
 
     // Sort newest first

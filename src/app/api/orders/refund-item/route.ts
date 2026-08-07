@@ -8,6 +8,7 @@ import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import StoreInventory from "@/backend/models/StoreInventory";
 
 const isLocalhost =
   process.env.NEXTAUTH_URL?.includes("localhost") ||
@@ -97,22 +98,33 @@ export async function POST(req: Request) {
       user: order.user,
     }).save();
 
-    // ── Update product inventory (non-fatal) ──────────────────────────────
+    // ── Restore StoreInventory (non-fatal) ──────────────────────────────
+    // Stock is managed ONLY through StoreInventory, not through Product.stock
     try {
-      const product = await Product.findById(item.product);
-      if (product) {
-        const variation = product.variations?.find(
-          (v: any) => v._id.toString() === item.variation?.toString(),
-        );
-        if (variation) {
-          variation.stock += item.quantity;
+      if (item.storeId) {
+        const storeInventory = await StoreInventory.findOne({
+          store: item.storeId,
+          variationId: item.variation,
+        });
+        if (storeInventory) {
+          storeInventory.quantity += item.quantity;
+          storeInventory.lastUpdated = new Date();
+          await storeInventory.save();
+          console.log(
+            `✓ Restored ${item.quantity} units of ${item.name} to store inventory`,
+          );
         } else {
-          product.stock = (product.stock || 0) + item.quantity;
+          console.warn(
+            `⚠️ No StoreInventory found for item ${item.name} in store ${item.storeId}`,
+          );
         }
-        await product.save();
+      } else {
+        console.warn(
+          `⚠️ No storeId found for item ${item.name} - cannot restore inventory`,
+        );
       }
     } catch (e) {
-      console.error("Inventory update error (non-fatal):", e);
+      console.error("StoreInventory restore error (non-fatal):", e);
     }
 
     // ── Remove item from order & adjust amountPaid ────────────────────────

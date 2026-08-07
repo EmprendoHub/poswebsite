@@ -47,7 +47,7 @@ const UpdatePassword = () => {
   };
 
   return (
-    <>
+    <div className="pl-20">
       <div className="mt-1 mb-20 p-4 md:p-7 mx-auto rounded bg-background max-w-[580px]">
         <form onSubmit={submitHandler}>
           <h2 className="mb-5 text-2xl font-semibold font-EB_Garamond">
@@ -101,7 +101,7 @@ const UpdatePassword = () => {
           </button>
         </form>
       </div>
-    </>
+    </div>
   );
 };
 

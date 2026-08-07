@@ -18,6 +18,7 @@ interface OrderDocument extends Document {
     size?: string;
     quantity: number;
     price: number;
+    discountPercentage?: number;
     image: string;
     storeId?: mongoose.Types.ObjectId;
     weight?: number;
@@ -110,6 +111,10 @@ const OrderSchema = new Schema<OrderDocument>({
       price: {
         type: Number,
         require: true,
+      },
+      discountPercentage: {
+        type: Number,
+        default: 0,
       },
       image: {
         type: String,

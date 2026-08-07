@@ -11,6 +11,7 @@ import {
   MdDelete,
   MdShield,
   MdLock,
+  MdHourglassBottom,
 } from "react-icons/md";
 
 const TYPE_OPTIONS = [
@@ -120,17 +121,35 @@ function ManagerCodeModal({
             para crear órdenes de trabajo.
           </p>
           <input
-            type="password"
-            value={code}
-            onChange={(e) => {
-              setCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+            type="text"
+            value={"•".repeat(code.length).padEnd(6, "*")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleVerify();
+                return;
+              }
+              if (e.key === "Backspace") {
+                setCode(code.slice(0, -1));
+                setError("");
+                e.preventDefault();
+                return;
+              }
+              if (!/\d/.test(e.key)) {
+                e.preventDefault();
+                return;
+              }
+              if (code.length >= 6) {
+                e.preventDefault();
+                return;
+              }
+              setCode(code + e.key);
               setError("");
+              e.preventDefault();
             }}
-            onKeyDown={(e) => e.key === "Enter" && handleVerify()}
             inputMode="numeric"
             maxLength={6}
             autoFocus
-            placeholder="••••••"
+            placeholder="******"
             className="w-full border border-border rounded-lg px-3 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-primary tracking-widest text-center text-lg mb-1"
           />
           <p className="text-xs text-muted-foreground text-center mb-3">
@@ -296,7 +315,6 @@ export default function NewWorkOrderPage() {
       router.push(`/puntodeventa/${storeSlug}/ordenes-trabajo/${data._id}`);
     } catch (err: any) {
       setError(err.message);
-    } finally {
       setSubmitting(false);
     }
   };
@@ -594,9 +612,16 @@ export default function NewWorkOrderPage() {
         <button
           disabled={submitting}
           onClick={handleSubmit}
-          className="w-full bg-primary text-primary-foreground rounded-xl py-3 text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity"
+          className="w-full bg-primary text-primary-foreground rounded-xl py-3 text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
         >
-          {submitting ? "Creando orden..." : "Crear Orden de Trabajo"}
+          {submitting ? (
+            <>
+              <MdHourglassBottom size={16} className="animate-spin" />
+              Creando orden...
+            </>
+          ) : (
+            "Crear Orden de Trabajo"
+          )}
         </button>
       </div>
     </div>

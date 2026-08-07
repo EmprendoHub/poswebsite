@@ -125,20 +125,20 @@ export async function POST(req: NextRequest) {
         storeId: item.storeId,
       });
 
-      // Deduct from StoreInventory
-      if (storeInventory) {
-        const stockBefore = storeInventory.quantity;
-        storeInventory.quantity -= item.quantity;
-        storeInventory.lastUpdated = new Date();
-        await storeInventory.save();
+      // Deduct from StoreInventory (source of truth only)
+      if (!storeInventory) {
+        throw new Error(
+          `❌ StoreInventory not found for variation ${item.variationId} in store ${item.storeId}`,
+        );
       }
 
-      // Also deduct from Product.stock as fallback (for legacy data)
-      if (variation.stock > 0) {
-        const stockBefore = variation.stock;
-        variation.stock -= item.quantity;
-        await product.save();
-      }
+      const stockBefore = storeInventory.quantity;
+      storeInventory.quantity -= item.quantity;
+      storeInventory.lastUpdated = new Date();
+      await storeInventory.save();
+      console.log(
+        `✓ Deducted ${item.quantity} units from StoreInventory (was: ${stockBefore}, now: ${storeInventory.quantity})`,
+      );
     }
 
     // Get or create user

@@ -35,7 +35,7 @@ const UpdateProfileWithFormData = () => {
     if (inputPhone.length <= 10) {
       formattedPhone = inputPhone.replace(
         /(\d{3})(\d{0,3})(\d{0,4})/,
-        "$1 $2 $3"
+        "$1 $2 $3",
       );
     } else {
       // If the phone number exceeds 10 digits, truncate it
@@ -79,13 +79,13 @@ const UpdateProfileWithFormData = () => {
     }
     if (phone === "") {
       toast(
-        "Por favor agregar un teléfono válido para continuar. El formato correcto es: 331 235 4455"
+        "Por favor agregar un teléfono válido para continuar. El formato correcto es: 331 235 4455",
       );
       return;
     }
     if (!isValidPhone(phone)) {
       toast(
-        "Por favor agregar un teléfono válido para continuar. El formato correcto es: 331 235 4455"
+        "Por favor agregar un teléfono válido para continuar. El formato correcto es: 331 235 4455",
       );
       return;
     }
@@ -123,7 +123,7 @@ const UpdateProfileWithFormData = () => {
   // };
 
   return (
-    <>
+    <div className="pl-20">
       <div className="mt-1 mb-20 p-4 md:p-7 mx-auto rounded bg-background max-w-[580px]">
         <form onSubmit={submitHandler}>
           <h2 className="mb-5 text-2xl font-semibold font-EB_Garamond">
@@ -223,7 +223,7 @@ const UpdateProfileWithFormData = () => {
           </button>
         </form>
       </div>
-    </>
+    </div>
   );
 };
 

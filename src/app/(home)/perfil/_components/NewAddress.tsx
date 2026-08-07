@@ -68,7 +68,7 @@ const NewAddress = ({ searchParams }: { searchParams: any }) => {
   ];
 
   return (
-    <>
+    <div className="pl-20">
       <div className=" relative mt-1 mb-20 p-4 md:p-7 mx-auto rounded bg-background shadow-lg ">
         <form ref={formRef} action={action} className="relative w-full">
           <h2 className="mb-5 text-2xl font-semibold font-EB_Garamond">
@@ -186,7 +186,7 @@ const NewAddress = ({ searchParams }: { searchParams: any }) => {
           </button>
         </form>
       </div>
-    </>
+    </div>
   );
 };
 

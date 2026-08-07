@@ -223,7 +223,7 @@ export function SideBarItem({
               ) => (
                 <Link href={item.url} key={index} className="min-w-full">
                   <li
-                    className={`p-2 cursor-pointer flex items-center justify-center  ${
+                    className={`p-2 py-1 cursor-pointer flex items-center justify-center  ${
                       item.active === "true"
                         ? "bg-foreground text-primary"
                         : "hover:bg-indigo-50 hover:text-primary text-muted"

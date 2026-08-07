@@ -4,6 +4,7 @@ import Customer from "@/backend/models/Customer";
 import Order from "@/backend/models/Order";
 import Payment from "@/backend/models/Payment";
 import Product from "@/backend/models/Product";
+import StoreInventory from "@/backend/models/StoreInventory";
 import dbConnect from "@/lib/db";
 import { getToken } from "next-auth/jwt";
 import { revalidatePath } from "next/cache";
@@ -171,27 +172,53 @@ export async function POST(req: any, res: any) {
     }
 
     const cartItems: any[] = [];
+    const validationErrors: string[] = [];
+
+    // Validate all items using StoreInventory
+    // NOTE: This endpoint should ideally receive a storeId for checkout in specific stores
+    // Currently validates against sum of all StoreInventory entries
     await Promise.all(
       items?.map(async (item: any) => {
-        const variationId = item._id.toString();
-        const product = await Product.findOne({
-          "variations._id": variationId,
-        });
+        try {
+          const variationId = item._id.toString();
+          const product = await Product.findOne({
+            "variations._id": variationId,
+          });
 
-        const variation = product.variations.find((variation: any) =>
-          variation._id.equals(variationId),
-        );
-        // Check if there is enough stock
-        if (variation.stock < item.quantity) {
-          console.log("Este producto no cuenta con existencias");
-          return {
-            error: {
-              title: { _errors: ["Este producto no cuenta con existencias"] },
-            },
-          };
-        } else {
-          variation.stock -= 1;
-          product.stock -= 1;
+          if (!product) {
+            validationErrors.push(`Producto no encontrado: ${item.title}`);
+            return;
+          }
+
+          const variation = product.variations.find((variation: any) =>
+            variation._id.equals(variationId),
+          );
+
+          if (!variation) {
+            validationErrors.push(
+              `Variación no encontrada para: ${item.title}`,
+            );
+            return;
+          }
+
+          // Check StoreInventory across all stores
+          const inventoryRecords = await StoreInventory.find({
+            variationId: variationId,
+            quantity: { $gt: 0 },
+          });
+
+          const totalAvailable = inventoryRecords.reduce(
+            (sum: number, inv: any) => sum + inv.quantity,
+            0,
+          );
+
+          if (totalAvailable < item.quantity) {
+            validationErrors.push(
+              `Stock insuficiente para ${item.title}: disponible ${totalAvailable}, solicitado ${item.quantity}`,
+            );
+            return;
+          }
+
           cartItems.push({
             product: product._id,
             variation: variationId,
@@ -202,10 +229,33 @@ export async function POST(req: any, res: any) {
             quantity: item.quantity,
             image: item.image,
           });
-          product.save();
+        } catch (error: any) {
+          validationErrors.push(
+            `Error validando ${item.title}: ${error.message}`,
+          );
         }
       }),
     );
+
+    // Validation errors prevent order creation
+    if (validationErrors.length > 0) {
+      console.error("❌ Payment order validation errors:", validationErrors);
+      return NextResponse.json(
+        {
+          error: "Validación de inventario fallida",
+          details: validationErrors,
+        },
+        { status: 400 },
+      );
+    }
+
+    if (cartItems.length === 0) {
+      console.error("❌ No valid items for payment order");
+      return NextResponse.json(
+        { error: "No hay artículos válidos para procesar" },
+        { status: 400 },
+      );
+    }
 
     let orderData = {
       customer: customer._id,

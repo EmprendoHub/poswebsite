@@ -28,11 +28,11 @@ const ProfileAddressesRender = ({ addresses }: { addresses: any }) => {
     });
   };
   return (
-    <div className="px-5">
+    <div className="px-5 pl-20">
       <hr className="my-4" />
 
       <Link href="/perfil/direcciones/nueva">
-        <button className="px-4 py-2 inline-block text-muted border border-gray-300 rounded-xl hover:bg-background ">
+        <button className="px-4 py-2 inline-block text-muted border border-gray-300 rounded-xl hover:bg-emerald-500 hover:text-white cursor-pointer transition-colors duration-300">
           <i className="mr-1 fa fa-plus"></i> Agregar Dirección
         </button>
       </Link>

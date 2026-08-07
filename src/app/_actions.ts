@@ -316,6 +316,9 @@ export const getAffiliateDashboard = async (
 };
 
 export async function payPOSDrawer(data: any) {
+  console.warn(
+    "⚠️  DEPRECATED: payPOSDrawer should not be used. Use /api/pos/checkout instead for proper StoreInventory handling.",
+  );
   try {
     let {
       items,
@@ -421,27 +424,51 @@ export async function payPOSDrawer(data: any) {
     }
 
     const cartItems: any[] = [];
+    const validationErrors: string[] = [];
+
+    // Validate items using StoreInventory
+    // NOTE: This legacy function does NOT deduct from StoreInventory
+    // Please use /api/pos/checkout for proper inventory management
     await Promise.all(
       items?.map(async (item: any) => {
-        const variationId = item._id.toString();
-        const product = await Product.findOne({
-          "variations._id": variationId,
-        });
+        try {
+          const variationId = item._id.toString();
+          const product = await Product.findOne({
+            "variations._id": variationId,
+          });
 
-        const variation = product.variations.find((variation: any) =>
-          variation._id.equals(variationId),
-        );
-        // Check if there is enough stock
-        if (variation.stock < item.quantity) {
-          console.log("Este producto no cuenta con existencias");
-          return {
-            error: {
-              title: { _errors: ["Este producto no cuenta con existencias"] },
-            },
-          };
-        } else {
-          variation.stock -= 1;
-          product.stock -= 1;
+          if (!product) {
+            validationErrors.push(`Producto no encontrado: ${item.title}`);
+            return;
+          }
+
+          const variation = product.variations.find((variation: any) =>
+            variation._id.equals(variationId),
+          );
+
+          if (!variation) {
+            validationErrors.push(`Variación no encontrada: ${item.title}`);
+            return;
+          }
+
+          // Check StoreInventory (sum across all stores)
+          const inventoryRecords = await StoreInventory.find({
+            variationId: variationId,
+            quantity: { $gt: 0 },
+          });
+
+          const totalAvailable = inventoryRecords.reduce(
+            (sum: number, inv: any) => sum + inv.quantity,
+            0,
+          );
+
+          if (totalAvailable < item.quantity) {
+            validationErrors.push(
+              `Stock insuficiente para ${item.title}: disponible ${totalAvailable}, solicitado ${item.quantity}`,
+            );
+            return;
+          }
+
           cartItems.push({
             product: product._id,
             variation: variationId,
@@ -452,10 +479,21 @@ export async function payPOSDrawer(data: any) {
             quantity: item.quantity,
             image: item.image,
           });
-          product.save();
+        } catch (error: any) {
+          validationErrors.push(
+            `Error validando ${item.title}: ${error.message}`,
+          );
         }
       }),
     );
+
+    if (validationErrors.length > 0) {
+      throw new Error(`Validación fallida: ${validationErrors.join("; ")}`);
+    }
+
+    if (cartItems.length === 0) {
+      throw new Error("No hay artículos válidos para procesar");
+    }
 
     let orderData = {
       customer: customer._id,
@@ -2814,20 +2852,34 @@ export async function bulkUpdateProducts(
 export async function getVariationStock(variationId: any) {
   try {
     await dbConnect();
-    // Find the product that contains the variation with the specified variation ID
+    // Find the product that contains the variation
     let product = await Product.findOne({ "variations._id": variationId });
 
-    if (product) {
-      // Find the variation within the variations array
-      let variation = product.variations.find(
-        (variation: any) => variation._id.toString() === variationId,
-      );
-      return { currentStock: variation.stock };
-    } else {
+    if (!product) {
       throw Error("Product not found");
     }
+
+    // Get total stock from StoreInventory across ALL stores
+    // This is the source of truth for stock availability
+    const inventoryRecords = await StoreInventory.find({
+      variationId: variationId,
+      quantity: { $gt: 0 },
+    });
+
+    const currentStock = inventoryRecords.reduce(
+      (sum: number, inv: any) => sum + inv.quantity,
+      0,
+    );
+
+    return {
+      currentStock,
+      storeBreakdown: inventoryRecords.map((inv: any) => ({
+        store: inv.store,
+        quantity: inv.quantity,
+      })),
+    };
   } catch (error: any) {
-    console.log(error);
+    console.log("Error in getVariationStock:", error);
     throw Error(error);
   }
 }

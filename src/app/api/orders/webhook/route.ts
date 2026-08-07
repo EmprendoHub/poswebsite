@@ -157,26 +157,14 @@ export async function POST(req: any, res: any) {
         _id: session?.metadata?.order,
       });
 
-      currentOrder?.orderItems.forEach(async (item: any) => {
-        const productId = item.product.toString();
-        const variationId = item.variation;
-        // Find the product by its _id and update its stock
-        const product = await Product.findOne({ _id: productId });
-        // Find the product variation
-        const variation = product.variations.find((variation: any) =>
-          variation._id.equals(variationId),
-        );
-        if (variation) {
-          // Decrement the quantity
-          variation.stock -= item.quantity; // Decrease the quantity by 1
-          product.stock -= item.quantity; // Decrease the quantity by 1
-
-          // Save the updated product
-          await product.save();
-        } else {
-          console.log("Product not found");
-        }
-      });
+      // Stock has already been deducted from StoreInventory during checkout
+      // No need to deduct here - this is just for confirmation of payment
+      // The webhook validates payment and sends confirmation emails
+      console.log(
+        "✓ Payment confirmed for order",
+        currentOrder?._id,
+        "- StoreInventory already deducted during checkout",
+      );
 
       const paymentMethod: any = await stripe.paymentMethods.retrieve(
         paymentIntent.payment_method,

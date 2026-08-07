@@ -73,7 +73,7 @@ const OneOrder = ({
     return sub;
   }
   return (
-    <>
+    <div className="pl-10">
       <div className="relative overflow-x-auto shadow-md sm:rounded-xl p-5">
         <div className="flex flex-row maxsm:flex-col items-start justify-start gap-x-5">
           <h2 className="text-3xl mb-8 ml-4 font-bold ">
@@ -332,7 +332,7 @@ const OneOrder = ({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 

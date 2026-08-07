@@ -29,7 +29,12 @@ async function getCartItems(items: any, storeId?: string) {
       });
 
       if (!product) {
-        console.log("Product not found for variation:", variationId);
+        console.log(
+          "❌ Product not found for variation:",
+          variationId,
+          "title:",
+          item.title,
+        );
         return null;
       }
 
@@ -38,23 +43,38 @@ async function getCartItems(items: any, storeId?: string) {
       );
 
       if (!variation) {
-        console.log("Variation not found:", variationId);
+        console.log(
+          "❌ Variation not found:",
+          variationId,
+          "title:",
+          item.title,
+        );
         return null;
       }
 
-      // Check inventory from StoreInventory if storeId is provided, otherwise use product stock
+      // CONSOLIDATED STOCK CHECK: Always use StoreInventory (sum across all stores for online orders)
       let availableStock = 0;
-      let inventorySource = "product.stock";
+      let inventorySource = "StoreInventory (all stores)";
 
       if (storeId) {
+        // For POS orders: check specific store inventory
         const storeInventory = await StoreInventory.findOne({
           store: storeId,
           variationId: variationId,
         });
         availableStock = storeInventory?.quantity || 0;
-        inventorySource = "StoreInventory";
+        inventorySource = `StoreInventory (store: ${storeId})`;
       } else {
-        availableStock = variation.stock || 0;
+        // For online orders: sum inventory from ALL stores
+        const allStoreInventory = await StoreInventory.find({
+          variationId: variationId,
+          quantity: { $gt: 0 },
+        });
+
+        availableStock = allStoreInventory.reduce(
+          (sum: number, inv: any) => sum + inv.quantity,
+          0,
+        );
       }
 
       console.log(
@@ -63,9 +83,23 @@ async function getCartItems(items: any, storeId?: string) {
 
       // Check if there is enough stock
       if (availableStock < item.quantity) {
-        console.log("Insufficient stock for:", item.title);
+        console.log(
+          "❌ Insufficient stock for:",
+          item.title,
+          "- Available:",
+          availableStock,
+          "Requested:",
+          item.quantity,
+        );
         return null;
       }
+
+      console.log(
+        "✓ Item validated successfully:",
+        item.title,
+        "Qty:",
+        item.quantity,
+      );
 
       return {
         product: product._id,
@@ -95,7 +129,14 @@ async function getCartItems(items: any, storeId?: string) {
       validCartItems.length,
       "of",
       items.length,
+      "valid",
     );
+
+    if (validCartItems.length < items.length) {
+      console.warn(
+        `⚠️ ${items.length - validCartItems.length} items were filtered out due to missing products or insufficient stock`,
+      );
+    }
 
     return validCartItems;
   } catch (error) {
@@ -213,6 +254,27 @@ export const POST = async (request: any) => {
     };
 
     const order_items = await getCartItems(items, storeId);
+
+    // CRITICAL: Validate that we have items after stock checks
+    if (!order_items || order_items.length === 0) {
+      console.error(
+        "❌ No valid items after stock validation. Original items:",
+        items.length,
+      );
+
+      await mongoSession.abortTransaction();
+      mongoSession.endSession();
+
+      return NextResponse.json(
+        {
+          error:
+            "No hay items disponibles en tu carrito. Por favor verifica el stock de tus productos.",
+          reason: "INSUFFICIENT_STOCK",
+        },
+        { status: 400 },
+      );
+    }
+
     const line_items = await items.map((item: any) => {
       const discountPercentage = item.discountPercentage || 0;
       const discountedPrice = item.price * (1 - discountPercentage / 100);

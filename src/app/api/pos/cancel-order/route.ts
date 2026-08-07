@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import { options } from "@/app/api/auth/[...nextauth]/options";
+import { newCSTDate } from "@/backend/helpers";
 import Order from "@/backend/models/Order";
 import StoreInventory from "@/backend/models/StoreInventory";
 import Product from "@/backend/models/Product";
@@ -151,6 +152,25 @@ export async function POST(req: Request) {
             $inc: inc,
           });
         }
+
+        // ── 4. Create a new "restock" movement to record the cancellation ──
+        // This creates an audit trail entry showing items returned to inventory
+        const restockMovement = new CashRegisterMovement({
+          session: openSession._id,
+          store: saleMovement.store,
+          type: "manual_in", // Items returning to inventory
+          payMethod: "N/A", // No payment involved
+          cashAmount: 0,
+          cardAmount: 0,
+          totalAmount: 0, // Cancellation, no money involved
+          order: order._id,
+          authorizedById: authorizedById,
+          authorizedByName: authorizedByName,
+          notes: `Pedido Cancelado (#${order.orderId}) `,
+          createdAt: newCSTDate(),
+        });
+
+        await restockMovement.save();
       }
     }
 

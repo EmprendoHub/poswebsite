@@ -74,13 +74,31 @@ function ManagerCodeModal({
             para acceder al cardex de productos.
           </p>
           <input
-            type="password"
-            value={code}
-            onChange={(e) => {
-              setCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+            type="text"
+            value={"•".repeat(code.length).padEnd(6, "•")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleVerify();
+                return;
+              }
+              if (e.key === "Backspace") {
+                setCode(code.slice(0, -1));
+                setError("");
+                e.preventDefault();
+                return;
+              }
+              if (!/\d/.test(e.key)) {
+                e.preventDefault();
+                return;
+              }
+              if (code.length >= 6) {
+                e.preventDefault();
+                return;
+              }
+              setCode(code + e.key);
               setError("");
+              e.preventDefault();
             }}
-            onKeyDown={(e) => e.key === "Enter" && handleVerify()}
             inputMode="numeric"
             maxLength={6}
             autoFocus
@@ -832,6 +850,10 @@ export default function POSCardexPage() {
                         <th className="px-2 py-2 text-left">Fecha</th>
                         <th className="px-2 py-2 text-left">Ref.</th>
                         <th className="px-2 py-2 text-left">Detalle</th>
+
+                        <th className="px-4 py-3 text-left">Autorizado por</th>
+                        <th className="px-4 py-3 text-left">Sucursales</th>
+
                         <th className="px-2 py-2 text-left">Impacto</th>
                         <th className="px-2 py-2 text-right">Precio unit.</th>
                         <th className="px-2 py-2 text-right">Total</th>
@@ -871,6 +893,15 @@ export default function POSCardexPage() {
                             </td>
                             <td className="px-2 py-2 font-bold">{ref}</td>
                             <td className="px-2 py-2 text-xs">{detail}</td>
+                            <td className="px-4 py-3 text-xs font-medium">
+                              {m.authorizedBy || "—"}
+                            </td>
+                            <td className="px-4 py-3 text-xs">
+                              {m.branches && m.branches.length > 0
+                                ? m.branches.join(", ")
+                                : "—"}
+                            </td>
+
                             <td
                               className={`px-2 py-2 text-right font-bold ${
                                 impact > 0
