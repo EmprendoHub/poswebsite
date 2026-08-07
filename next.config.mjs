@@ -2,6 +2,7 @@
 const nextConfig = {
   reactStrictMode: false,
   images: {
+    unoptimized: true,
     remotePatterns: [
       { protocol: "https", hostname: "minio.salvawebpro.com", port: "9000" },
       { protocol: "https", hostname: "minio.salvawebpro.com" },
@@ -21,14 +22,6 @@ const nextConfig = {
     formats: ["image/webp"],
     deviceSizes: [640, 1080],
     imageSizes: [16, 32, 64],
-    loader: ({ src, width, quality }) => {
-      // For MinIO images, skip optimization and return direct URL
-      if (src.includes("minio.salvawebpro.com")) {
-        return src;
-      }
-      // For other images, use default Next.js loader
-      return `/_next/image?url=${encodeURIComponent(src)}&w=${width}&q=${quality || 75}`;
-    },
   },
 };
 
