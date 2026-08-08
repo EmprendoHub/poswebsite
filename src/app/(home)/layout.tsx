@@ -4,7 +4,7 @@ import "../globals.css";
 import HeaderComponent from "@/components/headers/HeaderComponent";
 import { ThemeProvider } from "next-themes";
 import FooterComponent from "@/components/layouts/FooterComponent";
-// import { GoogleAnalytics } from "@next/third-parties/google";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import CustomSessionProvider from "../SessionProvider";
 import { Toaster } from "@/components/ui/toaster";
 import CookieConsentComponent from "./_components/CookieConsentComponent";
@@ -25,7 +25,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
-      {/* <GoogleAnalytics gaId="G-0FJ701YCLD" /> */}
+      {process.env.NEXT_PUBLIC_GA_ID && (
+        <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />
+      )}
       <body className="max-w-full body-class overscroll-x-none overflow-x-hidden">
         <CustomSessionProvider>
           <ThemeProvider
