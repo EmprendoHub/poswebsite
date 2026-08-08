@@ -14,7 +14,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Image from "next/image";
 import Link from "next/link";
-import { trackProductView, trackAddToCart } from "@/lib/analytics";
+import { trackProductView, trackAddToCart } from "@/lib/gtm";
 
 const ProductDetailsComponent = ({
   product,

@@ -9,7 +9,7 @@ import { useSelector } from "react-redux";
 import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 import Image from "next/image";
 import { toast } from "sonner";
-import { setUserId } from "@/lib/analytics";
+import { setUserId } from "@/lib/gtm";
 
 const LoginComponent = ({ cookie }: { cookie: any }) => {
   const { executeRecaptcha } = useGoogleReCaptcha();

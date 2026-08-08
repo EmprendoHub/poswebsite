@@ -1,13 +1,29 @@
-// DEPRECATED: Use /src/lib/gtm.ts instead
-// This file is kept for backward compatibility but all new tracking should use GTM
+// Google Tag Manager event tracking utilities
+// GTM handles all cookie domain issues and provides better consent management
 
-// Legacy exports for any remaining direct GA calls
-export const gtag = (...args: any[]) => {
-  // No-op - GTM handles all tracking now
-  console.warn("Direct gtag calls are deprecated. Use src/lib/gtm.ts instead.");
+// Get or initialize dataLayer
+const getDataLayer = () => {
+  if (typeof window !== "undefined") {
+    if (!(window as any).dataLayer) {
+      (window as any).dataLayer = [];
+    }
+    return (window as any).dataLayer;
+  }
+  return [];
 };
 
-// Track a product view
+// Track events through GTM
+export const trackEvent = (eventName: string, eventData: any = {}) => {
+  const dataLayer = getDataLayer();
+  if (dataLayer) {
+    dataLayer.push({
+      event: eventName,
+      ...eventData,
+    });
+  }
+};
+
+// Track product view
 export const trackProductView = (product: {
   id: string;
   name: string;
@@ -15,7 +31,7 @@ export const trackProductView = (product: {
   category?: string;
   brand?: string;
 }) => {
-  gtag("event", "view_item", {
+  trackEvent("view_item", {
     items: [
       {
         item_id: product.id,
@@ -28,7 +44,7 @@ export const trackProductView = (product: {
   });
 };
 
-// Track cart addition
+// Track add to cart
 export const trackAddToCart = (product: {
   id: string;
   name: string;
@@ -36,47 +52,45 @@ export const trackAddToCart = (product: {
   quantity: number;
   category?: string;
 }) => {
-  gtag("event", "add_to_cart", {
+  trackEvent("add_to_cart", {
     items: [
       {
         item_id: product.id,
         item_name: product.name,
         price: product.price,
         quantity: product.quantity,
-        item_category: product.category,
+        item_category: product.category || "Uncategorized",
       },
     ],
   });
 };
 
-// Track cart removal
+// Track remove from cart
 export const trackRemoveFromCart = (product: {
   id: string;
   name: string;
   price: number;
   quantity: number;
+  category?: string;
 }) => {
-  gtag("event", "remove_from_cart", {
+  trackEvent("remove_from_cart", {
     items: [
       {
         item_id: product.id,
         item_name: product.name,
         price: product.price,
         quantity: product.quantity,
+        item_category: product.category || "Uncategorized",
       },
     ],
   });
 };
 
-// Track view cart
-export const trackViewCart = (
-  items: any[],
-  value: number,
-  currency: string = "MXN",
-) => {
-  gtag("event", "view_cart", {
+// Track cart view
+export const trackViewCart = (items: any[], value: number = 0) => {
+  trackEvent("view_cart", {
     value: value,
-    currency: currency,
+    currency: "MXN",
     items: items.map((item) => ({
       item_id: item.product || item.id,
       item_name: item.name || item.title,
@@ -86,13 +100,13 @@ export const trackViewCart = (
   });
 };
 
-// Track checkout initiation
+// Track begin checkout
 export const trackBeginCheckout = (
   items: any[],
   value: number,
   currency: string = "MXN",
 ) => {
-  gtag("event", "begin_checkout", {
+  trackEvent("begin_checkout", {
     value: value,
     currency: currency,
     items: items.map((item) => ({
@@ -104,7 +118,7 @@ export const trackBeginCheckout = (
   });
 };
 
-// Track purchase completion
+// Track purchase
 export const trackPurchase = (
   orderId: string,
   items: any[],
@@ -113,7 +127,7 @@ export const trackPurchase = (
   shipping?: number,
   currency: string = "MXN",
 ) => {
-  gtag("event", "purchase", {
+  trackEvent("purchase", {
     transaction_id: orderId,
     value: value,
     tax: tax || 0,
@@ -130,23 +144,33 @@ export const trackPurchase = (
 
 // Track search
 export const trackSearch = (searchTerm: string, resultsCount: number) => {
-  gtag("event", "search", {
+  trackEvent("search", {
     search_term: searchTerm,
     results_count: resultsCount,
   });
 };
 
-// Track custom event
-export const trackEvent = (
-  eventName: string,
-  eventData: Record<string, any>,
-) => {
-  gtag("event", eventName, eventData);
+// Set user ID (for cross-device tracking)
+export const setUserId = (userId: string) => {
+  const dataLayer = getDataLayer();
+  if (dataLayer) {
+    dataLayer.push({
+      event: "set_user_id",
+      userId: userId,
+    });
+  }
 };
 
-// Set user ID for cross-device tracking
-export const setUserId = (userId: string) => {
-  gtag("config", {
-    user_id: userId,
+// Track login
+export const trackLogin = (method: string = "email") => {
+  trackEvent("login", {
+    method: method,
+  });
+};
+
+// Track signup
+export const trackSignUp = (method: string = "email") => {
+  trackEvent("sign_up", {
+    method: method,
   });
 };

@@ -13,7 +13,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import nodemailer from "nodemailer";
 import enviaService from "@/lib/envia";
-import { trackPurchase } from "@/lib/analytics";
+import { trackPurchase } from "@/lib/gtm";
 
 // Use test mode for localhost, live mode for production
 const isLocalhost =

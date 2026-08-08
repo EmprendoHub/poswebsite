@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { IoMdCart } from "react-icons/io";
 import { getUserFavorites } from "@/app/_actions";
 import { toast } from "sonner";
-import { trackAddToCart } from "@/lib/analytics";
+import { trackAddToCart } from "@/lib/gtm";
 
 const FavoritesComp = ({ session }: { session: any }) => {
   //import CartContext and assign to addItemToCart

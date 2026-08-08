@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addToCart } from "@/redux/shoppingSlice";
-import { trackAddToCart } from "@/lib/analytics";
+import { trackAddToCart } from "@/lib/gtm";
 
 interface ProductCardProps {
   item: any;

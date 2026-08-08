@@ -11,7 +11,7 @@ import Link from "next/link";
 import FormattedPrice from "@/backend/helpers/FormattedPrice";
 import { revalidatePath } from "next/cache";
 import { calculateShippingQuotes } from "@/lib/shippingRates";
-import { trackBeginCheckout, trackPurchase } from "@/lib/analytics";
+import { trackBeginCheckout } from "@/lib/gtm";
 
 interface PaymentFormProps {
   fulfillmentType?: "shipping" | "pickup";

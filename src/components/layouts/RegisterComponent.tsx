@@ -8,7 +8,7 @@ import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 import { isValidEmail, isValidPhone } from "@/backend/helpers";
 import { toast } from "../ui/use-toast";
 import { title } from "process";
-import { setUserId } from "@/lib/analytics";
+import { setUserId } from "@/lib/gtm";
 
 const RegisterFormComponent = ({ cookie }: { cookie: any }) => {
   const [notification, setNotification] = useState("");
