@@ -25,8 +25,9 @@ const LoginComponent = ({ cookie }: { cookie: any }) => {
   useEffect(() => {
     if (session?.status === "authenticated") {
       // Track user ID when authenticated
-      if (session?.data?.user?._id) {
-        setUserId(session.data.user._id);
+      const user = session?.data?.user as any;
+      if (user?._id) {
+        setUserId(user._id);
       }
       router.replace("/");
     }
