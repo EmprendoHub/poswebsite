@@ -2,7 +2,7 @@
 
 ## Installation ✓
 
-Google Analytics is set up using `@next/third-parties` which is the official Next.js package for third-party integrations.
+Google Analytics is set up using `@next/third-parties` which is the official Next.js package for third-party integrations
 
 ## Configuration
 
