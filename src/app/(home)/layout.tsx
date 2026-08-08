@@ -4,11 +4,11 @@ import "../globals.css";
 import HeaderComponent from "@/components/headers/HeaderComponent";
 import { ThemeProvider } from "next-themes";
 import FooterComponent from "@/components/layouts/FooterComponent";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import CustomSessionProvider from "../SessionProvider";
 import { Toaster } from "@/components/ui/toaster";
 import CookieConsentComponent from "./_components/CookieConsentComponent";
 import ConditionalHeaderWrapper from "./_components/ConditionalHeaderWrapper";
-import { GoogleTagManager } from "@next/third-parties/google";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,11 +23,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const gtmId = "GTM-P4XJQ2Z";
   return (
     <html lang="es" suppressHydrationWarning>
+      <head>
+        {/* Google Analytics 4 */}
+        <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID || ""} />
+      </head>
       <body className="max-w-full body-class overscroll-x-none overflow-x-hidden">
-        <GoogleTagManager gtmId={gtmId} />
         <CustomSessionProvider>
           <ThemeProvider
             attribute="class"

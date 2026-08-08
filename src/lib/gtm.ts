@@ -1,43 +1,19 @@
-// Google Tag Manager event tracking utilities
-// GTM handles all cookie domain issues and provides better consent management
+// Google Analytics 4 event tracking
+// Simple, clean implementation using gtag which is injected by @next/third-parties/google
 
-// Get or initialize dataLayer
-const getDataLayer = () => {
-  if (typeof window !== "undefined") {
-    if (!(window as any).dataLayer) {
-      (window as any).dataLayer = [];
-      console.log("📊 GTM: dataLayer initialized for first time");
-    }
-    console.log(
-      "📊 GTM: dataLayer exists, current length:",
-      (window as any).dataLayer.length,
-    );
-    return (window as any).dataLayer;
+declare global {
+  interface Window {
+    gtag?: (...args: any[]) => void;
   }
-  console.warn("⚠️ GTM: window is undefined, cannot access dataLayer");
-  return [];
-};
+}
 
-// Track events through GTM
+// Track GA4 events
 export const trackEvent = (eventName: string, eventData: any = {}) => {
-  console.log(
-    `📊 GTM: trackEvent called with eventName="${eventName}"`,
-    eventData,
-  );
-  const dataLayer = getDataLayer();
-  if (dataLayer) {
-    const eventPayload = {
-      event: eventName,
-      ...eventData,
-    };
-    console.log(`✅ GTM: Pushing event to dataLayer:`, eventPayload);
-    dataLayer.push(eventPayload);
-    console.log(
-      `✅ GTM: Event pushed successfully. dataLayer length now:`,
-      dataLayer.length,
-    );
+  if (typeof window !== "undefined" && window.gtag) {
+    console.log(`📊 GA4: Event "${eventName}"`, eventData);
+    window.gtag("event", eventName, eventData);
   } else {
-    console.error(`❌ GTM: dataLayer is null or undefined!`);
+    console.warn("⚠️ GA4: gtag not available");
   }
 };
 
@@ -49,7 +25,7 @@ export const trackProductView = (product: {
   category?: string;
   brand?: string;
 }) => {
-  console.log("👁️ GTM: trackProductView called with product:", product);
+  console.log("👁️ GA4: trackProductView", product);
   trackEvent("view_item", {
     items: [
       {
@@ -71,7 +47,7 @@ export const trackAddToCart = (product: {
   quantity: number;
   category?: string;
 }) => {
-  console.log("🛒 GTM: trackAddToCart called with product:", product);
+  console.log("🛒 GA4: trackAddToCart", product);
   trackEvent("add_to_cart", {
     items: [
       {
@@ -83,7 +59,6 @@ export const trackAddToCart = (product: {
       },
     ],
   });
-  console.log("✅ GTM: add_to_cart event tracking complete");
 };
 
 // Track remove from cart
@@ -173,34 +148,26 @@ export const trackSearch = (searchTerm: string, resultsCount: number) => {
 
 // Set user ID (for cross-device tracking)
 export const setUserId = (userId: string) => {
-  console.log("👤 GTM: setUserId called with userId:", userId);
-  const dataLayer = getDataLayer();
-  if (dataLayer) {
-    const payload = {
-      event: "set_user_id",
-      userId: userId,
-    };
-    console.log("✅ GTM: Pushing setUserId to dataLayer:", payload);
-    dataLayer.push(payload);
-  } else {
-    console.error("❌ GTM: Cannot set user ID - dataLayer unavailable");
+  console.log("👤 GA4: setUserId", userId);
+  if (typeof window !== "undefined" && window.gtag) {
+    window.gtag("config", {
+      user_id: userId,
+    });
   }
 };
 
 // Track login
 export const trackLogin = (method: string = "email") => {
-  console.log("🔐 GTM: trackLogin called with method:", method);
+  console.log("🔐 GA4: trackLogin", method);
   trackEvent("login", {
     method: method,
   });
-  console.log("✅ GTM: login event tracking complete");
 };
 
 // Track signup
 export const trackSignUp = (method: string = "email") => {
-  console.log("📝 GTM: trackSignUp called with method:", method);
+  console.log("📝 GA4: trackSignUp", method);
   trackEvent("sign_up", {
     method: method,
   });
-  console.log("✅ GTM: sign_up event tracking complete");
 };
