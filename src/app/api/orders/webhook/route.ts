@@ -225,22 +225,20 @@ export async function POST(req: any, res: any) {
 
         // Track purchase event for Google Analytics
         try {
-          trackPurchase({
-            id: currentOrder._id.toString(),
-            name: `Order ${currentOrder.orderId}`,
-            items: currentOrder.orderItems.map((item: any) => ({
+          trackPurchase(
+            currentOrder._id.toString(),
+            currentOrder.orderItems.map((item: any) => ({
               id: item.product || item._id,
               name: item.title,
               price: item.price,
               quantity: item.quantity,
               category: item.category || "Sin categoría",
             })),
-            value: totalOrderAmount,
-            tax: 0, // Adjust if you have tax data
-            shipping: currentOrder.ship_cost || 0,
-            currency: "MXN",
-            userId: currentOrder.user?.toString() || undefined,
-          });
+            totalOrderAmount,
+            0, // tax
+            currentOrder.ship_cost || 0, // shipping
+            "MXN",
+          );
         } catch (analyticsError) {
           console.error("Analytics tracking error:", analyticsError);
           // Don't fail the order if analytics fails

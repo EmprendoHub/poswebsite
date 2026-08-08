@@ -119,16 +119,16 @@ const PaymentForm = ({
     }
 
     // Track begin checkout event
-    trackBeginCheckout({
-      items: productsData.map((item: any) => ({
+    trackBeginCheckout(
+      productsData.map((item: any) => ({
         id: item.product || item._id,
         name: item.title,
         price: item.price || 0,
         quantity: item.quantity,
       })),
-      value: totalPrice,
-      currency: "MXN",
-    });
+      totalAmountCalc,
+      "MXN",
+    );
 
     const stripe = await stripePromise;
 
