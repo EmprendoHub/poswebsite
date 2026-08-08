@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { IoMdCart } from "react-icons/io";
 import { getUserFavorites } from "@/app/_actions";
 import { toast } from "sonner";
+import { trackAddToCart } from "@/lib/analytics";
 
 const FavoritesComp = ({ session }: { session: any }) => {
   //import CartContext and assign to addItemToCart
@@ -34,6 +35,16 @@ const FavoritesComp = ({ session }: { session: any }) => {
       width: item.dimensions?.width || 15,
       height: item.dimensions?.height || 10,
     };
+
+    // Track add to cart event
+    trackAddToCart({
+      id: item._id,
+      name: item.title,
+      price: item.variations?.[0]?.price || 0,
+      category: item.category || "Sin categoría",
+      quantity: 1,
+    });
+
     dispatch(addToCart(itemWithShipping)) &&
       dispatch(deleteFavorite(item?._id)) &&
       toast(`${item?.title.substring(0, 15)}... se agrego al carrito`) &&

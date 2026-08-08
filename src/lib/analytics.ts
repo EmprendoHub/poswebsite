@@ -142,7 +142,10 @@ export const trackSearch = (searchTerm: string, resultsCount: number) => {
 };
 
 // Track custom event
-export const trackEvent = (eventName: string, eventData: Record<string, any>) => {
+export const trackEvent = (
+  eventName: string,
+  eventData: Record<string, any>,
+) => {
   gtag("event", eventName, eventData);
 };
 

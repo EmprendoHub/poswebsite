@@ -9,6 +9,7 @@ import { useSelector } from "react-redux";
 import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 import Image from "next/image";
 import { toast } from "sonner";
+import { setUserId } from "@/lib/analytics";
 
 const LoginComponent = ({ cookie }: { cookie: any }) => {
   const { executeRecaptcha } = useGoogleReCaptcha();
@@ -23,6 +24,10 @@ const LoginComponent = ({ cookie }: { cookie: any }) => {
 
   useEffect(() => {
     if (session?.status === "authenticated") {
+      // Track user ID when authenticated
+      if (session?.data?.user?._id) {
+        setUserId(session.data.user._id);
+      }
       router.replace("/");
     }
   }, [session, router]);

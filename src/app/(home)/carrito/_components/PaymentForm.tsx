@@ -11,6 +11,7 @@ import Link from "next/link";
 import FormattedPrice from "@/backend/helpers/FormattedPrice";
 import { revalidatePath } from "next/cache";
 import { calculateShippingQuotes } from "@/lib/shippingRates";
+import { trackBeginCheckout, trackPurchase } from "@/lib/analytics";
 
 interface PaymentFormProps {
   fulfillmentType?: "shipping" | "pickup";
@@ -116,6 +117,18 @@ const PaymentForm = ({
         return;
       }
     }
+
+    // Track begin checkout event
+    trackBeginCheckout({
+      items: productsData.map((item: any) => ({
+        id: item.product || item._id,
+        name: item.title,
+        price: item.price || 0,
+        quantity: item.quantity,
+      })),
+      value: totalPrice,
+      currency: "MXN",
+    });
 
     const stripe = await stripePromise;
 

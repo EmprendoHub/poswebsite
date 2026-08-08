@@ -43,6 +43,7 @@ import {
 ### Usage Examples
 
 #### 1. Track Product View
+
 ```typescript
 import { trackProductView } from "@/lib/analytics";
 
@@ -56,6 +57,7 @@ trackProductView({
 ```
 
 #### 2. Track Add to Cart
+
 ```typescript
 import { trackAddToCart } from "@/lib/analytics";
 
@@ -69,17 +71,19 @@ trackAddToCart({
 ```
 
 #### 3. Track Cart View
+
 ```typescript
 import { trackViewCart } from "@/lib/analytics";
 
 trackViewCart(
   cartItems,
   cartTotal,
-  "MXN" // currency
+  "MXN", // currency
 );
 ```
 
 #### 4. Track Purchase (Most Important!)
+
 ```typescript
 import { trackPurchase } from "@/lib/analytics";
 
@@ -89,11 +93,12 @@ trackPurchase(
   order.paymentInfo.amountPaid,
   order.paymentInfo.taxPaid,
   order.ship_cost || 0,
-  "MXN"
+  "MXN",
 );
 ```
 
 #### 5. Track Search
+
 ```typescript
 import { trackSearch } from "@/lib/analytics";
 
@@ -101,6 +106,7 @@ trackSearch("laptop", results.length);
 ```
 
 #### 6. Set User ID (for authenticated users)
+
 ```typescript
 import { setUserId } from "@/lib/analytics";
 
@@ -112,21 +118,26 @@ if (session?.user) {
 ## Where to Integrate Events
 
 ### Product Page
+
 - Add `trackProductView()` when product loads
 
 ### Shopping Cart
+
 - Add `trackAddToCart()` when item added
 - Add `trackRemoveFromCart()` when item removed
 - Add `trackViewCart()` when cart page opens
 
 ### Checkout
+
 - Add `trackBeginCheckout()` when checkout starts
 - Add `trackPurchase()` after successful payment ✓ **CRITICAL**
 
 ### Search
+
 - Add `trackSearch()` in search results
 
 ### Authentication
+
 - Add `setUserId()` after successful login
 
 ## Key Metrics to Monitor

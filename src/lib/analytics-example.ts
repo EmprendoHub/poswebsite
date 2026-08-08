@@ -1,6 +1,6 @@
 /**
  * Example: How to track purchases in your payment success handler
- * 
+ *
  * Add this to your payment success callback or after order confirmation
  */
 

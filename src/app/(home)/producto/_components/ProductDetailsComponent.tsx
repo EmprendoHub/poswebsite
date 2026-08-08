@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Image from "next/image";
 import Link from "next/link";
+import { trackProductView, trackAddToCart } from "@/lib/analytics";
 
 const ProductDetailsComponent = ({
   product,
@@ -100,6 +101,19 @@ const ProductDetailsComponent = ({
     verifyToken();
   }, [searchParams]);
 
+  // Track product view on page load
+  useEffect(() => {
+    if (product && product._id) {
+      trackProductView({
+        id: product._id,
+        name: product.title,
+        price: product.variations?.[0]?.price || 0,
+        category: product.category || "Sin categoría",
+        brand: product.brand || "Sin marca",
+      });
+    }
+  }, [product._id]);
+
   // Fetch store inventory data in batch for trending products
   useEffect(() => {
     if (!trendingProducts || trendingProducts.length === 0) return;
@@ -152,6 +166,16 @@ const ProductDetailsComponent = ({
     v.width = product.dimensions?.width || 15;
     v.height = product.dimensions?.height || 10;
     v.discountPercentage = product.discountPercentage || 0;
+
+    // Track add to cart event
+    trackAddToCart({
+      id: product._id,
+      name: product.title,
+      price: variation.price || 0,
+      category: product.category || "Sin categoría",
+      quantity: 1,
+    });
+
     dispatch(addToCart(v));
     toast(`${product?.title.substring(0, 15)}... se agrego al carrito`);
     router.push("/carrito");

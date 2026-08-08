@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addToCart } from "@/redux/shoppingSlice";
+import { trackAddToCart } from "@/lib/analytics";
 
 interface ProductCardProps {
   item: any;
@@ -50,6 +51,16 @@ const ProductCard = ({ item, index, storeInventoryData }: ProductCardProps) => {
     v.width = item.dimensions?.width || 15;
     v.height = item.dimensions?.height || 10;
     v.discountPercentage = item.discountPercentage || 0;
+
+    // Track add to cart event
+    trackAddToCart({
+      id: item._id,
+      name: item.title,
+      price: variation.price || 0,
+      category: item.category || "Sin categoría",
+      quantity: 1,
+    });
+
     dispatch(addToCart(v));
     toast(`${item?.title.substring(0, 15)}... se agrego al carrito`);
     setAdded(true);

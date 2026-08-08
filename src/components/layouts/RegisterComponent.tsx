@@ -8,6 +8,7 @@ import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 import { isValidEmail, isValidPhone } from "@/backend/helpers";
 import { toast } from "../ui/use-toast";
 import { title } from "process";
+import { setUserId } from "@/lib/analytics";
 
 const RegisterFormComponent = ({ cookie }: { cookie: any }) => {
   const [notification, setNotification] = useState("");
@@ -17,6 +18,10 @@ const RegisterFormComponent = ({ cookie }: { cookie: any }) => {
 
   useEffect(() => {
     if (session?.status === "authenticated") {
+      // Track user ID when authenticated after signup
+      if (session?.data?.user?._id) {
+        setUserId(session.data.user._id);
+      }
       router.replace("/");
     }
   }, [session, router]);
@@ -78,7 +83,7 @@ const RegisterFormComponent = ({ cookie }: { cookie: any }) => {
 
     if (!executeRecaptcha) {
       setNotification(
-        "Execute recaptcha not available yet likely meaning key not recaptcha key not set"
+        "Execute recaptcha not available yet likely meaning key not recaptcha key not set",
       );
       return;
     }
@@ -144,7 +149,7 @@ const RegisterFormComponent = ({ cookie }: { cookie: any }) => {
     if (inputPhone.length <= 10) {
       formattedPhone = inputPhone.replace(
         /(\d{3})(\d{0,3})(\d{0,4})/,
-        "$1$2$3"
+        "$1$2$3",
       );
     } else {
       // If the phone number exceeds 10 digits, truncate it
