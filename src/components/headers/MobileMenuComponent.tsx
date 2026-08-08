@@ -122,7 +122,7 @@ const MobileMenuComponent = () => {
                     className="relative w-[320px] h-auto "
                   >
                     <Link
-                      href={"/tienda?gender=Pokemon"}
+                      href={"/tienda?search=Pokemon"}
                       onClick={toggleMobileMenu}
                     >
                       <Image
@@ -150,7 +150,7 @@ const MobileMenuComponent = () => {
                       className="relative w-full h-30"
                     >
                       <Link
-                        href={"/tienda?gender=UFC"}
+                        href={"/tienda?search=UFC"}
                         onClick={toggleMobileMenu}
                       >
                         <Image
@@ -175,7 +175,7 @@ const MobileMenuComponent = () => {
                       className="relative w-full h-30"
                     >
                       <Link
-                        href={"/tienda?gender=Futbol"}
+                        href={"/tienda?search=Futbol"}
                         onClick={toggleMobileMenu}
                       >
                         <Image
@@ -204,7 +204,7 @@ const MobileMenuComponent = () => {
                       className="relative w-full h-30"
                     >
                       <Link
-                        href={"/tienda?gender=Basketball"}
+                        href={"/tienda?search=Basketball"}
                         onClick={toggleMobileMenu}
                       >
                         <Image
@@ -229,7 +229,7 @@ const MobileMenuComponent = () => {
                       className="relative w-full h-30"
                     >
                       <Link
-                        href={"/tienda?gender=American+Football"}
+                        href={"/tienda?search=American+Football"}
                         onClick={toggleMobileMenu}
                       >
                         <Image
@@ -258,7 +258,7 @@ const MobileMenuComponent = () => {
                       className="relative w-full h-30"
                     >
                       <Link
-                        href={"/tienda?gender=Baseball"}
+                        href={"/tienda?search=Baseball"}
                         onClick={toggleMobileMenu}
                       >
                         <Image
@@ -283,7 +283,7 @@ const MobileMenuComponent = () => {
                       className="relative w-full h-30"
                     >
                       <Link
-                        href={"/tienda?gender=Tenis"}
+                        href={"/tienda?search=Tenis"}
                         onClick={toggleMobileMenu}
                       >
                         <Image
@@ -312,7 +312,7 @@ const MobileMenuComponent = () => {
                       className="relative w-full h-30"
                     >
                       <Link
-                        href={"/tienda?gender=Yu-Gi-Oh"}
+                        href={"/tienda?search=Yu-Gi-Oh"}
                         onClick={toggleMobileMenu}
                       >
                         <Image
@@ -337,7 +337,7 @@ const MobileMenuComponent = () => {
                       className="relative w-full h-30"
                     >
                       <Link
-                        href={"/tienda?gender=One+Piece"}
+                        href={"/tienda?search=One+Piece"}
                         onClick={toggleMobileMenu}
                       >
                         <Image

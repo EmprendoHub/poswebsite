@@ -30,7 +30,7 @@ const CategoryStack = () => {
           whileTap={{ scale: 0.98 }}
           className="relative w-full h-auto "
         >
-          <Link href={"/tienda?gender=Pokemon"}>
+          <Link href={"/tienda?search=Pokemon"}>
             <Image
               alt="Super Collectibles Mx"
               src="/covers/PokemonCategoryTemplate.webp"
@@ -54,7 +54,7 @@ const CategoryStack = () => {
             whileTap={{ scale: 0.98 }}
             className="relative w-full h-30"
           >
-            <Link href={"/tienda?gender=Yu-Gi-Oh"}>
+            <Link href={"/tienda?search=Yu-Gi-Oh"}>
               <Image
                 alt="Super Collectibles Mx"
                 src="/covers/yugi_Category.webp"
@@ -76,7 +76,7 @@ const CategoryStack = () => {
             whileTap={{ scale: 0.98 }}
             className="relative w-full h-30"
           >
-            <Link href={"/tienda?gender=One+Piece"}>
+            <Link href={"/tienda?search=One+Piece"}>
               <Image
                 alt="Super Collectibles Mx"
                 src="/covers/Group3.webp"
@@ -102,7 +102,7 @@ const CategoryStack = () => {
             whileTap={{ scale: 0.98 }}
             className="relative w-full h-30"
           >
-            <Link href={"/tienda?gender=Dragon+Ball"}>
+            <Link href={"/tienda?search=Dragon+Ball"}>
               <Image
                 alt="Super Collectibles Mx"
                 src="/covers/Group4.webp"
@@ -124,7 +124,7 @@ const CategoryStack = () => {
             whileTap={{ scale: 0.98 }}
             className="relative w-full h-30"
           >
-            <Link href={"/tienda?gender=Star+Wars"}>
+            <Link href={"/tienda?search=Star+Wars"}>
               <Image
                 alt="Super Collectibles Mx"
                 src="/covers/Group5.webp"
@@ -150,7 +150,7 @@ const CategoryStack = () => {
             whileTap={{ scale: 0.98 }}
             className="relative w-full h-30"
           >
-            <Link href={"/tienda?gender=Magic"}>
+            <Link href={"/tienda?search=Magic"}>
               <Image
                 alt="Super Collectibles Mx"
                 src="/covers/Group6.webp"
@@ -173,7 +173,7 @@ const CategoryStack = () => {
             whileTap={{ scale: 0.98 }}
             className="relative w-full h-30"
           >
-            <Link href={"/tienda?gender=Disney"}>
+            <Link href={"/tienda?search=Disney"}>
               <Image
                 alt="Super Collectibles Mx"
                 src="/covers/Group7.webp"
@@ -199,7 +199,7 @@ const CategoryStack = () => {
             whileTap={{ scale: 0.98 }}
             className="relative w-full h-30"
           >
-            <Link href={"/tienda?gender=UFC"}>
+            <Link href={"/tienda?search=UFC"}>
               <Image
                 alt="Super Collectibles Mx"
                 src="/covers/UFC_Category.webp"
@@ -221,7 +221,7 @@ const CategoryStack = () => {
             whileTap={{ scale: 0.98 }}
             className="relative w-full h-30"
           >
-            <Link href={"/tienda?gender=Futbol"}>
+            <Link href={"/tienda?search=Futbol"}>
               <Image
                 alt="Super Collectibles Mx"
                 src="/covers/Soccer_Category.webp"
@@ -247,7 +247,7 @@ const CategoryStack = () => {
             whileTap={{ scale: 0.98 }}
             className="relative w-full h-30"
           >
-            <Link href={"/tienda?gender=Basketball"}>
+            <Link href={"/tienda?search=Basketball"}>
               <Image
                 alt="Super Collectibles Mx"
                 src="/covers/NBA_Category.webp"
@@ -269,7 +269,7 @@ const CategoryStack = () => {
             whileTap={{ scale: 0.98 }}
             className="relative w-full h-30"
           >
-            <Link href={"/tienda?gender=American+Football"}>
+            <Link href={"/tienda?search=American+Football"}>
               <Image
                 alt="Super Collectibles Mx"
                 src="/covers/NFL_Category.webp"
@@ -295,7 +295,7 @@ const CategoryStack = () => {
             whileTap={{ scale: 0.98 }}
             className="relative w-full h-30"
           >
-            <Link href={"/tienda?gender=Baseball"}>
+            <Link href={"/tienda?search=Baseball"}>
               <Image
                 alt="Super Collectibles Mx"
                 src="/covers/MLB_Category.webp"
@@ -317,7 +317,7 @@ const CategoryStack = () => {
             whileTap={{ scale: 0.98 }}
             className="relative w-full h-30"
           >
-            <Link href={"/tienda?gender=Tenis"}>
+            <Link href={"/tienda?search=Tenis"}>
               <Image
                 alt="Super Collectibles Mx"
                 src="/covers/Tenis_Category.webp"
