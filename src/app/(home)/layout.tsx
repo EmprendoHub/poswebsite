@@ -34,19 +34,6 @@ export default function RootLayout({
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID || "";
   return (
     <html lang="es" suppressHydrationWarning>
-      <head>
-        {/* GTM (noscript) fallback for when JavaScript is disabled */}
-        {gtmId && (
-          <noscript>
-            <iframe
-              src={`https://www.googletagmanager.com/ns.html?id=${gtmId}`}
-              height="0"
-              width="0"
-              style={{ display: "none", visibility: "hidden" }}
-            />
-          </noscript>
-        )}
-      </head>
       <body className="max-w-full body-class overscroll-x-none overflow-x-hidden">
         <GoogleTagManager gtmId={gtmId} />
         <CustomSessionProvider>
