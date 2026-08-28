@@ -112,7 +112,7 @@ const ProductDetailsComponent = ({
         brand: product.brand || "Sin marca",
       });
     }
-  }, [product._id]);
+  }, [product]);
 
   // Fetch store inventory data in batch for trending products
   useEffect(() => {

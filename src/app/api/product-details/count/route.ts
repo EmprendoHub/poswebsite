@@ -5,6 +5,9 @@ import ProductDetail from "@/backend/models/ProductDetail";
 import { getServerSession } from "next-auth";
 import { options } from "@/app/api/auth/[...nextauth]/options";
 
+// Mark this route as dynamic since it uses getServerSession
+export const dynamic = "force-dynamic";
+
 /**
  * Get count of products for each ProductDetail value
  * Query params: catType (gender|brand|category)

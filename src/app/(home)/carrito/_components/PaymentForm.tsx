@@ -12,6 +12,7 @@ import FormattedPrice from "@/backend/helpers/FormattedPrice";
 import { revalidatePath } from "next/cache";
 import { calculateShippingQuotes } from "@/lib/shippingRates";
 import { trackBeginCheckout } from "@/lib/gtm";
+import { SiMercadopago } from "react-icons/si";
 
 interface PaymentFormProps {
   fulfillmentType?: "shipping" | "pickup";
@@ -195,6 +196,96 @@ const PaymentForm = ({
     }
   };
 
+  const handleMercadoPagoCheckout = async () => {
+    // Validar que tenemos información del usuario
+    const userData = userInfo || session?.user;
+
+    if (!userData || !userData.email) {
+      alert("Por favor completa tu información de usuario antes de continuar.");
+      return;
+    }
+
+    // Validar según tipo de fulfillment
+    if (fulfillmentType === "pickup" && !pickupStore) {
+      alert("Por favor selecciona una sucursal para el retiro.");
+      return;
+    }
+
+    if (fulfillmentType === "shipping") {
+      const finalShippingMethod = shippingMethod || calculatedShipAmount;
+      if (!finalShippingMethod) {
+        alert(
+          "Error al calcular el costo de envío. Por favor intenta nuevamente.",
+        );
+        return;
+      }
+    }
+
+    // Track begin checkout event
+    trackBeginCheckout(
+      productsData.map((item: any) => ({
+        id: item.product || item._id,
+        name: item.title,
+        price: item.price || 0,
+        quantity: item.quantity,
+      })),
+      totalAmountCalc,
+      "MXN",
+    );
+
+    const requestBody: any = {
+      items: productsData,
+      email: userData.email,
+      user: userData,
+      fulfillmentType: fulfillmentType,
+      affiliateInfo: affiliateInfo,
+    };
+
+    if (fulfillmentType === "shipping") {
+      requestBody.shipping = shippingInfo;
+      requestBody.shippingMethod = shippingMethod || calculatedShipAmount;
+    }
+
+    if (fulfillmentType === "pickup") {
+      requestBody.pickupStore = pickupStore;
+      requestBody.storeId = pickupStore;
+    }
+
+    try {
+      const response = await fetch(`/api/mercadopago`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Mercado Pago checkout error:", data);
+        alert(
+          `Error al procesar el pago: ${data.error || "Error desconocido"}`,
+        );
+        return;
+      }
+
+      if (!data.init_point) {
+        console.error("Missing Mercado Pago init_point:", data);
+        alert("Error: No se recibió la sesión de pago");
+        return;
+      }
+
+      console.log("Redirecting to Mercado Pago:", data.init_point);
+      dispatch(saveOrder({ order: productsData, id: data.id }));
+      dispatch(resetCart());
+
+      // Redirect to Mercado Pago checkout
+      window.location.href = data.init_point;
+    } catch (error) {
+      console.error("Mercado Pago checkout exception:", error);
+      alert("Error al procesar el pago. Por favor intenta nuevamente.");
+    }
+  };
+
   //=============================== Stripe Payment ends here ============================
   return (
     <section className="p-1 maxsm:py-7 bg-card rounded-xl">
@@ -259,7 +350,7 @@ const PaymentForm = ({
           <div className="flex flex-col items-center gap-1">
             <button
               onClick={() => handleCheckout("total")}
-              className={`rounded-xl w-full text-slate-100 mt-4 py-3 px-6 duration-300 ease-in-out cursor-pointer ${
+              className={`rounded-xl w-full text-slate-100 mt-4 py-3 px-3 duration-300 ease-in-out cursor-pointer ${
                 fulfillmentType === "pickup" || shippingMethod
                   ? "bg-emerald-600 hover:bg-emerald-800 hover:text-foreground"
                   : "bg-gray-400 cursor-not-allowed"
@@ -268,13 +359,34 @@ const PaymentForm = ({
             >
               {fulfillmentType === "pickup" || shippingMethod ? (
                 <>
-                  Pagar Total <FormattedPrice amount={totalAmountCalc} />
+                  Pagar con Stripe <FormattedPrice amount={totalAmountCalc} />
                 </>
               ) : (
                 "Selecciona método de envío"
               )}
             </button>
-            <p className="text-[11px]">
+
+            {/* <button
+              onClick={handleMercadoPagoCheckout}
+              className={`rounded-xl w-full text-slate-100 mt-2 py-3 px-6 duration-300 ease-in-out cursor-pointer ${
+                fulfillmentType === "pickup" || shippingMethod
+                  ? "bg-blue-600 hover:bg-blue-800 hover:text-foreground"
+                  : "bg-gray-400 cursor-not-allowed"
+              }`}
+              disabled={fulfillmentType === "shipping" && !shippingMethod}
+            >
+              {fulfillmentType === "pickup" || shippingMethod ? (
+                <div className="flex flex-row justify-center items-center gap-x-2">
+                  <span> Con MercadoPago </span>
+                  <FormattedPrice amount={totalAmountCalc} />
+                  <SiMercadopago size={40} />
+                </div>
+              ) : (
+                "Selecciona método de envío"
+              )}
+            </button> */}
+
+            <p className="text-[11px] mt-2">
               Si realizaste un pago por Oxxo o Transferencia Bancaria
             </p>
             <p className="text-[11px]">

@@ -50,6 +50,7 @@ export default function AdminWorkOrderDetailPage() {
 
   useEffect(() => {
     if (id) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   async function transition(nextStatus: string, reason?: string) {
