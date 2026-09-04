@@ -10,8 +10,9 @@ const ALLOWED_ROLES = ["manager", "director", "super_admin"];
 // DELETE /api/finanzas/expenses/[id]
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   try {
     const session = await getServerSession(options);
     const role = (session?.user as any)?.role;
@@ -19,7 +20,7 @@ export async function DELETE(
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
     await dbConnect();
-    await Expense.findByIdAndDelete(params.id);
+    await Expense.findByIdAndDelete(id);
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -29,8 +30,9 @@ export async function DELETE(
 // PATCH /api/finanzas/expenses/[id]
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   try {
     const session = await getServerSession(options);
     const role = (session?.user as any)?.role;
@@ -39,7 +41,7 @@ export async function PATCH(
     }
     await dbConnect();
     const data = await req.json();
-    const updated = await Expense.findByIdAndUpdate(params.id, data, {
+    const updated = await Expense.findByIdAndUpdate(id, data, {
       new: true,
     });
     return NextResponse.json(updated, { status: 200 });

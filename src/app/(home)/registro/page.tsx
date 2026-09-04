@@ -3,9 +3,9 @@ import GoogleCaptchaWrapper from "@/components/layouts/GoogleCaptchaWrapper";
 import RegisterFormComponent from "@/components/layouts/RegisterComponent";
 import { cookies } from "next/headers";
 
-const RegisterPage = () => {
+const RegisterPage = async () => {
   //set cookies
-  const nextCookies = cookies();
+  const nextCookies = await cookies();
   const cookieName = getCookiesName();
   const nextAuthSessionToken = nextCookies.get(cookieName);
   const cookie = `${cookieName}=${nextAuthSessionToken?.value}`;

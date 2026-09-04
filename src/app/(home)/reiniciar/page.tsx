@@ -6,7 +6,7 @@ import EmailAccountReset from "./_components/EmailAccountReset";
 import GoogleCaptchaWrapper from "@/components/layouts/GoogleCaptchaWrapper";
 
 const resetAccountAccess = async (token: any) => {
-  const nextCookies = cookies();
+  const nextCookies = await cookies();
   const cookieName = getCookiesName();
   const nextAuthSessionToken = nextCookies.get(cookieName);
   const URL = `${process.env.NEXTAUTH_URL}/api/reset`;

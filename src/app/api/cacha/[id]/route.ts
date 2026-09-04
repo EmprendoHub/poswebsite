@@ -10,12 +10,12 @@ export const dynamic = "force-dynamic";
 // GET - Obtener un registro específico por ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
 
-    const { id } = params;
+    const { id } = await params;
 
     const registration = await CachaRegistration.findById(id).select("-__v");
 
@@ -48,12 +48,12 @@ export async function GET(
 // PATCH - Actualizar estado de un registro
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
 
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { estado, notificacionesEnviadas, razonCancelacion } = body;
 
@@ -154,12 +154,12 @@ export async function PATCH(
 // DELETE - Eliminar un registro
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
 
-    const { id } = params;
+    const { id } = await params;
 
     const registration = await CachaRegistration.findByIdAndDelete(id);
 

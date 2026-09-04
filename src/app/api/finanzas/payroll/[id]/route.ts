@@ -10,8 +10,9 @@ const ALLOWED_ROLES = ["manager", "director", "super_admin"];
 // PATCH /api/finanzas/payroll/[id] — mark paid, edit, etc.
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   try {
     const session = await getServerSession(options);
     const role = (session?.user as any)?.role;
@@ -32,7 +33,7 @@ export async function PATCH(
       data.bonuses !== undefined ||
       data.deductions !== undefined
     ) {
-      const existing = await PayrollEntry.findById(params.id);
+      const existing = await PayrollEntry.findById(id);
       if (existing) {
         data.netAmount =
           (data.baseSalary ?? existing.baseSalary) +
@@ -41,7 +42,7 @@ export async function PATCH(
       }
     }
 
-    const updated = await PayrollEntry.findByIdAndUpdate(params.id, data, {
+    const updated = await PayrollEntry.findByIdAndUpdate(id, data, {
       new: true,
     }).populate("employee", "name email");
     return NextResponse.json(updated, { status: 200 });
@@ -53,8 +54,9 @@ export async function PATCH(
 // DELETE /api/finanzas/payroll/[id]
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   try {
     const session = await getServerSession(options);
     const role = (session?.user as any)?.role;
@@ -62,7 +64,7 @@ export async function DELETE(
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
     await dbConnect();
-    await PayrollEntry.findByIdAndDelete(params.id);
+    await PayrollEntry.findByIdAndDelete(id);
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

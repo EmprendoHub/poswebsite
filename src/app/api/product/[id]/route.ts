@@ -8,8 +8,9 @@ import { updateCartItemsForProduct } from "@/lib/cartUpdateHelper";
 
 export async function PATCH(
   request: any,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const token: any = await getToken({ req: request });
   if (!token) {
     return new Response(JSON.stringify({ error: "Not authorized" }), {
@@ -19,7 +20,7 @@ export async function PATCH(
 
   try {
     await dbConnect();
-    const productId = params.id;
+    const productId = id;
     const body = await request.json();
 
     // Update only the fields provided in the body
@@ -101,8 +102,9 @@ export async function PATCH(
 
 export async function GET(
   request: any,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const token = await request.headers.get("cookie");
   if (!token) {
     return new Response(JSON.stringify({ error: "Not authorized" }), {
@@ -112,7 +114,7 @@ export async function GET(
 
   try {
     await dbConnect();
-    const product = await Product.findById(params.id);
+    const product = await Product.findById(id);
 
     if (!product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });

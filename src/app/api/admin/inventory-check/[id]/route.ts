@@ -19,8 +19,9 @@ const ALLOWED_ROLES = [
 /** GET /api/admin/inventory-check/[id] — get full session with all scanned items */
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const session = await getServerSession(options);
   const role = (session?.user as any)?.role;
   if (!session || !ALLOWED_ROLES.includes(role)) {
@@ -28,7 +29,7 @@ export async function GET(
   }
   await dbConnect();
 
-  const doc = await InventoryCheckSession.findById(params.id).lean();
+  const doc = await InventoryCheckSession.findById(id).lean();
   if (!doc) {
     return NextResponse.json(
       { error: "Sesión no encontrada" },
@@ -45,8 +46,9 @@ export async function GET(
  */
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const session = await getServerSession(options);
   const role = (session?.user as any)?.role;
   if (!session || !ALLOWED_ROLES.includes(role)) {
@@ -73,7 +75,7 @@ export async function PATCH(
     );
   }
 
-  const doc = await InventoryCheckSession.findById(params.id);
+  const doc = await InventoryCheckSession.findById(id);
   if (!doc) {
     return NextResponse.json(
       { error: "Sesión no encontrada" },
@@ -117,8 +119,9 @@ export async function PATCH(
 /** DELETE /api/admin/inventory-check/[id]?variationId= — remove one scanned item */
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const session = await getServerSession(options);
   const role = (session?.user as any)?.role;
   if (!session || !ALLOWED_ROLES.includes(role)) {
@@ -129,7 +132,7 @@ export async function DELETE(
   const url = new URL(req.url);
   const variationId = url.searchParams.get("variationId");
 
-  const doc = await InventoryCheckSession.findById(params.id);
+  const doc = await InventoryCheckSession.findById(id);
   if (!doc) {
     return NextResponse.json(
       { error: "Sesión no encontrada" },

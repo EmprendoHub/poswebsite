@@ -9,7 +9,6 @@ import { useDispatch } from "react-redux";
 import Image from "next/image";
 import Link from "next/link";
 import FormattedPrice from "@/backend/helpers/FormattedPrice";
-import { revalidatePath } from "next/cache";
 import { calculateShippingQuotes } from "@/lib/shippingRates";
 import { trackBeginCheckout } from "@/lib/gtm";
 import { SiMercadopago } from "react-icons/si";
@@ -189,7 +188,6 @@ const PaymentForm = ({
       }
 
       dispatch(resetCart());
-      revalidatePath("/admin/pedidos");
     } catch (error) {
       console.error("Checkout exception:", error);
       alert("Error al procesar el pago. Por favor intenta nuevamente.");

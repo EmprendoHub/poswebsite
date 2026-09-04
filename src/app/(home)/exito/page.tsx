@@ -6,7 +6,7 @@ import EmailVerification from "./_components/EmailVerification";
 import GoogleCaptchaWrapper from "@/components/layouts/GoogleCaptchaWrapper";
 
 const verifyEmail = async (token: string) => {
-  const nextCookies = cookies();
+  const nextCookies = await cookies();
   const cookieName = getCookiesName();
   const nextAuthSessionToken = nextCookies.get(cookieName);
   const URL = `${process.env.NEXTAUTH_URL}/api/verify`;

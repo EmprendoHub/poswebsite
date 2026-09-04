@@ -8,15 +8,16 @@ import { NextResponse } from "next/server";
 // GET /api/stores/[id]
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   try {
     const session = await getServerSession(options);
     if (!session) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
     await dbConnect();
-    const store = await Store.findById(params.id).populate(
+    const store = await Store.findById(id).populate(
       "managedBy",
       "name email",
     );
@@ -35,8 +36,9 @@ export async function GET(
 // PUT /api/stores/[id] — update store (manager only)
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   try {
     const session = await getServerSession(options);
     if (
@@ -47,7 +49,7 @@ export async function PUT(
     }
     await dbConnect();
     const data = await req.json();
-    const store = await Store.findByIdAndUpdate(params.id, data, { new: true });
+    const store = await Store.findByIdAndUpdate(id, data, { new: true });
     if (!store) {
       return NextResponse.json(
         { error: "Sucursal no encontrada" },
@@ -63,8 +65,9 @@ export async function PUT(
 // DELETE /api/stores/[id] — soft-delete by setting isActive=false (manager only)
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   try {
     const session = await getServerSession(options);
     if (
@@ -75,7 +78,7 @@ export async function DELETE(
     }
     await dbConnect();
     const store = await Store.findByIdAndUpdate(
-      params.id,
+      id,
       { isActive: false },
       { new: true },
     );

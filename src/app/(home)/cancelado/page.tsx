@@ -5,7 +5,7 @@ import { getCookiesName } from "@/backend/helpers";
 import { cookies } from "next/headers";
 
 const deleteOrder = async (id: string) => {
-  const nextCookies = cookies();
+  const nextCookies = await cookies();
   const cookieName = getCookiesName();
   const nextAuthSessionToken = nextCookies.get(cookieName);
   const URL = `${process.env.NEXTAUTH_URL}/api/order?${id}`;

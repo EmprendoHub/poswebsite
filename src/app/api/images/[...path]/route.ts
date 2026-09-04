@@ -29,11 +29,12 @@ const CLEANED_IMAGE_DIRS = findCleanedImageDirs(IMAGES_ROOT);
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } },
+  { params }: { params: Promise<{ path: string[] }> },
 ) {
   try {
+    const { path: imagePath } = await params;
     console.log(`🖼️  Image request: ${request.url}`);
-    console.log(`📋 URL params:`, params.path);
+    console.log(`📋 URL params:`, imagePath);
 
     // Re-scan on each request so newly added collection folders are found without restart
     const cleanedImageDirs = findCleanedImageDirs(IMAGES_ROOT);
@@ -41,7 +42,7 @@ export async function GET(
     // Try each base directory until we find the file
     let filePath: string | null = null;
     for (const baseDir of cleanedImageDirs) {
-      const candidate = path.join(baseDir, ...params.path);
+      const candidate = path.join(baseDir, ...imagePath);
       if (fs.existsSync(candidate)) {
         filePath = candidate;
         break;
@@ -51,7 +52,7 @@ export async function GET(
     // Check if file exists
     if (!filePath) {
       console.log(
-        `❌ Image not found in any directory: ${params.path.join("/")}`,
+        `❌ Image not found in any directory: ${imagePath.join("/")}`,
       );
       return new NextResponse("Image not found", { status: 404 });
     }

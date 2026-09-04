@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     const forwardedFor = request.headers.get("x-forwarded-for");
     const ip = forwardedFor
       ? forwardedFor.split(",")[0].trim()
-      : request.ip || "127.0.0.1";
+      : request.headers.get("x-real-ip") || "127.0.0.1";
 
     // Get user agent info
     const userAgent = request.headers.get("user-agent") || "Unknown";

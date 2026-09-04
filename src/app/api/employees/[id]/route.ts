@@ -11,8 +11,9 @@ const POS_ROLES = ["pos", "organizer", "empleado", "supervisor"];
 // GET /api/employees/[id]
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   try {
     const session = await getServerSession(options);
     if (
@@ -23,7 +24,7 @@ export async function GET(
     }
     await dbConnect();
 
-    const employee = await User.findById(params.id).select(
+    const employee = await User.findById(id).select(
       "-password -verificationToken -mercado_token -favorites",
     );
     if (!employee) {
@@ -44,8 +45,9 @@ export async function GET(
 // PUT /api/employees/[id] — update employee info
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   try {
     const session = await getServerSession(options);
     if (
@@ -71,7 +73,7 @@ export async function PUT(
     const allowedRoles = isSuperAdmin ? [...POS_ROLES, "manager"] : POS_ROLES;
 
     // Non-super_admin cannot edit a manager-role employee
-    const target = await User.findById(params.id).select("role");
+    const target = await User.findById(id).select("role");
     if (target?.role === "manager" && !isSuperAdmin) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
@@ -85,7 +87,7 @@ export async function PUT(
 
     // Check email uniqueness if being changed
     if (email) {
-      const conflict = await User.findOne({ email, _id: { $ne: params.id } });
+      const conflict = await User.findOne({ email, _id: { $ne: id } });
       if (conflict) {
         return NextResponse.json(
           { error: "Ese email ya está en uso" },
@@ -139,7 +141,7 @@ export async function PUT(
       );
     }
 
-    const employee = await User.findByIdAndUpdate(params.id, updateOp, {
+    const employee = await User.findByIdAndUpdate(id, updateOp, {
       new: true,
     }).select("-password -verificationToken -mercado_token -favorites");
 
@@ -159,8 +161,9 @@ export async function PUT(
 // DELETE /api/employees/[id] — deactivate (soft delete) only
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   try {
     const session = await getServerSession(options);
     if (
@@ -172,7 +175,7 @@ export async function DELETE(
     await dbConnect();
 
     const employee = await User.findByIdAndUpdate(
-      params.id,
+      id,
       { active: false },
       { new: true },
     ).select("-password");

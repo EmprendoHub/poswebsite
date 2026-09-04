@@ -114,7 +114,7 @@ const getStoreData = unstable_cache(
 export default async function TiendaPage({
   searchParams,
 }: {
-  searchParams: {
+  searchParams: Promise<{
     page?: string;
     search?: string;
     category?: string;
@@ -122,10 +122,11 @@ export default async function TiendaPage({
     gender?: string;
     minPrice?: string;
     maxPrice?: string;
-  };
+  }>;
 }) {
   const { products, allCategories, allBrands, allGenders, priceRange } =
     await getStoreData();
+  const resolvedSearchParams = await searchParams;
 
   return (
     <main className="min-h-screen bg-background">
@@ -136,7 +137,7 @@ export default async function TiendaPage({
           allBrands={allBrands}
           allGenders={allGenders}
           priceRange={priceRange}
-          searchParams={searchParams}
+          searchParams={resolvedSearchParams}
           filteredProductsCount={products.length}
         />
       </Suspense>

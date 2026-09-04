@@ -7,9 +7,10 @@ import mongoose from "mongoose";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(options);
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -17,7 +18,7 @@ export async function GET(
 
     await dbConnect();
 
-    const detail = await ProductDetail.findById(params.id);
+    const detail = await ProductDetail.findById(id);
 
     if (!detail) {
       return NextResponse.json(
@@ -38,9 +39,10 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(options);
     if (!session || session.user.role !== "super_admin") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -70,7 +72,7 @@ export async function PUT(
     // Check if another detail with same title exists
     const existing = await ProductDetail.findOne({
       catTitle: normalizedTitle,
-      _id: { $ne: new mongoose.Types.ObjectId(params.id) },
+      _id: { $ne: new mongoose.Types.ObjectId(id) },
     });
 
     if (existing) {
@@ -81,7 +83,7 @@ export async function PUT(
     }
 
     const updatedDetail = await ProductDetail.findByIdAndUpdate(
-      params.id,
+      id,
       {
         catType,
         catTitle: normalizedTitle,
@@ -111,9 +113,10 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(options);
     if (!session || session.user.role !== "super_admin") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -121,7 +124,7 @@ export async function DELETE(
 
     await dbConnect();
 
-    const deletedDetail = await ProductDetail.findByIdAndDelete(params.id);
+    const deletedDetail = await ProductDetail.findByIdAndDelete(id);
 
     if (!deletedDetail) {
       return NextResponse.json(

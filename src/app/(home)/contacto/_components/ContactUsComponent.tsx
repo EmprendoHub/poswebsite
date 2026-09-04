@@ -6,7 +6,7 @@ import { getCookiesName } from "@/backend/helpers";
 import { cookies } from "next/headers";
 import GoogleCaptchaWrapper from "@/components/layouts/GoogleCaptchaWrapper";
 
-const ContactUsComponent = ({
+const ContactUsComponent = async ({
   contactTitle,
   contactSubTitle,
 }: {
@@ -14,7 +14,7 @@ const ContactUsComponent = ({
   contactSubTitle: string;
 }) => {
   //set cookies
-  const nextCookies = cookies();
+  const nextCookies = await cookies();
   const cookieName = getCookiesName();
   const nextAuthSessionToken = nextCookies.get(cookieName);
   const cookie = `${cookieName}=${nextAuthSessionToken?.value}`;

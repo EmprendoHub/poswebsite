@@ -13,15 +13,16 @@ import { NextResponse } from "next/server";
 // GET /api/work-orders/[id]
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   try {
     const session = await getServerSession(options);
     if (!session)
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     await dbConnect();
 
-    const wo = await WorkOrder.findById(params.id)
+    const wo = await WorkOrder.findById(id)
       .populate({ path: "fromStore", model: Store, select: "name slug" })
       .populate({ path: "toStore", model: Store, select: "name slug" })
       .populate({ path: "requestedBy", model: User, select: "name email" })
@@ -46,8 +47,9 @@ export async function GET(
 // PATCH /api/work-orders/[id] — update status (approve, cancel, etc.)
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   try {
     const session = await getServerSession(options);
     const role = (session?.user as any)?.role;
@@ -63,7 +65,7 @@ export async function PATCH(
     // A normal findById() would apply Mongoose schema defaults to subdocument
     // fields that are missing in the DB (e.g. adjustmentDirection defaults to
     // "add" even when the stored value was "remove" on older documents).
-    const wo = await WorkOrder.findById(params.id).lean<any>();
+    const wo = await WorkOrder.findById(id).lean<any>();
     if (!wo)
       return NextResponse.json(
         { error: "Orden no encontrada" },
@@ -101,7 +103,7 @@ export async function PATCH(
       await applyInventoryChanges(wo);
     }
 
-    const updated = await WorkOrder.findByIdAndUpdate(params.id, updateData, {
+    const updated = await WorkOrder.findByIdAndUpdate(id, updateData, {
       new: true,
     })
       .populate({ path: "fromStore", model: Store, select: "name slug" })

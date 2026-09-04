@@ -25,8 +25,9 @@ const ALLOWED_ROLES = [
  */
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const session = await getServerSession(options);
   const role = (session?.user as any)?.role;
   if (!session || !ALLOWED_ROLES.includes(role)) {
@@ -34,7 +35,7 @@ export async function POST(
   }
   await dbConnect();
 
-  const doc = await InventoryCheckSession.findById(params.id);
+  const doc = await InventoryCheckSession.findById(id);
   if (!doc) {
     return NextResponse.json(
       { error: "Sesión no encontrada" },

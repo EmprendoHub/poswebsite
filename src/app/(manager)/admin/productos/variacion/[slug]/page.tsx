@@ -8,7 +8,7 @@ export const revalidate = 0;
 export const dynamic = "force-dynamic"; // Force dynamic rendering on every request
 
 const ProductDetailsPage = async ({ params }: { params: any }) => {
-  const nextCookies = cookies();
+  const nextCookies = await cookies();
   const cookieName = getCookiesName();
   const nextAuthSessionToken = nextCookies.get(cookieName);
   const currentCookies = `${cookieName}=${nextAuthSessionToken?.value}`;
