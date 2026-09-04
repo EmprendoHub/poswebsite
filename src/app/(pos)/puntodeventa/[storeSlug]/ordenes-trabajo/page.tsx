@@ -45,6 +45,20 @@ const typeLabels: Record<string, string> = {
   new_product: "Nuevo Producto",
 };
 
+// Windowed page list with "..." gaps so it never overflows the page view
+function getPageNumbers(current: number, total: number, offset = 1) {
+  const pages: (number | "...")[] = [1];
+  const start = Math.max(2, current - offset);
+  const end = Math.min(total - 1, current + offset);
+
+  if (start > 2) pages.push("...");
+  for (let i = start; i <= end; i++) pages.push(i);
+  if (end < total - 1) pages.push("...");
+  if (total > 1) pages.push(total);
+
+  return pages;
+}
+
 /* ─── Manager code gate ──────────────────────────────────────────── */
 function ManagerCodeModal({
   onAuthorized,
@@ -338,11 +352,11 @@ export default function POSWorkOrdersPage() {
 
         {/* Pagination */}
         {!loading && workOrders.length > 0 && totalPages > 1 && (
-          <div className="flex items-center justify-between mt-6">
+          <div className="flex items-center justify-between mt-6 flex-wrap gap-3">
             <p className="text-xs text-muted-foreground">
               Página {currentPage} de {totalPages}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
@@ -350,8 +364,15 @@ export default function POSWorkOrdersPage() {
               >
                 Anterior
               </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                (page) => (
+              {getPageNumbers(currentPage, totalPages).map((page, i) =>
+                page === "..." ? (
+                  <span
+                    key={`ellipsis-${i}`}
+                    className="px-2 text-sm text-muted-foreground select-none"
+                  >
+                    …
+                  </span>
+                ) : (
                   <button
                     key={page}
                     onClick={() => setCurrentPage(page)}
