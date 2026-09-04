@@ -2490,7 +2490,6 @@ export async function getOneProduct(slug: any, id: any = "") {
     }
 
     product = JSON.stringify(product);
-    revalidatePath(`/admin/productos/variacion/${slug}`, "page");
     return { product: product };
   } catch (error: any) {
     console.log(error);
@@ -2519,7 +2518,6 @@ export async function getOneProductForEdit(slug: any, id: any = "") {
 
     // Return raw product data without markup for editing
     product = JSON.stringify(product);
-    revalidatePath(`/admin/productos/variacion/${slug}`, "page");
     return { product: product };
   } catch (error: any) {
     console.log(error);
@@ -3002,7 +3000,6 @@ export async function getAllPOSProduct(searchQuery: any) {
     apiProductFilters.pagination(resPerPage, page);
     productsData = await apiProductFilters.query.clone();
     let products = JSON.stringify(productsData);
-    revalidatePath("/admin/pos/productos/");
     return {
       products: products,
       filteredProductsCount: filteredProductsCount,
@@ -3044,7 +3041,6 @@ export async function getAllPOSMercadoLibreProduct(searchQuery: any) {
     let products = JSON.stringify(productsData);
     const testUsersData = await TestUser.find({});
     const testUsers = JSON.stringify(testUsersData);
-    revalidatePath("/admin/mercadolibre/producto");
     return {
       products: products,
       testUsers: testUsers,
@@ -3233,8 +3229,6 @@ export async function getAllProduct(searchQuery: any) {
       allCategories: JSON.stringify(allCategories),
       allBrands: JSON.stringify(allBrands),
     };
-
-    revalidatePath("/admin/mercadolibre/producto/");
 
     return response;
   } catch (error: any) {
