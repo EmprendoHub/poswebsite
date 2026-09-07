@@ -424,13 +424,13 @@ const POSProductDetails = ({ product }: { product: any }) => {
                   <span>
                     Categoría Principal:{" "}
                     <span className="t font-bodyFont">
-                      <b>{product?.mainCategory ? mainCategoryById.get(product.mainCategory) : "—"}</b>
+                      <b>{(product?.mainCategory ? (mainCategoryById.get(product.mainCategory) as string | undefined) : undefined) ?? "—"}</b>
                     </span>
                   </span>
                   <span>
                     Subcategoría:{" "}
                     <span className="t font-bodyFont">
-                      <b>{product?.subCategory ? subCategoryById.get(product.subCategory) : "—"}</b>
+                      <b>{(product?.subCategory ? (subCategoryById.get(product.subCategory) as string | undefined) : undefined) ?? "—"}</b>
                     </span>
                   </span>
                   {product?.attributes && product.attributes.length > 0 && (
@@ -439,7 +439,7 @@ const POSProductDetails = ({ product }: { product: any }) => {
                       <span className="t font-bodyFont">
                         <b>
                           {product.attributes
-                            .map((attrId: string) => attributeById.get(attrId))
+                            .map((attrId: string) => (attributeById.get(attrId) as string | undefined) ?? undefined)
                             .filter(Boolean)
                             .join(", ") || "—"}
                         </b>

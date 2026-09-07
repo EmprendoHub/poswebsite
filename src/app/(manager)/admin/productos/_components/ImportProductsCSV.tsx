@@ -161,7 +161,6 @@ const ImportProductsCSV = () => {
             mainCategory: "",
             subCategory: "",
             attributes: "",
-            images: "",
           };
 
           for (const [rawKey, val] of Object.entries(r)) {

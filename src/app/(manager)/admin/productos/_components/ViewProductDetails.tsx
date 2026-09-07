@@ -58,7 +58,7 @@ const ViewProductDetails = ({
   );
   const attributeById = useMemo(
     () => new Map(Array.isArray(product?.attributes) ? product.attributeOptions?.map((a: any) => [a._id, a.name]) : []),
-    [product?.attributeOptions],
+    [product?.attributes, product?.attributeOptions],
   );
 
   // Per-branch stock for this product (fetched from StoreInventory)
@@ -418,7 +418,7 @@ const ViewProductDetails = ({
                     <span>
                       Categoría Principal:{" "}
                       <span className="font-bodyFont">
-                        <b>{mainCategoryById.get(product.mainCategory) || "—"}</b>
+                        <b>{(mainCategoryById.get(product.mainCategory) as string | undefined) || "—"}</b>
                       </span>
                     </span>
                   )}
@@ -426,7 +426,7 @@ const ViewProductDetails = ({
                     <span>
                       Subcategoría:{" "}
                       <span className="font-bodyFont">
-                        <b>{subCategoryById.get(product.subCategory) || "—"}</b>
+                        <b>{(subCategoryById.get(product.subCategory) as string | undefined) || "—"}</b>
                       </span>
                     </span>
                   )}
@@ -436,7 +436,7 @@ const ViewProductDetails = ({
                       <span className="font-bodyFont">
                         <b>
                           {product.attributes
-                            .map((attrId: string) => attributeById.get(attrId))
+                            .map((attrId: string) => (attributeById.get(attrId) as string | undefined))
                             .filter(Boolean)
                             .join(", ") || "—"}
                         </b>
