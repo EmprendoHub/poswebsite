@@ -25,12 +25,15 @@ export const GET = async (request: any) => {
     const resPerPage = Number(request.nextUrl.searchParams.get("limit")) || 15;
     const page = Number(request.nextUrl.searchParams.get("page")) || 1;
 
-    // Build search filter - only search by title and ASIN
+    // Build search filter - only search by title and ASIN with word boundaries
     let searchFilter: any = {};
     if (keyword) {
+      const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const wordBoundaryRegex = `\\b${escapedKeyword}\\b`;
+      
       searchFilter.$or = [
-        { title: { $regex: keyword, $options: "i" } },
-        { ASIN: { $regex: keyword, $options: "i" } },
+        { title: { $regex: wordBoundaryRegex, $options: "i" } },
+        { ASIN: { $regex: wordBoundaryRegex, $options: "i" } },
       ];
     }
 

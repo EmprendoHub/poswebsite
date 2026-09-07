@@ -37,18 +37,21 @@ export async function POST(request: any) {
       );
     }
 
-    // Build search query
+    // Build search query with word boundary matching
     const searchQuery: any = { active: true };
 
     if (keyword.trim()) {
-      // Search in title, description, category, brand, ASIN, gender
+      // Search in title, description, category, brand, ASIN, gender with word boundaries
+      const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const wordBoundaryRegex = `\\b${escapedKeyword}\\b`;
+      
       searchQuery.$or = [
-        { title: { $regex: keyword, $options: "i" } },
-        { description: { $regex: keyword, $options: "i" } },
-        { category: { $regex: keyword, $options: "i" } },
-        { brand: { $regex: keyword, $options: "i" } },
-        { ASIN: { $regex: keyword, $options: "i" } },
-        { gender: { $regex: keyword, $options: "i" } },
+        { title: { $regex: wordBoundaryRegex, $options: "i" } },
+        { description: { $regex: wordBoundaryRegex, $options: "i" } },
+        { category: { $regex: wordBoundaryRegex, $options: "i" } },
+        { brand: { $regex: wordBoundaryRegex, $options: "i" } },
+        { ASIN: { $regex: wordBoundaryRegex, $options: "i" } },
+        { gender: { $regex: wordBoundaryRegex, $options: "i" } },
       ];
     }
 

@@ -129,16 +129,20 @@ const ListProducts = ({
   const filteredProducts = useMemo(() => {
     let filtered = [...products];
 
-    // Search filter — matches title, ASIN, category, brand and gender
+    // Search filter — matches title, ASIN, category, brand and gender with word boundaries
     if (searchParams.search) {
       const searchTerm = searchParams.search.toLowerCase();
+      // Escape special regex characters and add word boundaries
+      const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const wordBoundaryRegex = new RegExp(`\\b${escapedTerm}\\b`, "i");
+      
       filtered = filtered.filter(
         (product) =>
-          product.title.toLowerCase().includes(searchTerm) ||
-          (product.ASIN ?? "").toLowerCase().includes(searchTerm) ||
-          product.category.toLowerCase().includes(searchTerm) ||
-          product.brand.toLowerCase().includes(searchTerm) ||
-          product.gender.toLowerCase().includes(searchTerm),
+          wordBoundaryRegex.test(product.title) ||
+          wordBoundaryRegex.test(product.ASIN ?? "") ||
+          wordBoundaryRegex.test(product.category) ||
+          wordBoundaryRegex.test(product.brand) ||
+          wordBoundaryRegex.test(product.gender),
       );
     }
 

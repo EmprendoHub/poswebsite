@@ -127,15 +127,18 @@ class APIFilters {
           this.query = this.query.find(newFilter);
         }
       } else {
-        // Regular keyword search
+        // Regular keyword search with word boundary matching
+        const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const wordBoundaryRegex = `\\b${escapedKeyword}\\b`;
+        
         const searchConditions = {
           $or: [
-            { title: { $regex: keyword, $options: "i" } },
-            { description: { $regex: keyword, $options: "i" } },
-            { category: { $regex: keyword, $options: "i" } },
-            { gender: { $regex: keyword, $options: "i" } },
-            { brand: { $regex: keyword, $options: "i" } },
-            { ASIN: { $regex: keyword, $options: "i" } },
+            { title: { $regex: wordBoundaryRegex, $options: "i" } },
+            { description: { $regex: wordBoundaryRegex, $options: "i" } },
+            { category: { $regex: wordBoundaryRegex, $options: "i" } },
+            { gender: { $regex: wordBoundaryRegex, $options: "i" } },
+            { brand: { $regex: wordBoundaryRegex, $options: "i" } },
+            { ASIN: { $regex: wordBoundaryRegex, $options: "i" } },
           ],
         };
 

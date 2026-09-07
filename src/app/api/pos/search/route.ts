@@ -49,23 +49,27 @@ export async function GET(req: Request) {
     if (attributeFilter) filter.attributes = attributeFilter;
 
     if (q) {
-      // Search by keyword
+      // Search by keyword with word boundary matching
       const isObjectId = /^[a-f\d]{24}$/i.test(q);
+
+      // Escape special regex characters and add word boundaries for whole word matching
+      const escapedQ = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const wordBoundaryRegex = `\\b${escapedQ}\\b`;
 
       if (isObjectId) {
         // Search by exact product _id OR by name/ASIN
         filter.$or = [
           { _id: new mongoose.Types.ObjectId(q) },
-          { title: { $regex: q, $options: "i" } },
-          { ASIN: { $regex: q, $options: "i" } },
+          { title: { $regex: wordBoundaryRegex, $options: "i" } },
+          { ASIN: { $regex: wordBoundaryRegex, $options: "i" } },
         ];
       } else {
         filter.$or = [
-          { title: { $regex: q, $options: "i" } },
-          { ASIN: { $regex: q, $options: "i" } },
-          { category: { $regex: q, $options: "i" } },
-          { brand: { $regex: q, $options: "i" } },
-          { "variations.title": { $regex: q, $options: "i" } },
+          { title: { $regex: wordBoundaryRegex, $options: "i" } },
+          { ASIN: { $regex: wordBoundaryRegex, $options: "i" } },
+          { category: { $regex: wordBoundaryRegex, $options: "i" } },
+          { brand: { $regex: wordBoundaryRegex, $options: "i" } },
+          { "variations.title": { $regex: wordBoundaryRegex, $options: "i" } },
         ];
       }
     }
