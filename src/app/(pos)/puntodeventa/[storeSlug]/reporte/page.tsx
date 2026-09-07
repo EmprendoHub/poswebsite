@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import POSSidebar from "../_components/POSSidebar";
 import FormattedPrice from "@/backend/helpers/FormattedPrice";
@@ -623,6 +623,9 @@ export default function POSReportPage() {
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0],
   );
+  const [endDate, setEndDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
   const printRef = useRef<HTMLDivElement>(null);
   const [reprintOrder, setReprintOrder] = useState<DayOrder | null>(null);
   const [cancelOrder, setCancelOrder] = useState<DayOrder | null>(null);
@@ -644,17 +647,24 @@ export default function POSReportPage() {
       });
   }, [storeSlug]);
 
-  useEffect(() => {
+  // Fetch orders processed in the current branch for the selected date range
+  const fetchOrdersForBranch = useCallback(() => {
     if (!storeId) return;
     setLoading(true);
-    fetch(`/api/pos/report?storeId=${storeId}&date=${selectedDate}`)
+    fetch(
+      `/api/pos/report?storeId=${storeId}&date=${selectedDate}&endDate=${endDate}`,
+    )
       .then((r) => r.json())
       .then((data) => {
         setOrders(data?.orders ?? []);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [storeId, selectedDate]);
+  }, [storeId, selectedDate, endDate]);
+
+  useEffect(() => {
+    fetchOrdersForBranch();
+  }, [fetchOrdersForBranch]);
 
   const activeOrders = orders.filter((o) => o.orderStatus !== "Cancelado");
   const cancelledCount = orders.length - activeOrders.length;
@@ -753,16 +763,35 @@ export default function POSReportPage() {
         <div className="flex-1 overflow-y-auto p-6">
           <div className="flex items-center justify-between mb-6 print:hidden">
             <div>
-              <h1 className="text-xl font-bold">Reporte del Día</h1>
+              <h1 className="text-xl font-bold">Pedidos</h1>
               <p className="text-xs text-muted-foreground">{storeName}</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <input
                 type="date"
                 value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSelectedDate(v);
+                  // Keep range valid if "Desde" is moved past "Hasta"
+                  if (v > endDate) setEndDate(v);
+                }}
                 className="bg-muted rounded-lg px-3 py-2 text-sm outline-none"
               />
+              <span className="text-xs text-muted-foreground">a</span>
+              <input
+                type="date"
+                value={endDate}
+                min={selectedDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="bg-muted rounded-lg px-3 py-2 text-sm outline-none"
+              />
+              <button
+                onClick={fetchOrdersForBranch}
+                className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold transition-colors hover:opacity-90"
+              >
+                Buscar
+              </button>
               {/* <button
                 onClick={() => window.print()}
                 className="flex items-center gap-2 bg-muted hover:bg-primary hover:text-primary-foreground px-4 py-2 rounded-lg text-sm transition-colors"
@@ -823,15 +852,32 @@ export default function POSReportPage() {
           {/* Orders table */}
           <div ref={printRef}>
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
-              Ventas del{" "}
-              {new Date(selectedDate + "T12:00:00").toLocaleDateString(
-                "es-MX",
-                {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                },
+              {selectedDate === endDate ? (
+                <>
+                  Ventas del{" "}
+                  {new Date(selectedDate + "T12:00:00").toLocaleDateString(
+                    "es-MX",
+                    {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    },
+                  )}
+                </>
+              ) : (
+                <>
+                  Ventas del{" "}
+                  {new Date(selectedDate + "T12:00:00").toLocaleDateString(
+                    "es-MX",
+                    { year: "numeric", month: "long", day: "numeric" },
+                  )}{" "}
+                  al{" "}
+                  {new Date(endDate + "T12:00:00").toLocaleDateString(
+                    "es-MX",
+                    { year: "numeric", month: "long", day: "numeric" },
+                  )}
+                </>
               )}
             </p>
 

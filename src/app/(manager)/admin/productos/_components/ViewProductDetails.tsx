@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import "./productstyles.css";
 import { IoMdCart } from "react-icons/io";
 import { MdStorefront } from "react-icons/md";
@@ -46,6 +46,20 @@ const ViewProductDetails = ({
     width: 0,
     height: 0,
   });
+
+  // Create lookup maps for taxonomy names
+  const mainCategoryById = useMemo(
+    () => new Map(Array.isArray(product?.mainCategories) ? product.mainCategories.map((m: any) => [m._id, m.name]) : []),
+    [product?.mainCategories],
+  );
+  const subCategoryById = useMemo(
+    () => new Map(Array.isArray(product?.subCategories) ? product.subCategories.map((s: any) => [s._id, s.name]) : []),
+    [product?.subCategories],
+  );
+  const attributeById = useMemo(
+    () => new Map(Array.isArray(product?.attributes) ? product.attributeOptions?.map((a: any) => [a._id, a.name]) : []),
+    [product?.attributeOptions],
+  );
 
   // Per-branch stock for this product (fetched from StoreInventory)
   const [branchStock, setBranchStock] = useState<
@@ -399,17 +413,36 @@ const ViewProductDetails = ({
                   )}
                 </motion.div>
 
-                <div className="flex flex-col text-xs">
-                  <span>
-                    Categoría:{" "}
-                    <span className="t font-bodyFont">
-                      <b>{product?.category}</b>
+                <div className="flex flex-col text-xs space-y-1">
+                  {product?.mainCategory && (
+                    <span>
+                      Categoría Principal:{" "}
+                      <span className="font-bodyFont">
+                        <b>{mainCategoryById.get(product.mainCategory) || "—"}</b>
+                      </span>
                     </span>
-                  </span>
-                  <span>
-                    Departamento:{" "}
-                    <span className="t font-bodyFont">{product?.gender}</span>
-                  </span>
+                  )}
+                  {product?.subCategory && (
+                    <span>
+                      Subcategoría:{" "}
+                      <span className="font-bodyFont">
+                        <b>{subCategoryById.get(product.subCategory) || "—"}</b>
+                      </span>
+                    </span>
+                  )}
+                  {product?.attributes && product.attributes.length > 0 && (
+                    <span>
+                      Atributos:{" "}
+                      <span className="font-bodyFont">
+                        <b>
+                          {product.attributes
+                            .map((attrId: string) => attributeById.get(attrId))
+                            .filter(Boolean)
+                            .join(", ") || "—"}
+                        </b>
+                      </span>
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

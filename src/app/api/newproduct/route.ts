@@ -29,6 +29,9 @@ export async function POST(request: any, res: any) {
       brand,
       grade,
       gender,
+      mainCategory,
+      subCategory,
+      attributes,
       variations,
       secondaryImages,
       createdAt,
@@ -151,6 +154,9 @@ export async function POST(request: any, res: any) {
       rating,
       gender,
       category,
+      mainCategory: mainCategory || undefined,
+      subCategory: subCategory || undefined,
+      attributes: attributes ? JSON.parse(attributes as string) : [],
       images,
       variations,
       stock: stockQty,
@@ -238,6 +244,9 @@ export async function PUT(request: any, res: any) {
       brand,
       grade,
       gender,
+      mainCategory,
+      subCategory,
+      attributes,
       variations,
       secondaryImages,
       updatedAt,
@@ -336,36 +345,45 @@ export async function PUT(request: any, res: any) {
 
     // Update a Product in the database
     // Also update product-level price and currentPrice to match variation price
-    await Product.updateOne(
-      { _id },
-      {
-        type: "variation",
-        title,
-        slug,
-        description,
-        featured,
-        active: isActive,
-        availability,
-        updatePrice: isUpdatePrice,
-        discountPercentage: discountPercentage
-          ? parseFloat(discountPercentage as string)
-          : 0,
-        brand,
-        rating,
-        gender,
-        category,
-        images,
-        colors,
-        variations,
-        price: firstVariationPrice, // Update product-level price
-        currentPrice: firstVariationPrice, // Update currentPrice too
-        weight: productWeight,
-        dimensions: productDimensions,
-        ASIN: asin || "",
-        updatedAt: parsedUpdatedAt,
-        user,
-      },
-    );
+    const updateFields: any = {
+      type: "variation",
+      title,
+      slug,
+      description,
+      featured,
+      active: isActive,
+      availability,
+      updatePrice: isUpdatePrice,
+      discountPercentage: discountPercentage
+        ? parseFloat(discountPercentage as string)
+        : 0,
+      brand,
+      rating,
+      gender,
+      category,
+      images,
+      colors,
+      variations,
+      price: firstVariationPrice, // Update product-level price
+      currentPrice: firstVariationPrice, // Update currentPrice too
+      weight: productWeight,
+      dimensions: productDimensions,
+      ASIN: asin || "",
+      updatedAt: parsedUpdatedAt,
+      user,
+    };
+    // Only touch new-taxonomy fields when provided — avoids casting "" to ObjectId
+    if (mainCategory) updateFields.mainCategory = mainCategory;
+    if (subCategory) updateFields.subCategory = subCategory;
+    if (attributes) {
+      try {
+        updateFields.attributes = JSON.parse(attributes as string);
+      } catch {
+        // ignore malformed attributes payload
+      }
+    }
+
+    await Product.updateOne({ _id }, updateFields);
     const response = NextResponse.json({
       message: "Producto actualizado exitosamente",
       success: true,

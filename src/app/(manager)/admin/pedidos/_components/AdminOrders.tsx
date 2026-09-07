@@ -12,21 +12,34 @@ import Modal from "@/components/modals/Modal";
 import DeleteConfirmationModal from "@/components/modals/DeleteConfirmationModal";
 import SuccessModal from "@/components/modals/SuccessModal";
 import { FaPrint, FaX } from "react-icons/fa6";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { FaTrash } from "react-icons/fa";
 import { deleteOrder } from "@/app/_actions";
 import { useRouter } from "next/navigation";
 import CreateOrderModal from "./CreateOrderModal";
 
+const ORDER_STATUS_OPTIONS = [
+  "Pendiente",
+  "Procesando",
+  "Apartado",
+  "Listo para recoger",
+  "En Camino",
+  "Entregado",
+  "Cancelado",
+];
+
 const AdminOrders = ({
   orders,
   filteredOrdersCount,
+  branchOptions,
 }: {
   orders: any;
   filteredOrdersCount: any;
+  branchOptions?: { value: string; label: string }[];
 }) => {
   const getPathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const isSuperAdmin = (session?.user as any)?.role === "super_admin";
   let pathname: string = "";
@@ -54,13 +67,40 @@ const AdminOrders = ({
   } | null>(null);
   const [showCreateOrderModal, setShowCreateOrderModal] = useState(false);
   const [stores, setStores] = useState<any[]>([]);
+  const [statusFilter, setStatusFilter] = useState(
+    searchParams.get("orderStatus") ?? "",
+  );
+  const [branchFilter, setBranchFilter] = useState(
+    searchParams.get("branch") ?? "",
+  );
+
+  const applyFilters = (nextStatus: string, nextBranch: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("page");
+    if (nextStatus) {
+      params.set("orderStatus", nextStatus);
+    } else {
+      params.delete("orderStatus");
+    }
+    if (nextBranch) {
+      params.set("branch", nextBranch);
+    } else {
+      params.delete("branch");
+    }
+    router.push(`/${pathname}/pedidos?${params.toString()}`);
+  };
 
   useEffect(() => {
     const loadStores = async () => {
       try {
         const res = await fetch("/api/stores");
         const data = await res.json();
-        setStores(data || []);
+        // Bodega branches are storage-only and can't fulfill customer pickups
+        setStores(
+          Array.isArray(data)
+            ? data.filter((s: any) => s.type === "fisica")
+            : [],
+        );
       } catch (error) {
         console.error("Error loading stores:", error);
       }
@@ -186,6 +226,36 @@ const AdminOrders = ({
             {`${filteredOrdersCount} Pedidos `}
           </h1>
           <div className="flex gap-2 mr-5 maxsm:mr-0 maxsm:mb-3">
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                applyFilters(e.target.value, branchFilter);
+              }}
+              className="border border-gray-200 bg-background rounded-xl py-2 px-3 text-sm focus:outline-none focus:border-gray-400"
+            >
+              <option value="">Todos los estados</option>
+              {ORDER_STATUS_OPTIONS.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+            <select
+              value={branchFilter}
+              onChange={(e) => {
+                setBranchFilter(e.target.value);
+                applyFilters(statusFilter, e.target.value);
+              }}
+              className="border border-gray-200 bg-background rounded-xl py-2 px-3 text-sm focus:outline-none focus:border-gray-400"
+            >
+              <option value="">Todas las sucursales</option>
+              {branchOptions?.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
             <button
               onClick={() => setShowCreateOrderModal(true)}
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-[10px] font-semibold transition"
@@ -301,7 +371,7 @@ const AdminOrders = ({
                     </Link> */}
                     {order?.paymentInfo?.amountPaid >=
                       getTotalFromItems(order.orderItems) ===
-                    true ? (
+                    true || order.orderStatus === "Cancelado" ? (
                       ""
                     ) : (
                       <button

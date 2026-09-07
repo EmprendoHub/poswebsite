@@ -1,9 +1,31 @@
 "use client";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 
+interface MainCategory {
+  _id: string;
+  name: string;
+  slug: string;
+  image?: string;
+}
+
 const CategoryStack = () => {
+  const [mainCategories, setMainCategories] = useState<MainCategory[]>([]);
+
+  useEffect(() => {
+    fetch("/api/categories?kind=main&activeOnly=true")
+      .then((r) => r.json())
+      .then((data) => {
+        const withImages = (data?.categories ?? []).filter(
+          (c: MainCategory) => !!c.image,
+        );
+        setMainCategories(withImages);
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6">
       {/* Section header */}
@@ -16,9 +38,46 @@ const CategoryStack = () => {
         </h2>
       </div>
 
-      {/* Image Section 1 (Main) */}
-      <div className="flex px-0 gap-3 flex-col items-center justify-center w-full h-auto z-[1]">
-        <motion.div
+      {mainCategories.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {mainCategories.map((cat, i) => (
+            <motion.div
+              key={cat._id}
+              initial={{ y: 30, opacity: 0 }}
+              whileInView={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.5, delay: i * 0.05 }}
+              whileHover={{
+                scale: 1.05,
+                boxShadow: "0px 8px 15px rgba(0, 0, 0, 0.3)",
+              }}
+              whileTap={{ scale: 0.98 }}
+              className="relative w-full aspect-video"
+            >
+              <Link href={`/tienda?search=${encodeURIComponent(cat.name)}`}>
+                <Image
+                  alt={cat.name}
+                  src={cat.image!}
+                  width={640}
+                  height={360}
+                  className="object-cover rounded-[5px] w-full h-full"
+                />
+              </Link>
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <FallbackCategoryStack />
+      )}
+    </div>
+  );
+};
+
+// Shown until an admin sets up Main Categories with cover images under /admin/categorias
+const FallbackCategoryStack = () => {
+  return (
+    // Image Section 1 (Main)
+    <div className="flex px-0 gap-3 flex-col items-center justify-center w-full h-auto z-[1]">
+      <motion.div
           initial={{ y: -50, opacity: 0 }}
           whileInView={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.9 }}
@@ -329,7 +388,6 @@ const CategoryStack = () => {
           </motion.div>
         </div>
       </div>
-    </div>
   );
 };
 

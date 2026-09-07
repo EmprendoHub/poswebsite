@@ -137,6 +137,11 @@ export async function POST(req: Request) {
           "Sucursal no encontrada. Recarga la página e intenta de nuevo.",
         );
       }
+      if (store.type !== "fisica") {
+        throw new Error(
+          "Esta sucursal es una bodega y no puede procesar ventas.",
+        );
+      }
 
       const isPaid = paidCents >= owedCents;
       const orderStatus = isPaid ? "Entregado" : "Apartado";

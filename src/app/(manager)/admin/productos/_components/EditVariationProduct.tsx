@@ -107,13 +107,35 @@ const EditVariationProduct = ({
   const [validationError, setValidationError] =
     useState<ValidationError | null>(null);
 
-  // Product Details (Brands, Genders, Categories)
+  // Product Details (Brands, Genders, Categories) — legacy, kept for backward compatibility
   const [brands, setBrands] = useState<{ _id: string; catTitle: string }[]>([]);
   const [genders, setGenders] = useState<{ _id: string; catTitle: string }[]>(
     [],
   );
   const [categories, setCategories] = useState<
     { _id: string; catTitle: string }[]
+  >([]);
+
+  // New taxonomy (Main Category / Subcategory / Attributes)
+  const [mainCategoryId, setMainCategoryId] = useState(
+    product?.mainCategory?.toString?.() ?? product?.mainCategory ?? "",
+  );
+  const [subCategoryId, setSubCategoryId] = useState(
+    product?.subCategory?.toString?.() ?? product?.subCategory ?? "",
+  );
+  const [attributeIds, setAttributeIds] = useState<string[]>(
+    Array.isArray(product?.attributes)
+      ? product.attributes.map((a: any) => a?.toString?.() ?? a)
+      : [],
+  );
+  const [mainCategories, setMainCategories] = useState<
+    { _id: string; name: string }[]
+  >([]);
+  const [subCategories, setSubCategories] = useState<
+    { _id: string; name: string; parent: string }[]
+  >([]);
+  const [attributeOptions, setAttributeOptions] = useState<
+    { _id: string; name: string }[]
   >([]);
 
   const [mainImage, setMainImage] = useState(product?.images[0]?.url || "");
@@ -179,6 +201,17 @@ const EditVariationProduct = ({
       setMainImage(product?.images[0]?.url || "");
       setVariations(product?.variations);
       setSecondaryImages(product?.images?.slice(1) || []);
+      setMainCategoryId(
+        product?.mainCategory?.toString?.() ?? product?.mainCategory ?? "",
+      );
+      setSubCategoryId(
+        product?.subCategory?.toString?.() ?? product?.subCategory ?? "",
+      );
+      setAttributeIds(
+        Array.isArray(product?.attributes)
+          ? product.attributes.map((a: any) => a?.toString?.() ?? a)
+          : [],
+      );
       // Update price input with the fresh product variations price
       setPriceInputValue(product?.variations?.[0]?.price?.toString() || "");
       console.log(
@@ -209,6 +242,21 @@ const EditVariationProduct = ({
           setGenders(gendersData.details);
         if (categoriesData?.details && Array.isArray(categoriesData.details))
           setCategories(categoriesData.details);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Fetch new taxonomy (Main Category / Subcategory / Attributes)
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/categories?kind=main").then((r) => r.json()),
+      fetch("/api/categories?kind=sub").then((r) => r.json()),
+      fetch("/api/categories?kind=attribute").then((r) => r.json()),
+    ])
+      .then(([mainData, subData, attrData]) => {
+        setMainCategories(mainData?.categories ?? []);
+        setSubCategories(subData?.categories ?? []);
+        setAttributeOptions(attrData?.categories ?? []);
       })
       .catch(() => {});
   }, []);
@@ -1109,6 +1157,9 @@ const EditVariationProduct = ({
       formData.append("grade", grade?.toString() || "0");
       formData.append("secondaryImages", JSON.stringify(secondaryImages || []));
       formData.append("gender", gender || "");
+      formData.append("mainCategory", mainCategoryId || "");
+      formData.append("subCategory", subCategoryId || "");
+      formData.append("attributes", JSON.stringify(attributeIds || []));
       formData.append("mainImage", mainImage);
       formData.append("variations", JSON.stringify(variations));
       formData.append("weight", weight.toString());
@@ -1934,7 +1985,76 @@ const EditVariationProduct = ({
                     <div className="space-y-3">
                       <div>
                         <label className="block mb-2 text-xs font-medium text-muted-foreground">
-                          Género/Tema
+                          Categoría Principal
+                        </label>
+                        <select
+                          className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
+                          value={mainCategoryId}
+                          onChange={(e) => {
+                            setMainCategoryId(e.target.value);
+                            setSubCategoryId("");
+                          }}
+                        >
+                          <option value="">
+                            Seleccionar categoría principal...
+                          </option>
+                          {mainCategories.map((m) => (
+                            <option key={m._id} value={m._id}>
+                              {m.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block mb-2 text-xs font-medium text-muted-foreground">
+                          Subcategoría
+                        </label>
+                        <select
+                          className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm disabled:opacity-50"
+                          value={subCategoryId}
+                          onChange={(e) => setSubCategoryId(e.target.value)}
+                          disabled={!mainCategoryId}
+                        >
+                          <option value="">Seleccionar subcategoría...</option>
+                          {subCategories
+                            .filter((s) => s.parent === mainCategoryId)
+                            .map((s) => (
+                              <option key={s._id} value={s._id}>
+                                {s.name}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block mb-2 text-xs font-medium text-muted-foreground">
+                          Atributos
+                        </label>
+                        <select
+                          multiple
+                          className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm h-24"
+                          value={attributeIds}
+                          onChange={(e) =>
+                            setAttributeIds(
+                              Array.from(
+                                e.target.selectedOptions,
+                                (o) => o.value,
+                              ),
+                            )
+                          }
+                        >
+                          {attributeOptions.map((a) => (
+                            <option key={a._id} value={a._id}>
+                              {a.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* <div>
+                        <label className="block mb-2 text-xs font-medium text-muted-foreground">
+                          Género/Tema (legado)
                         </label>
                         <select
                           className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
@@ -1954,11 +2074,11 @@ const EditVariationProduct = ({
                             {validationError.gender._errors.join(", ")}
                           </p>
                         )}
-                      </div>
+                      </div> */}
 
-                      <div>
+                      {/* <div>
                         <label className="block mb-2 text-xs font-medium text-muted-foreground">
-                          Categoría
+                          Categoría (legado)
                         </label>
                         <select
                           className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
@@ -1978,7 +2098,7 @@ const EditVariationProduct = ({
                             {validationError.category._errors.join(", ")}
                           </p>
                         )}
-                      </div>
+                      </div> */}
                     </div>
                   </div>
 

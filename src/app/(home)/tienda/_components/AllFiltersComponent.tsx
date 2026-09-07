@@ -13,16 +13,30 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+interface CategoryOption {
+  _id: string;
+  name: string;
+}
+interface SubCategoryOption extends CategoryOption {
+  parent: string;
+}
+
 const AllFiltersComponent = ({
   allBrands,
   allCategories,
   allGenders,
+  allMainCategories = [],
+  allSubCategories = [],
+  allAttributes = [],
   priceRange,
   SetIsActive,
 }: {
   allBrands: string[];
   allCategories: string[];
   allGenders: string[];
+  allMainCategories?: CategoryOption[];
+  allSubCategories?: SubCategoryOption[];
+  allAttributes?: CategoryOption[];
   priceRange: { min: number; max: number };
   SetIsActive: (active: boolean) => void;
 }) => {
@@ -42,6 +56,15 @@ const AllFiltersComponent = ({
   const [selectedGender, setSelectedGender] = useState<string | undefined>(
     searchParams.get("gender") || undefined
   );
+  const [selectedMainCategory, setSelectedMainCategory] = useState<
+    string | undefined
+  >(searchParams.get("mainCategory") || undefined);
+  const [selectedSubCategory, setSelectedSubCategory] = useState<
+    string | undefined
+  >(searchParams.get("subCategory") || undefined);
+  const [selectedAttribute, setSelectedAttribute] = useState<
+    string | undefined
+  >(searchParams.get("attribute") || undefined);
   const [priceValues, setPriceValues] = useState<[number, number]>([
     parseInt(searchParams.get("minPrice") || priceRange.min.toString()),
     parseInt(searchParams.get("maxPrice") || priceRange.max.toString()),
@@ -63,7 +86,15 @@ const AllFiltersComponent = ({
   useEffect(() => {
     updateURL();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategory, selectedBrand, selectedGender, priceValues]);
+  }, [
+    selectedCategory,
+    selectedBrand,
+    selectedGender,
+    selectedMainCategory,
+    selectedSubCategory,
+    selectedAttribute,
+    priceValues,
+  ]);
 
   const updateURL = () => {
     const params = new URLSearchParams();
@@ -82,6 +113,18 @@ const AllFiltersComponent = ({
 
     if (selectedGender) {
       params.set("gender", selectedGender);
+    }
+
+    if (selectedMainCategory) {
+      params.set("mainCategory", selectedMainCategory);
+    }
+
+    if (selectedSubCategory) {
+      params.set("subCategory", selectedSubCategory);
+    }
+
+    if (selectedAttribute) {
+      params.set("attribute", selectedAttribute);
     }
 
     if (priceValues[0] !== priceRange.min) {
@@ -103,6 +146,9 @@ const AllFiltersComponent = ({
     setSelectedCategory(undefined);
     setSelectedBrand(undefined);
     setSelectedGender(undefined);
+    setSelectedMainCategory(undefined);
+    setSelectedSubCategory(undefined);
+    setSelectedAttribute(undefined);
     setPriceValues([priceRange.min, priceRange.max]);
     router.push("/tienda");
   };
@@ -113,6 +159,9 @@ const AllFiltersComponent = ({
       selectedCategory !== undefined ||
       selectedBrand !== undefined ||
       selectedGender !== undefined ||
+      selectedMainCategory !== undefined ||
+      selectedSubCategory !== undefined ||
+      selectedAttribute !== undefined ||
       priceValues[0] !== priceRange.min ||
       priceValues[1] !== priceRange.max
     );
@@ -121,6 +170,9 @@ const AllFiltersComponent = ({
     selectedCategory,
     selectedBrand,
     selectedGender,
+    selectedMainCategory,
+    selectedSubCategory,
+    selectedAttribute,
     priceValues,
     priceRange,
   ]);
@@ -149,6 +201,37 @@ const AllFiltersComponent = ({
       setSelectedGender(value);
     }
   };
+
+  const handleMainCategoryChange = (value: string) => {
+    setSelectedSubCategory(undefined);
+    if (value === "all") {
+      setSelectedMainCategory(undefined);
+    } else {
+      setSelectedMainCategory(value);
+    }
+  };
+
+  const handleSubCategoryChange = (value: string) => {
+    if (value === "all") {
+      setSelectedSubCategory(undefined);
+    } else {
+      setSelectedSubCategory(value);
+    }
+  };
+
+  const handleAttributeChange = (value: string) => {
+    if (value === "all") {
+      setSelectedAttribute(undefined);
+    } else {
+      setSelectedAttribute(value);
+    }
+  };
+
+  // When no Main Category is selected, offer every subcategory so it can be
+  // filtered on its own; once a Main is picked, narrow to its children.
+  const availableSubCategories = selectedMainCategory
+    ? allSubCategories.filter((s) => s.parent === selectedMainCategory)
+    : allSubCategories;
 
   return (
     <div className="w-full">
@@ -209,10 +292,79 @@ const AllFiltersComponent = ({
           </div>
         </div>
 
-        {/* Categories Dropdown */}
-        {allCategories.length > 0 && (
+        {/* Main Category Dropdown */}
+        {allMainCategories.length > 0 && (
           <div className="space-y-2">
-            <label className="text-sm font-medium">Categoría</label>
+            <label className="text-sm font-medium">Categoría Principal</label>
+            <Select
+              value={selectedMainCategory || "all"}
+              onValueChange={handleMainCategoryChange}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Seleccionar categoría principal" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {allMainCategories.map((m) => (
+                  <SelectItem key={m._id} value={m._id}>
+                    {m.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* Subcategory Dropdown */}
+        {availableSubCategories.length > 0 && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Subcategoría</label>
+            <Select
+              value={selectedSubCategory || "all"}
+              onValueChange={handleSubCategoryChange}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Seleccionar subcategoría" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {availableSubCategories.map((s) => (
+                  <SelectItem key={s._id} value={s._id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* Attribute Dropdown */}
+        {allAttributes.length > 0 && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Atributo</label>
+            <Select
+              value={selectedAttribute || "all"}
+              onValueChange={handleAttributeChange}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Seleccionar atributo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {allAttributes.map((a) => (
+                  <SelectItem key={a._id} value={a._id}>
+                    {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* Categories Dropdown (legado) */}
+        {/* {allCategories.length > 0 && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Categoría (legado)</label>
             <Select
               value={selectedCategory || "all"}
               onValueChange={handleCategoryChange}
@@ -230,7 +382,7 @@ const AllFiltersComponent = ({
               </SelectContent>
             </Select>
           </div>
-        )}
+        )} */}
 
         {/* Brands Dropdown */}
         {allBrands.length > 0 && (
@@ -255,10 +407,10 @@ const AllFiltersComponent = ({
           </div>
         )}
 
-        {/* Genders Dropdown */}
+        {/* Genders Dropdown (legado) */}
         {allGenders.length > 0 && (
           <div className="space-y-2">
-            <label className="text-sm font-medium">Género</label>
+            <label className="text-sm font-medium">Género (legado)</label>
             <Select
               value={selectedGender || "all"}
               onValueChange={handleGenderChange}
@@ -321,10 +473,79 @@ const AllFiltersComponent = ({
             </div>
           </div>
 
-          {/* Categories Dropdown */}
-          {allCategories.length > 0 && (
+          {/* Main Category Dropdown */}
+          {allMainCategories.length > 0 && (
             <div className="space-y-2">
-              <label className="text-sm font-medium">Categoría</label>
+              <label className="text-sm font-medium">Categoría Principal</label>
+              <Select
+                value={selectedMainCategory || "all"}
+                onValueChange={handleMainCategoryChange}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Categoría Principal" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {allMainCategories.map((m) => (
+                    <SelectItem key={m._id} value={m._id}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Subcategory Dropdown */}
+          {availableSubCategories.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Subcategoría</label>
+              <Select
+                value={selectedSubCategory || "all"}
+                onValueChange={handleSubCategoryChange}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Subcategoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {availableSubCategories.map((s) => (
+                    <SelectItem key={s._id} value={s._id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Attribute Dropdown */}
+          {allAttributes.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Atributo</label>
+              <Select
+                value={selectedAttribute || "all"}
+                onValueChange={handleAttributeChange}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Atributo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {allAttributes.map((a) => (
+                    <SelectItem key={a._id} value={a._id}>
+                      {a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Categories Dropdown (legado) */}
+          {/* {allCategories.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Categoría (legado)</label>
               <Select
                 value={selectedCategory || "all"}
                 onValueChange={handleCategoryChange}
@@ -344,7 +565,7 @@ const AllFiltersComponent = ({
                 </SelectContent>
               </Select>
             </div>
-          )}
+          )} */}
 
           {/* Brands Dropdown */}
           {allBrands.length > 0 && (
@@ -369,11 +590,11 @@ const AllFiltersComponent = ({
             </div>
           )}
 
-          {/* Genders Dropdown and Clear Button */}
-          <div className="space-y-2">
+          {/* Genders Dropdown (legado) and Clear Button */}
+          {/* <div className="space-y-2">
             {allGenders.length > 0 && (
               <>
-                <label className="text-sm font-medium">Género</label>
+                <label className="text-sm font-medium">Género (legado)</label>
                 <Select
                   value={selectedGender || "all"}
                   onValueChange={handleGenderChange}
@@ -393,7 +614,9 @@ const AllFiltersComponent = ({
               </>
             )}
 
-            {/* Clear filters button */}
+           
+          </div> */}
+           {/* Clear filters button */}
             {hasActiveFilters && (
               <Button
                 onClick={clearAllFilters}
@@ -404,7 +627,6 @@ const AllFiltersComponent = ({
                 Limpiar filtros
               </Button>
             )}
-          </div>
         </div>
       </div>
     </div>

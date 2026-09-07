@@ -34,7 +34,7 @@ export async function GET(req: Request) {
 
     const inventory = await StoreInventory.find(query)
       .populate("product", "title images price variations slug")
-      .populate("store", "name slug")
+      .populate("store", "name slug type")
       .sort({ lastUpdated: -1 });
 
     return NextResponse.json(inventory, { status: 200 });

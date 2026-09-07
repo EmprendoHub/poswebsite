@@ -61,14 +61,7 @@ export async function GET(request: Request) {
     // Fetch all ProductDetails for this catType to map title-cased values
     const productDetails = await ProductDetail.find({ catType: catType });
 
-    // Debug logging
-    console.log(`[ProductDetail Count] catType: ${catType}, field: ${field}`);
-    console.log(
-      `[ProductDetail Count] Found ${counts.length} product count groups`,
-    );
-    console.log(
-      `[ProductDetail Count] Found ${productDetails.length} ProductDetails`,
-    );
+  
 
     // Build countMap with both lowercase and title-cased keys
     const countMap: { [key: string]: number } = {};
@@ -87,9 +80,7 @@ export async function GET(request: Request) {
 
       if (matchingDetail) {
         countMap[matchingDetail.catTitle] = count;
-        console.log(
-          `[ProductDetail Count] Mapped "${matchingDetail.catTitle}" (${lowerCaseKey}) = ${count}`,
-        );
+       
       }
     });
 

@@ -21,8 +21,13 @@ const deleteOrder = async (id: string) => {
   }
 };
 
-const PedidoCanceladoPage = async ({ searchParams }: { searchParams: any }) => {
-  await deleteOrder(searchParams.id);
+const PedidoCanceladoPage = async ({
+  searchParams,
+}: {
+  searchParams: Promise<any>;
+}) => {
+  const resolvedSearchParams = await searchParams;
+  await deleteOrder(resolvedSearchParams.id);
   return <PedidoCancelado />;
 };
 

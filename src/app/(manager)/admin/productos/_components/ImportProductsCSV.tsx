@@ -24,6 +24,9 @@ interface CsvProduct {
   gender: string;
   brand: string;
   images: string;
+  mainCategory: string;
+  subCategory: string;
+  attributes: string;
 }
 
 interface ImportResult {
@@ -72,6 +75,12 @@ const COL_MAP: Record<string, keyof CsvProduct> = {
   marca: "brand",
   images: "images",
   imágenes: "images",
+  maincategory: "mainCategory",
+  "categoría principal": "mainCategory",
+  subcategory: "subCategory",
+  subcategoría: "subCategory",
+  attributes: "attributes",
+  atributos: "attributes",
 };
 
 function normalizeKey(raw: string): keyof CsvProduct | null {
@@ -148,6 +157,10 @@ const ImportProductsCSV = () => {
             linea: "",
             gender: "",
             brand: "",
+            images: "",
+            mainCategory: "",
+            subCategory: "",
+            attributes: "",
             images: "",
           };
 
@@ -533,7 +546,7 @@ const ImportProductsCSV = () => {
           result.totalImages = totalImages;
         }
 
-        // Update existing product with new images
+        // Update existing product with new images and taxonomy
         try {
           // Prepare updated images array - replace existing images with new ones
           const updatedImages = uploadedImages.map((url) => ({ url }));
@@ -541,15 +554,33 @@ const ImportProductsCSV = () => {
           // Ensure productId is a string
           const productId = String(existingProduct._id);
 
+          // Build update payload with new taxonomy fields
+          const updatePayload: any = {
+            images: updatedImages,
+            active: activateOnline,
+            availability: { online: activateOnline },
+          };
+
+          // Add new taxonomy fields if provided
+          if (row.mainCategory?.trim()) {
+            updatePayload.mainCategory = row.mainCategory.trim();
+          }
+          if (row.subCategory?.trim()) {
+            updatePayload.subCategory = row.subCategory.trim();
+          }
+          if (row.attributes?.trim()) {
+            // Support comma-separated attribute IDs
+            updatePayload.attributes = row.attributes
+              .split(",")
+              .map((a) => a.trim())
+              .filter(Boolean);
+          }
+
           // Use direct MongoDB update via a simple fetch to update the product
           const updateResponse = await fetch(`/api/product/${productId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              images: updatedImages,
-              active: activateOnline,
-              availability: { online: activateOnline },
-            }),
+            body: JSON.stringify(updatePayload),
           });
 
           if (!updateResponse.ok) {

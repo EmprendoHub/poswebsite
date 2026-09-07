@@ -24,8 +24,13 @@ export async function GET(request: Request) {
     const variationIds =
       searchParams.get("variationIds")?.split(",").filter(Boolean) || [];
 
-    // Start with all active stores that have email
-    let query: any = { isActive: true, email: { $exists: true, $ne: "" } };
+    // Start with all active, physical stores that have email.
+    // Bodega stores are storage-only and are never valid pickup locations.
+    let query: any = {
+      isActive: true,
+      type: "fisica",
+      email: { $exists: true, $ne: "" },
+    };
 
     let stores = await Store.find(query, {
       _id: 1,

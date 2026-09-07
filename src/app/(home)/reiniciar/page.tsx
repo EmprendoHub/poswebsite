@@ -25,8 +25,13 @@ const resetAccountAccess = async (token: any) => {
   }
 };
 
-const SuccessPage = async ({ searchParams }: { searchParams: any }) => {
-  const token = searchParams?.token;
+const SuccessPage = async ({
+  searchParams,
+}: {
+  searchParams: Promise<any>;
+}) => {
+  const resolvedSearchParams = await searchParams;
+  const token = resolvedSearchParams?.token;
   const res = await resetAccountAccess(token);
   const isUnblocked = res?.message === "Cuenta desbloqueada";
   return (

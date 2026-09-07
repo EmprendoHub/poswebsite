@@ -73,6 +73,22 @@ const ProductSchema = new mongoose.Schema(
       require: true,
       type: String,
     },
+    // New hierarchical taxonomy (replaces category/gender long-term).
+    // Kept alongside the legacy string fields above during the migration period.
+    mainCategory: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+    },
+    subCategory: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+    },
+    attributes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Category",
+      },
+    ],
     tags: [
       {
         value: {

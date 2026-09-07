@@ -76,6 +76,7 @@ function ManagerCodeModal({
           <input
             type="text"
             value={"•".repeat(code.length).padEnd(6, "•")}
+            readOnly
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 handleVerify();

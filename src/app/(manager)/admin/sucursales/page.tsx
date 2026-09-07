@@ -26,10 +26,7 @@ interface Store {
 
 const typeLabels: Record<string, string> = {
   fisica: "Tienda Física",
-  online: "Online",
-  instagram: "Instagram",
-  evento: "Evento",
-  otro: "Otro",
+  bodega: "Bodega",
 };
 
 export default function StoresAdminPage() {

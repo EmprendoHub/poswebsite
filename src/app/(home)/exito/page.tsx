@@ -25,8 +25,13 @@ const verifyEmail = async (token: string) => {
   }
 };
 
-const SuccessPage = async ({ searchParams }: { searchParams: any }) => {
-  const token = searchParams?.token;
+const SuccessPage = async ({
+  searchParams,
+}: {
+  searchParams: Promise<any>;
+}) => {
+  const resolvedSearchParams = await searchParams;
+  const token = resolvedSearchParams?.token;
   const res = await verifyEmail(token);
   const isVerified = res?.message === "Email verificado";
   return (

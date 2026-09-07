@@ -44,6 +44,7 @@ import PayrollEntry from "@/backend/models/PayrollEntry";
 import WorkOrder from "@/backend/models/WorkOrder";
 import StoreInventory from "@/backend/models/StoreInventory";
 import Store from "@/backend/models/Store";
+import { getPhysicalStoreIds } from "@/lib/storeHelpers";
 import { getToken } from "next-auth/jwt";
 import TestUser from "@/backend/models/TestUser";
 import { NextResponse } from "next/server";
@@ -451,10 +452,12 @@ export async function payPOSDrawer(data: any) {
             return;
           }
 
-          // Check StoreInventory (sum across all stores)
+          // Check StoreInventory (sum across physical "fisica" stores only)
+          const physicalStoreIds = await getPhysicalStoreIds();
           const inventoryRecords = await StoreInventory.find({
             variationId: variationId,
             quantity: { $gt: 0 },
+            store: { $in: physicalStoreIds },
           });
 
           const totalAvailable = inventoryRecords.reduce(
@@ -2178,7 +2181,9 @@ export async function getAllOrder(searchQuery: any) {
     const apiOrderFilters: any = new APIOrderFilters(
       orderQuery,
       searchParams,
-    ).searchAllFields();
+    )
+      .searchAllFields()
+      .filter();
 
     let ordersData = await apiOrderFilters.query;
 
@@ -2204,11 +2209,24 @@ export async function getAllOrder(searchQuery: any) {
 
     let orders = JSON.stringify(ordersData);
 
+    // Options for the branch filter dropdown (store slugs plus fixed channels)
+    const branchOptions = [
+      ...(stores as any[])
+        .filter((s) => s.slug)
+        .map((s) => ({ value: s.slug, label: s.name })),
+      { value: "Web", label: "Web" },
+      { value: "Instagram", label: "Instagram" },
+      { value: "MANUAL", label: "Manual" },
+      { value: "REDES", label: "Redes Sociales" },
+      { value: "Sucursal", label: "Sucursal (legacy)" },
+    ];
+
     return {
       orders: orders,
       totalOrderCount: totalOrderCount,
       itemCount: itemCount,
       resPerPage: resPerPage,
+      branchOptions: JSON.stringify(branchOptions),
     };
   } catch (error: any) {
     console.log(error);
@@ -2551,8 +2569,9 @@ export async function getOneProductWithTrending(slug: string, id: string) {
       .limit(4);
 
     // ── Merge real-time StoreInventory stock into each variation ─────────────
+    const physicalStoreIds = await getPhysicalStoreIds();
     const inventoryRecords = await StoreInventory.find(
-      { product: product._id },
+      { product: product._id, store: { $in: physicalStoreIds } },
       { variationId: 1, quantity: 1 },
     ).lean();
 
@@ -2817,6 +2836,9 @@ export async function bulkUpdateProducts(
     category?: string;
     gender?: string;
     brand?: string;
+    mainCategory?: string;
+    subCategory?: string;
+    attributes?: string[];
     weight?: number;
     dimensions?: { length?: number; width?: number; height?: number };
   },
@@ -2827,6 +2849,10 @@ export async function bulkUpdateProducts(
     if (updates.category) updateFields.category = updates.category;
     if (updates.gender) updateFields.gender = updates.gender;
     if (updates.brand) updateFields.brand = updates.brand;
+    if (updates.mainCategory) updateFields.mainCategory = updates.mainCategory;
+    if (updates.subCategory) updateFields.subCategory = updates.subCategory;
+    if (updates.attributes && updates.attributes.length > 0)
+      updateFields.attributes = updates.attributes;
     if (updates.weight != null) updateFields.weight = updates.weight;
     if (updates.dimensions) {
       const { length, width, height } = updates.dimensions;
@@ -2857,11 +2883,13 @@ export async function getVariationStock(variationId: any) {
       throw Error("Product not found");
     }
 
-    // Get total stock from StoreInventory across ALL stores
-    // This is the source of truth for stock availability
+    // Get total stock from StoreInventory across physical ("fisica") stores only
+    // This is the source of truth for online stock availability
+    const physicalStoreIds = await getPhysicalStoreIds();
     const inventoryRecords = await StoreInventory.find({
       variationId: variationId,
       quantity: { $gt: 0 },
+      store: { $in: physicalStoreIds },
     });
 
     const currentStock = inventoryRecords.reduce(
@@ -3128,6 +3156,12 @@ export async function getAllProduct(searchQuery: any) {
         productQuery = productQuery.sort({ brand: sortDir });
       } else if (sortBy === "price") {
         productQuery = productQuery.sort({ "variations.0.price": sortDir });
+      } else if (sortBy === "mainCategory") {
+        productQuery = productQuery.sort({ mainCategory: sortDir });
+      } else if (sortBy === "subCategory") {
+        productQuery = productQuery.sort({ subCategory: sortDir });
+      } else if (sortBy === "attributes") {
+        productQuery = productQuery.sort({ attributes: sortDir });
       } else if (sortBy === "stock") {
         // Stock sorting will be handled after fetching inventory data
         productQuery = productQuery.sort({ createdAt: -1 });

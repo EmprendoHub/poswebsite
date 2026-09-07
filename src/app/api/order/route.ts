@@ -54,7 +54,7 @@ export async function PUT(req: any, res: any) {
   }
   try {
     const payload = await req.formData();
-    let { transactionNo, paidOn, note, amount, orderId } =
+    let { transactionNo, paidOn, note, amount, orderId, paymentMethod } =
       Object.fromEntries(payload);
 
     // Define the model name with the suffix appended with the lottery ID
@@ -79,7 +79,14 @@ export async function PUT(req: any, res: any) {
     await order.save();
 
     let payMethod;
-    if (transactionNo === "EFECTIVO") {
+    if (paymentMethod === "tarjeta") {
+      payMethod = "TERMINAL";
+    } else if (paymentMethod === "transferencia") {
+      payMethod = "TRANSFERENCIA";
+    } else if (paymentMethod === "efectivo") {
+      payMethod = "EFECTIVO";
+    } else if (transactionNo === "EFECTIVO") {
+      // Legacy fallback for callers that don't send paymentMethod
       payMethod = "EFECTIVO";
     } else if (!isNaN(transactionNo)) {
       payMethod = "TERMINAL";

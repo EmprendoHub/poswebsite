@@ -34,6 +34,9 @@ export async function GET(req: Request) {
     const category = url.searchParams.get("category");
     const brand = url.searchParams.get("brand");
     const gender = url.searchParams.get("gender");
+    const mainCategory = url.searchParams.get("mainCategory");
+    const subCategory = url.searchParams.get("subCategory");
+    const attribute = url.searchParams.get("attribute");
 
     // Parse "YYYY-MM-DD" strings as LOCAL midnight to avoid the UTC-parse + local
     // setHours mismatch that causes same-day ranges to return zero results.
@@ -156,11 +159,14 @@ export async function GET(req: Request) {
       }
     }
 
-    // Build product filter for category, brand, gender
+    // Build product filter for category, brand, gender, and new taxonomy
     let productFilter: any = {};
     if (category) productFilter.category = category;
     if (brand) productFilter.brand = brand;
     if (gender) productFilter.gender = gender;
+    if (mainCategory) productFilter.mainCategory = mainCategory;
+    if (subCategory) productFilter.subCategory = subCategory;
+    if (attribute) productFilter.attributes = attribute;
 
     // Get filtered product IDs if any filters are applied
     let filteredProductIds: string[] | null = null;

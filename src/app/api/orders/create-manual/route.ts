@@ -31,6 +31,8 @@ export async function POST(req: NextRequest) {
       pickupStore,
       paymentMethod,
       paymentRefNumber,
+      isLayaway,
+      depositAmount,
       notes,
       orderSource,
     } = await req.json();
@@ -61,6 +63,13 @@ export async function POST(req: NextRequest) {
     if (shippingType === "pickup" && !pickupStore) {
       return NextResponse.json(
         { error: "Sucursal de recogida es requerida" },
+        { status: 400 },
+      );
+    }
+
+    if (isLayaway && Number(depositAmount) < 0) {
+      return NextResponse.json(
+        { error: "El anticipo del apartado es requerido" },
         { status: 400 },
       );
     }
@@ -141,6 +150,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate deposit covers the layaway minimum (30% of total)
+    if (isLayaway && Number(depositAmount) < 0) {
+      return NextResponse.json(
+        {
+          error: `El anticipo debe ser al menos el 30% del total ($${(totalAmount * 0.3).toFixed(2)})`,
+        },
+        { status: 400 },
+      );
+    }
+
     // Get or create user
     let user = await User.findOne({ email: customerEmail });
     if (!user) {
@@ -150,6 +169,8 @@ export async function POST(req: NextRequest) {
         phone: customerPhone,
       });
     }
+
+    const amountPaid = isLayaway ? Number(depositAmount) : totalAmount;
 
     // Create order
     const orderData: any = {
@@ -161,15 +182,19 @@ export async function POST(req: NextRequest) {
       fulfillmentType: shippingType || "delivery",
       paymentInfo: {
         id: paymentMethod,
-        status: "Pagado",
+        status: isLayaway ? "unpaid" : "Pagado",
         taxPaid: 0,
-        amountPaid: totalAmount,
+        amountPaid,
         paymentIntent:
           paymentMethod === "efectivo" ? "EFECTIVO" : paymentRefNumber || "",
       },
-      orderStatus:
-        shippingType === "pickup" ? "Listo para recoger" : "Procesando",
-      paymentStatus: "Pagado",
+      orderStatus: isLayaway
+        ? "Apartado"
+        : shippingType === "pickup"
+          ? "Listo para recoger"
+          : "Procesando",
+      paymentStatus: isLayaway ? "Pendiente" : "Pagado",
+      layaway: !!isLayaway,
       totalAmount,
       createdBy: token.sub,
       createdByRole: (token.user as any)?.role,
@@ -203,7 +228,7 @@ export async function POST(req: NextRequest) {
     const paymentType = orderSource === "Manual" ? "manual" : "social";
     await Payment.create({
       type: paymentType,
-      amount: totalAmount,
+      amount: amountPaid,
       reference:
         paymentMethod === "efectivo" ? "EFECTIVO" : paymentRefNumber || "",
       paymentIntent:

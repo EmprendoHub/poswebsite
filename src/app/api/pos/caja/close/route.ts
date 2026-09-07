@@ -7,6 +7,7 @@ import {
   POS_ALLOWED_ROLES,
   calculateExpectedCash,
   nextCutNumber,
+  buildCancelledOrdersDetail,
   CashRegisterCut,
   CashRegisterSession,
 } from "@/lib/posCaja";
@@ -45,46 +46,20 @@ export async function POST(req: Request) {
     const periodStart = cajaSession.openedAt;
     const periodEnd = new Date();
 
-    console.log("\n████████████ CIERRE DEBUG ████████████");
-    console.log("📅 PERIOD START:", {
-      raw: periodStart,
-      iso: new Date(periodStart).toISOString(),
-      timestamp: periodStart.getTime?.() || new Date(periodStart).getTime(),
-    });
-    console.log("📅 PERIOD END:", {
-      raw: periodEnd,
-      iso: periodEnd.toISOString(),
-      timestamp: periodEnd.getTime(),
-    });
-    console.log(
-      "⏱️  Period Duration (ms):",
-      periodEnd.getTime() -
-        (periodStart.getTime?.() || new Date(periodStart).getTime()),
-    );
-    console.log("████████████████████████████████████\n");
-
     // All movements for the full session (cierre covers everything since apertura)
     const movements = await CashRegisterMovement.find({
       session: sessionId,
     }).lean();
 
-    // For cierre, include all cancelled orders from the entire session
-    // (all calendar days involved in the session period)
+    // For cierre, include all cancelled orders from the entire session,
+    // scoped to this branch (all calendar days involved in the session period)
     const cancelledOrders = await Order.find({
       orderStatus: "Cancelado",
+      storeId: cajaSession.store,
       createdAt: { $gte: periodStart, $lte: periodEnd },
     }).lean();
 
-    // Debug: Check all cancelled orders to see their timestamps
-    const allCancelledOrders = await Order.find({
-      orderStatus: "Cancelado",
-    })
-      .lean()
-      .limit(5);
-    allCancelledOrders.forEach((order: any, idx: number) => {});
 
-    if (cancelledOrders.length > 0) {
-    }
 
     const totals = movements.reduce(
       (acc, m) => {
@@ -151,6 +126,7 @@ export async function POST(req: Request) {
         totalSales,
         cancelledOrdersCount: totals.cancelledOrdersCount,
         cancelledOrdersTotal: totals.cancelledOrdersTotal,
+        cancelledOrders: buildCancelledOrdersDetail(cancelledOrders),
       },
       movementsCount: movements.length,
       salesCount: movements.filter((m) => m.type === "sale").length,

@@ -7,12 +7,14 @@ const ClientDetailsPage = async ({
   searchParams,
   params,
 }: {
-  searchParams: any;
-  params: any;
+  searchParams: Promise<any>;
+  params: Promise<any>;
 }) => {
+  const resolvedSearchParams = await searchParams;
+  const resolvedParams = await params;
   const urlParams = {
-    keyword: searchParams.keyword,
-    page: searchParams.page,
+    keyword: resolvedSearchParams.keyword,
+    page: resolvedSearchParams.page,
   };
   const filteredUrlParams = Object.fromEntries(
     Object.entries(urlParams).filter(([key, value]) => value !== undefined)
@@ -22,12 +24,12 @@ const ClientDetailsPage = async ({
   const queryUrlParams = removeUndefinedAndPageKeys(urlParams);
   const keywordQuery = new URLSearchParams(queryUrlParams).toString();
 
-  const data = await getAllCustomerOrders(searchQuery, params.id);
+  const data = await getAllCustomerOrders(searchQuery, resolvedParams.id);
   const orders = JSON.parse(data.orders);
   const client = JSON.parse(data.client);
   const filteredOrdersCount = data?.itemCount;
   //Pagination
-  let page = parseInt(searchParams.page, 10);
+  let page = parseInt(resolvedSearchParams.page, 10);
   page = !page || page < 1 ? 1 : page;
   const perPage = 5;
   const totalPages = Math.ceil(data.itemCount / perPage);

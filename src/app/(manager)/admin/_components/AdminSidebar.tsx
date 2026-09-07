@@ -172,7 +172,7 @@ export function SideBarItem({
 
   return (
     <li
-      className={`relative flex flex-col items-center font-medium  cursor-pointer py-2 px-2 text-[14px]  rounded-[20px]  ${
+      className={`relative flex flex-col items-center font-medium  cursor-pointer py-1 px-2 text-[14px]  rounded-[20px]  ${
         active === "true"
           ? " text-slate-400 bg-foreground rounded-[20px] "
           : "hover:text-slate-400 hover:bg-foreground text-muted"

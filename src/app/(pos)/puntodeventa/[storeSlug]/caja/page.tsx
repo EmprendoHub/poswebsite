@@ -24,6 +24,11 @@ interface CajaTotals {
   totalSales?: number;
   cancelledOrdersCount?: number;
   cancelledOrdersTotal?: number;
+  cancelledOrders?: {
+    orderId: number;
+    amount: number;
+    cancelledBy: string | null;
+  }[];
 }
 interface CajaSession {
   _id: string;
@@ -176,10 +181,19 @@ function CajaTicket({
             ÓRDENES CANCELADAS
           </div>
           <div className="flex justify-between text-xs">
-            <span># Cancelado:</span>
+            <span>Cantidad:</span>
             <span>{cut.totals.cancelledOrdersCount ?? 0}</span>
           </div>
-          <div className="flex justify-between text-xs">
+        
+          {cut.totals.cancelledOrders?.map((o, i) => (
+            <div key={i} className="flex justify-between text-xs">
+              <span>
+                #{o.orderId} {o.cancelledBy ? `- ${o.cancelledBy.substring(0,10)}` : ""}
+              </span>
+              <span>{fmt(o.amount)}</span>
+            </div>
+          ))}
+            <div className="flex justify-between text-xs">
             <span>Total:</span>
             <span>{fmt(cut.totals.cancelledOrdersTotal ?? 0)}</span>
           </div>
@@ -876,14 +890,7 @@ export default function CajaPage() {
                           <td className="px-4 py-3 text-center">
                             <button
                               onClick={() => {
-                                console.log("=== REPRINT BUTTON CLICKED ===");
-                                console.log("Cut data:", {
-                                  _id: c._id,
-                                  cancelledOrdersCount:
-                                    c.totals?.cancelledOrdersCount,
-                                  cancelledOrdersTotal:
-                                    c.totals?.cancelledOrdersTotal,
-                                });
+                                
                                 setLastCut(c);
                                 setShowPrintTicket(true);
                               }}

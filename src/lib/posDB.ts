@@ -16,6 +16,9 @@ export interface CachedProduct {
   price?: number; // Base product price
   currentPrice?: number; // Sale price (takes precedence over price)
   images: { url: string }[];
+  mainCategory?: string;
+  subCategory?: string;
+  attributes?: string[];
   variations: {
     _id: string;
     title?: string;

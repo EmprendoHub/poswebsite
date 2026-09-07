@@ -20,12 +20,23 @@ async function NoCookieLoginError(str: string) {
   return str.toLowerCase().includes("you are not authorized no no no");
 }
 
-const ErrorPage = async ({ searchParams }: { searchParams: any }) => {
-  const ifEmailNotVerified = await containsVerifyEmail(searchParams.error);
-  const ifLoginError = await containsLoginError(searchParams.error);
-  const ifExceededAttempts = await exceededAttemptsError(searchParams.error);
-  const ifBotLoginAttempt = await botLoginError(searchParams.error);
-  const ifNoCookieLoginError = await NoCookieLoginError(searchParams.error);
+const ErrorPage = async ({
+  searchParams,
+}: {
+  searchParams: Promise<any>;
+}) => {
+  const resolvedSearchParams = await searchParams;
+  const ifEmailNotVerified = await containsVerifyEmail(
+    resolvedSearchParams.error,
+  );
+  const ifLoginError = await containsLoginError(resolvedSearchParams.error);
+  const ifExceededAttempts = await exceededAttemptsError(
+    resolvedSearchParams.error,
+  );
+  const ifBotLoginAttempt = await botLoginError(resolvedSearchParams.error);
+  const ifNoCookieLoginError = await NoCookieLoginError(
+    resolvedSearchParams.error,
+  );
   return (
     <ErrorComponent
       ifEmailNotVerified={ifEmailNotVerified}

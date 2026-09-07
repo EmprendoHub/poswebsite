@@ -58,6 +58,10 @@ export async function POST(request: any) {
     if (updates.category) updateFields.category = updates.category;
     if (updates.gender) updateFields.gender = updates.gender;
     if (updates.brand) updateFields.brand = updates.brand;
+    if (updates.mainCategory) updateFields.mainCategory = updates.mainCategory;
+    if (updates.subCategory) updateFields.subCategory = updates.subCategory;
+    if (updates.attributes && updates.attributes.length > 0)
+      updateFields.attributes = updates.attributes;
     if (updates.weight != null) updateFields.weight = updates.weight;
 
     if (updates.dimensions) {

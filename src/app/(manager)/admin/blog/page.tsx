@@ -3,10 +3,15 @@ import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { getAllPost } from "@/app/_actions";
 import AdminPosts from "./_components/AdminPosts";
 
-const AdminPostsPage = async (searchParams: any) => {
+const AdminPostsPage = async ({
+  searchParams,
+}: {
+  searchParams: Promise<any>;
+}) => {
+  const resolvedSearchParams = await searchParams;
   const urlParams = {
-    keyword: searchParams.keyword,
-    page: searchParams.page,
+    keyword: resolvedSearchParams.keyword,
+    page: resolvedSearchParams.page,
   };
   const filteredUrlParams = Object.fromEntries(
     Object.entries(urlParams).filter(([key, value]) => value !== undefined)
@@ -15,7 +20,7 @@ const AdminPostsPage = async (searchParams: any) => {
   const data = await getAllPost(searchQuery);
   const posts = JSON.parse(data.posts);
   //Pagination
-  let page = parseInt(searchParams.page, 10);
+  let page = parseInt(resolvedSearchParams.page, 10);
   page = !page || page < 1 ? 1 : page;
   const perPage = 5;
   const totalPages = Math.ceil(data.itemCount / perPage);

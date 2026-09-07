@@ -109,9 +109,17 @@ const SideBarRender = () => {
       {userRole === "super_admin" && (
         <SideBarItem
           icon={<MdCategory size={20} />}
-          text={"Detalles de Productos"}
+          text={"Detalles Productos"}
           active={pathname === "/admin/producto-detalles" ? "true" : "false"}
           url={"/admin/producto-detalles"}
+        />
+      )}
+      {userRole === "super_admin" && (
+        <SideBarItem
+          icon={<MdCategory size={20} />}
+          text={"Categorías"}
+          active={pathname.startsWith("/admin/categorias") ? "true" : "false"}
+          url={"/admin/categorias"}
         />
       )}
       <SideBarItem

@@ -1,5 +1,5 @@
 "use client";
-import { Key, useEffect, useRef, useState } from "react";
+import { Key, useEffect, useRef, useState, useMemo } from "react";
 import "./productstyles.css";
 import { IoMdCart } from "react-icons/io";
 import FormattedPrice from "@/backend/helpers/FormattedPrice";
@@ -85,6 +85,20 @@ const POSProductDetails = ({ product }: { product: any }) => {
     stock: product?.variations[0]?.stock || 0,
     image: product?.variations[0]?.image || "",
   });
+
+  // Create lookup maps for taxonomy names
+  const mainCategoryById = useMemo(
+    () => new Map(Array.isArray(product?.mainCategories) ? product.mainCategories.map((m: any) => [m._id, m.name]) : []),
+    [product?.mainCategories],
+  );
+  const subCategoryById = useMemo(
+    () => new Map(Array.isArray(product?.subCategories) ? product.subCategories.map((s: any) => [s._id, s.name]) : []),
+    [product?.subCategories],
+  );
+  const attributeById = useMemo(
+    () => new Map(Array.isArray(product?.attributeOptions) ? product.attributeOptions.map((a: any) => [a._id, a.name]) : []),
+    [product?.attributeOptions],
+  );
 
   useEffect(() => {
     // Find matches based on _id property
@@ -408,15 +422,30 @@ const POSProductDetails = ({ product }: { product: any }) => {
                   </span>
 
                   <span>
-                    Categoría:{" "}
+                    Categoría Principal:{" "}
                     <span className="t font-bodyFont">
-                      <b>{product?.category}</b>
+                      <b>{product?.mainCategory ? mainCategoryById.get(product.mainCategory) : "—"}</b>
                     </span>
                   </span>
                   <span>
-                    Departamento:{" "}
-                    <span className="t font-bodyFont">{product?.gender}</span>
+                    Subcategoría:{" "}
+                    <span className="t font-bodyFont">
+                      <b>{product?.subCategory ? subCategoryById.get(product.subCategory) : "—"}</b>
+                    </span>
                   </span>
+                  {product?.attributes && product.attributes.length > 0 && (
+                    <span>
+                      Atributos:{" "}
+                      <span className="t font-bodyFont">
+                        <b>
+                          {product.attributes
+                            .map((attrId: string) => attributeById.get(attrId))
+                            .filter(Boolean)
+                            .join(", ") || "—"}
+                        </b>
+                      </span>
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

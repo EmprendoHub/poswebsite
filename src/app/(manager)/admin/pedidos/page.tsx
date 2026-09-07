@@ -3,10 +3,17 @@ import { removeUndefinedAndPageKeys } from "@/backend/helpers";
 import AdminOrders from "./_components/AdminOrders";
 import ServerPagination from "@/components/layouts/ServerPagination";
 
-const AdminOrdersPage = async ({ searchParams }: { searchParams: any }) => {
+const AdminOrdersPage = async ({
+  searchParams,
+}: {
+  searchParams: Promise<any>;
+}) => {
+  const resolvedSearchParams = await searchParams;
   const urlParams = {
-    keyword: searchParams.keyword,
-    page: searchParams.page,
+    keyword: resolvedSearchParams.keyword,
+    page: resolvedSearchParams.page,
+    orderStatus: resolvedSearchParams.orderStatus,
+    branch: resolvedSearchParams.branch,
   };
   const filteredUrlParams = Object.fromEntries(
     Object.entries(urlParams).filter(([key, value]) => value !== undefined)
@@ -19,9 +26,10 @@ const AdminOrdersPage = async ({ searchParams }: { searchParams: any }) => {
   const data = await getAllOrder(searchQuery);
   const orders = JSON.parse(data.orders);
   const filteredOrdersCount = data?.itemCount;
+  const branchOptions = data?.branchOptions ? JSON.parse(data.branchOptions) : [];
 
   // pagination
-  let page = parseInt(searchParams.page, 10);
+  let page = parseInt(resolvedSearchParams.page, 10);
   page = !page || page < 1 ? 1 : page;
   const perPage = Number(data?.resPerPage);
   const totalPages = Math.ceil(data.itemCount / perPage);
@@ -38,7 +46,11 @@ const AdminOrdersPage = async ({ searchParams }: { searchParams: any }) => {
 
   return (
     <>
-      <AdminOrders orders={orders} filteredOrdersCount={filteredOrdersCount} />
+      <AdminOrders
+        orders={orders}
+        filteredOrdersCount={filteredOrdersCount}
+        branchOptions={branchOptions}
+      />
 
       <ServerPagination
         isPageOutOfRange={isPageOutOfRange}

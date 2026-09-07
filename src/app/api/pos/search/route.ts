@@ -17,9 +17,10 @@ const ALLOWED_ROLES = [
   "instagram",
 ];
 
-// GET /api/pos/search?q=xxx&storeId=xxx&limit=8
-// Searches active products by title, ASIN, category OR exact _id.
+// GET /api/pos/search?q=xxx&storeId=xxx&limit=8&mainCategory=xxx&subCategory=xxx&attribute=xxx
+// Searches active products by title, ASIN, category, mainCategory, subCategory, attributes, brand OR exact _id.
 // When storeId is provided, filters out variations with 0 branch stock.
+// Optional filter params: mainCategory, subCategory, attribute (narrow results by new taxonomy)
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(options);
@@ -33,34 +34,45 @@ export async function GET(req: Request) {
     const q = url.searchParams.get("q")?.trim() ?? "";
     const storeId = url.searchParams.get("storeId") ?? "";
     const limit = Math.min(Number(url.searchParams.get("limit")) || 8, 30);
+    const mainCategoryFilter = url.searchParams.get("mainCategory") ?? "";
+    const subCategoryFilter = url.searchParams.get("subCategory") ?? "";
+    const attributeFilter = url.searchParams.get("attribute") ?? "";
 
-    if (!q) return NextResponse.json([], { status: 200 });
-
-    // Check if query looks like a MongoDB ObjectId (24 hex chars)
-    const isObjectId = /^[a-f\d]{24}$/i.test(q);
+    if (!q && !mainCategoryFilter && !subCategoryFilter && !attributeFilter)
+      return NextResponse.json([], { status: 200 });
 
     const filter: any = { active: true };
 
-    if (isObjectId) {
-      // Search by exact product _id OR by name/ASIN
-      filter.$or = [
-        { _id: new mongoose.Types.ObjectId(q) },
-        { title: { $regex: q, $options: "i" } },
-        { ASIN: { $regex: q, $options: "i" } },
-      ];
-    } else {
-      filter.$or = [
-        { title: { $regex: q, $options: "i" } },
-        { ASIN: { $regex: q, $options: "i" } },
-        { category: { $regex: q, $options: "i" } },
-        { brand: { $regex: q, $options: "i" } },
-        { "variations.title": { $regex: q, $options: "i" } },
-      ];
+    // Add taxonomy filters if provided
+    if (mainCategoryFilter) filter.mainCategory = mainCategoryFilter;
+    if (subCategoryFilter) filter.subCategory = subCategoryFilter;
+    if (attributeFilter) filter.attributes = attributeFilter;
+
+    if (q) {
+      // Search by keyword
+      const isObjectId = /^[a-f\d]{24}$/i.test(q);
+
+      if (isObjectId) {
+        // Search by exact product _id OR by name/ASIN
+        filter.$or = [
+          { _id: new mongoose.Types.ObjectId(q) },
+          { title: { $regex: q, $options: "i" } },
+          { ASIN: { $regex: q, $options: "i" } },
+        ];
+      } else {
+        filter.$or = [
+          { title: { $regex: q, $options: "i" } },
+          { ASIN: { $regex: q, $options: "i" } },
+          { category: { $regex: q, $options: "i" } },
+          { brand: { $regex: q, $options: "i" } },
+          { "variations.title": { $regex: q, $options: "i" } },
+        ];
+      }
     }
 
     const products = await Product.find(filter)
       .select(
-        "_id title ASIN price currentPrice images variations discountPercentage",
+        "_id title ASIN price currentPrice images variations discountPercentage mainCategory subCategory attributes",
       )
       .limit(limit)
       .lean();

@@ -8,10 +8,15 @@ export const metadata = {
   description: "Ven y explora nuestro blog y descubre artículos de moda.",
 };
 
-const AllPostsPage = async ({ searchParams }: { searchParams: any }) => {
+const AllPostsPage = async ({
+  searchParams,
+}: {
+  searchParams: Promise<any>;
+}) => {
+  const resolvedSearchParams = await searchParams;
   const urlParams = {
-    keyword: searchParams.keyword,
-    page: searchParams.page,
+    keyword: resolvedSearchParams.keyword,
+    page: resolvedSearchParams.page,
   };
   const filteredUrlParams = Object.fromEntries(
     Object.entries(urlParams).filter(([key, value]) => value !== undefined)

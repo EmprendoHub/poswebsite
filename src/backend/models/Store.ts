@@ -3,7 +3,7 @@ import mongoose, { Document, Schema } from "mongoose";
 export interface StoreDocument extends Document {
   name: string;
   slug: string;
-  type: "fisica" | "online" | "instagram" | "evento" | "otro";
+  type: "fisica" | "bodega";
   address?: string;
   city?: string;
   state?: string;
@@ -22,7 +22,7 @@ const StoreSchema = new Schema<StoreDocument>(
     slug: { type: String, required: true, unique: true },
     type: {
       type: String,
-      enum: ["fisica", "online", "instagram", "evento", "otro"],
+      enum: ["fisica", "bodega"],
       default: "fisica",
     },
     address: { type: String },

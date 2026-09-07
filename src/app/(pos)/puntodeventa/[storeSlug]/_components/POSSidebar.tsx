@@ -53,7 +53,7 @@ export default function POSSidebar({ storeSlug, storeName }: POSSidebarProps) {
     },
     {
       href: `${base}/reporte`,
-      label: "Reporte del Día",
+      label: "Pedidos",
       icon: <FiBarChart size={20} />,
       managerOnly: false,
     },

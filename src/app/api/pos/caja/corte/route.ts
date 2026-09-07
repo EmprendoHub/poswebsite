@@ -7,6 +7,7 @@ import {
   POS_ALLOWED_ROLES,
   calculateExpectedCash,
   nextCutNumber,
+  buildCancelledOrdersDetail,
   CashRegisterCut,
   CashRegisterSession,
 } from "@/lib/posCaja";
@@ -45,48 +46,21 @@ export async function POST(req: Request) {
     const periodStart = cajaSession.lastCutAt;
     const periodEnd = new Date();
 
-    console.log("\n████████████ CORTE DEBUG ████████████");
-    console.log("📅 PERIOD START:", {
-      raw: periodStart,
-      iso: new Date(periodStart).toISOString(),
-      timestamp: periodStart.getTime?.() || new Date(periodStart).getTime(),
-    });
-    console.log("📅 PERIOD END:", {
-      raw: periodEnd,
-      iso: periodEnd.toISOString(),
-      timestamp: periodEnd.getTime(),
-    });
-    console.log(
-      "⏱️  Period Duration (ms):",
-      periodEnd.getTime() -
-        (periodStart.getTime?.() || new Date(periodStart).getTime()),
-    );
-    console.log("████████████████████████████████████\n");
-
     // Get movements in this period
     const movements = await CashRegisterMovement.find({
       session: sessionId,
       createdAt: { $gte: periodStart, $lte: periodEnd },
     }).lean();
 
-    // Get cancelled orders since last cut
+    // Get cancelled orders since last cut, scoped to this branch
+    // NOTE: For CORTE, we only get orders since lastCutAt to show change since last cut
     const cancelledOrders = await Order.find({
       orderStatus: "Cancelado",
+      storeId: cajaSession.store,
       createdAt: { $gte: periodStart, $lte: periodEnd },
     }).lean();
 
-    console.log(
-      `✅ Found ${cancelledOrders.length} cancelled orders in this period`,
-    );
 
-    // Debug: Check all cancelled orders to see their timestamps
-    const allCancelledOrders = await Order.find({
-      orderStatus: "Cancelado",
-    })
-      .lean()
-      .limit(5);
-
-    allCancelledOrders.forEach((order: any, idx: number) => {});
 
     const totals = movements.reduce(
       (acc, m) => {
@@ -121,10 +95,7 @@ export async function POST(req: Request) {
       },
     );
 
-    console.log("Totals Calculated:", {
-      cancelledOrdersCount: totals.cancelledOrdersCount,
-      cancelledOrdersTotal: totals.cancelledOrdersTotal,
-    });
+
 
     // Combine payment methods: Efectivo includes mixed cash, Terminal includes mixed card
     const totalCashSales = totals.cashSales + totals.mixedCashSales;
@@ -158,17 +129,14 @@ export async function POST(req: Request) {
         totalSales,
         cancelledOrdersCount: totals.cancelledOrdersCount,
         cancelledOrdersTotal: totals.cancelledOrdersTotal,
+        cancelledOrders: buildCancelledOrdersDetail(cancelledOrders),
       },
       movementsCount: movements.length,
       salesCount: movements.filter((m) => m.type === "sale").length,
       notes: notes || "",
     });
 
-    console.log("Cut Created with totals:", {
-      _id: cut._id,
-      cancelledOrdersCount: cut.totals.cancelledOrdersCount,
-      cancelledOrdersTotal: cut.totals.cancelledOrdersTotal,
-    });
+
 
     // Update last cut time (register accumulates totals for cierre)
     cajaSession.lastCutAt = periodEnd;

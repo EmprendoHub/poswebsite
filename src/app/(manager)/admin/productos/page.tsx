@@ -4,12 +4,17 @@ import AdminProducts from "./_components/AdminProducts";
 import { getAllProduct } from "@/app/_actions";
 import { removeUndefinedAndPageKeys } from "@/backend/helpers";
 
-const AdminProductsPage = async ({ searchParams }: { searchParams: any }) => {
+const AdminProductsPage = async ({
+  searchParams,
+}: {
+  searchParams: Promise<any>;
+}) => {
+  const resolvedSearchParams = await searchParams;
   const urlParams = {
-    keyword: searchParams.keyword,
-    page: searchParams.page,
-    sortBy: searchParams.sortBy,
-    sortDir: searchParams.sortDir,
+    keyword: resolvedSearchParams.keyword,
+    page: resolvedSearchParams.page,
+    sortBy: resolvedSearchParams.sortBy,
+    sortDir: resolvedSearchParams.sortDir,
   };
   const filteredUrlParams = Object.fromEntries(
     Object.entries(urlParams).filter(([key, value]) => value !== undefined),
@@ -26,7 +31,7 @@ const AdminProductsPage = async ({ searchParams }: { searchParams: any }) => {
 
   const products = JSON.parse(data.products);
   // pagination
-  let page = parseInt(searchParams.page, 10);
+  let page = parseInt(resolvedSearchParams.page, 10);
   page = !page || page < 1 ? 1 : page;
   const perPage = 40;
   const itemCount = data?.filteredProductsCount || 0;
@@ -37,16 +42,18 @@ const AdminProductsPage = async ({ searchParams }: { searchParams: any }) => {
   const pageNumbers = [];
   const offsetNumber = 3;
   const search =
-    typeof searchParams.search === "string" ? searchParams.search : undefined;
+    typeof resolvedSearchParams.search === "string"
+      ? resolvedSearchParams.search
+      : undefined;
 
   // Build search params for pagination links
   const paginationParams = new URLSearchParams();
-  if (searchParams.keyword)
-    paginationParams.append("keyword", searchParams.keyword);
-  if (searchParams.sortBy)
-    paginationParams.append("sortBy", searchParams.sortBy);
-  if (searchParams.sortDir)
-    paginationParams.append("sortDir", searchParams.sortDir);
+  if (resolvedSearchParams.keyword)
+    paginationParams.append("keyword", resolvedSearchParams.keyword);
+  if (resolvedSearchParams.sortBy)
+    paginationParams.append("sortBy", resolvedSearchParams.sortBy);
+  if (resolvedSearchParams.sortDir)
+    paginationParams.append("sortDir", resolvedSearchParams.sortDir);
   const allSearchParams = paginationParams.toString();
 
   for (let i = page - offsetNumber; i <= page + offsetNumber; i++) {

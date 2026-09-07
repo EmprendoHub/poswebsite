@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import StoreInventory from "@/backend/models/StoreInventory";
 import Product from "@/backend/models/Product";
 import dbConnect from "@/lib/db";
+import { getPhysicalStoreIds } from "@/lib/storeHelpers";
 import { NextResponse } from "next/server";
 
 /**
@@ -35,10 +36,12 @@ export async function GET(request: Request) {
       );
     }
 
-    // Get total stock from all stores for this variation
+    // Get total stock from physical ("fisica") stores only for this variation
+    const physicalStoreIds = await getPhysicalStoreIds();
     const inventoryRecords = await StoreInventory.find({
       variationId: variationId,
       quantity: { $gt: 0 },
+      store: { $in: physicalStoreIds },
     }).lean();
 
     const totalStock = inventoryRecords.reduce(

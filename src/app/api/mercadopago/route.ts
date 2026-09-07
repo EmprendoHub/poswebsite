@@ -4,6 +4,7 @@ import Order from "@/backend/models/Order";
 import Product from "@/backend/models/Product";
 import StoreInventory from "@/backend/models/StoreInventory";
 import dbConnect from "@/lib/db";
+import { getPhysicalStoreIds } from "@/lib/storeHelpers";
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 
@@ -35,6 +36,7 @@ interface MercadoPagoPreference {
 
 async function getCartItems(items: any, storeId?: string) {
   try {
+    const physicalStoreIds = storeId ? null : await getPhysicalStoreIds();
     const cartItemsPromises = items.map(async (item: any) => {
       const variationId = item.variation || item._id;
       const productId = item.product || item._id;
@@ -65,9 +67,11 @@ async function getCartItems(items: any, storeId?: string) {
         });
         availableStock = storeInventory?.quantity || 0;
       } else {
+        // Online order: sum inventory only from physical ("fisica") stores
         const allStoreInventory = await StoreInventory.find({
           variationId: variationId,
           quantity: { $gt: 0 },
+          store: { $in: physicalStoreIds },
         });
         availableStock = allStoreInventory.reduce(
           (sum: number, inv: any) => sum + inv.quantity,

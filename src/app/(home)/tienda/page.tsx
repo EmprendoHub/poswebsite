@@ -2,7 +2,9 @@ import { Suspense } from "react";
 import { unstable_cache } from "next/cache";
 import dbConnect from "@/lib/db";
 import Product from "@/backend/models/Product";
+import Category from "@/backend/models/Category";
 import StoreInventory from "@/backend/models/StoreInventory";
+import { getPhysicalStoreIds } from "@/lib/storeHelpers";
 
 import ListProducts from "./_components/ListProducts";
 
@@ -28,6 +30,9 @@ const getStoreData = unstable_cache(
         category: 1,
         brand: 1,
         gender: 1,
+        mainCategory: 1,
+        subCategory: 1,
+        attributes: 1,
         ASIN: 1,
         createdAt: 1,
         weight: 1,
@@ -40,12 +45,14 @@ const getStoreData = unstable_cache(
       .sort({ createdAt: -1 })
       .lean();
 
-    // Filter products to only show those with stock in at least one store
+    // Filter products to only show those with stock in at least one physical store
     const productIds = products.map((p) => p._id);
+    const physicalStoreIds = await getPhysicalStoreIds();
     const productsWithStock = await StoreInventory.find(
       {
         product: { $in: productIds },
         quantity: { $gt: 0 }, // Only entries with stock > 0
+        store: { $in: physicalStoreIds },
       },
       { product: 1 },
     ).distinct("product");
@@ -90,6 +97,54 @@ const getStoreData = unstable_cache(
       new Set(markedUpProducts.map((p) => p.gender).filter(Boolean)),
     ).sort() as string[];
 
+    // New taxonomy: only offer Main Categories / Attributes that are actually
+    // in use by an online, in-stock product (avoids empty filter options).
+    const usedMainIds = new Set(
+      markedUpProducts.map((p: any) => p.mainCategory?.toString()).filter(Boolean),
+    );
+    const usedAttributeIds = new Set(
+      markedUpProducts.flatMap(
+        (p: any) => p.attributes?.map((a: any) => a?.toString()) ?? [],
+      ),
+    );
+
+    const [mainDocs, subDocs, attributeDocs] = await Promise.all([
+      Category.find(
+        { kind: "main", _id: { $in: Array.from(usedMainIds) } },
+        { name: 1 },
+      )
+        .sort({ order: 1, name: 1 })
+        .lean(),
+      // All subcategories of a used Main Category — not just the ones with a
+      // migrated product yet — so the filter shows the full cascading list.
+      Category.find(
+        { kind: "sub", parent: { $in: Array.from(usedMainIds) } },
+        { name: 1, parent: 1 },
+      )
+        .sort({ order: 1, name: 1 })
+        .lean(),
+      Category.find(
+        { kind: "attribute", _id: { $in: Array.from(usedAttributeIds) } },
+        { name: 1 },
+      )
+        .sort({ order: 1, name: 1 })
+        .lean(),
+    ]);
+
+    const allMainCategories = mainDocs.map((m: any) => ({
+      _id: m._id.toString(),
+      name: m.name,
+    }));
+    const allSubCategories = subDocs.map((s: any) => ({
+      _id: s._id.toString(),
+      name: s.name,
+      parent: s.parent?.toString() ?? "",
+    }));
+    const allAttributes = attributeDocs.map((a: any) => ({
+      _id: a._id.toString(),
+      name: a.name,
+    }));
+
     const prices: number[] = markedUpProducts.flatMap(
       (p) =>
         p.variations
@@ -104,6 +159,9 @@ const getStoreData = unstable_cache(
       allCategories,
       allBrands,
       allGenders,
+      allMainCategories,
+      allSubCategories,
+      allAttributes,
       priceRange: { min: minPrice, max: maxPrice },
     };
   },
@@ -120,12 +178,23 @@ export default async function TiendaPage({
     category?: string;
     brand?: string;
     gender?: string;
+    mainCategory?: string;
+    subCategory?: string;
+    attribute?: string;
     minPrice?: string;
     maxPrice?: string;
   }>;
 }) {
-  const { products, allCategories, allBrands, allGenders, priceRange } =
-    await getStoreData();
+  const {
+    products,
+    allCategories,
+    allBrands,
+    allGenders,
+    allMainCategories,
+    allSubCategories,
+    allAttributes,
+    priceRange,
+  } = await getStoreData();
   const resolvedSearchParams = await searchParams;
 
   return (
@@ -136,6 +205,9 @@ export default async function TiendaPage({
           allCategories={allCategories}
           allBrands={allBrands}
           allGenders={allGenders}
+          allMainCategories={allMainCategories}
+          allSubCategories={allSubCategories}
+          allAttributes={allAttributes}
           priceRange={priceRange}
           searchParams={resolvedSearchParams}
           filteredProductsCount={products.length}

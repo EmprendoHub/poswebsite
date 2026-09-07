@@ -6,6 +6,7 @@ import Payment from "@/backend/models/Payment";
 import Product from "@/backend/models/Product";
 import StoreInventory from "@/backend/models/StoreInventory";
 import dbConnect from "@/lib/db";
+import { getPhysicalStoreIds } from "@/lib/storeHelpers";
 import { getToken } from "next-auth/jwt";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
@@ -173,10 +174,11 @@ export async function POST(req: any, res: any) {
 
     const cartItems: any[] = [];
     const validationErrors: string[] = [];
+    const physicalStoreIds = await getPhysicalStoreIds();
 
     // Validate all items using StoreInventory
     // NOTE: This endpoint should ideally receive a storeId for checkout in specific stores
-    // Currently validates against sum of all StoreInventory entries
+    // Currently validates against sum of all StoreInventory entries from physical stores
     await Promise.all(
       items?.map(async (item: any) => {
         try {
@@ -201,10 +203,11 @@ export async function POST(req: any, res: any) {
             return;
           }
 
-          // Check StoreInventory across all stores
+          // Check StoreInventory across all physical ("fisica") stores
           const inventoryRecords = await StoreInventory.find({
             variationId: variationId,
             quantity: { $gt: 0 },
+            store: { $in: physicalStoreIds },
           });
 
           const totalAvailable = inventoryRecords.reduce(

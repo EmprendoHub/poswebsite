@@ -21,6 +21,13 @@ export interface CashRegisterCutDocument extends Document {
     inflows: number;
     outflows: number;
     totalSales: number;
+    cancelledOrdersCount?: number;
+    cancelledOrdersTotal?: number;
+    cancelledOrders?: {
+      orderId: number;
+      amount: number;
+      cancelledBy: string | null;
+    }[];
   };
   movementsCount: number;
   salesCount: number;
@@ -64,6 +71,15 @@ const CashRegisterCutSchema = new Schema<CashRegisterCutDocument>(
       inflows: { type: Number, default: 0 },
       outflows: { type: Number, default: 0 },
       totalSales: { type: Number, default: 0 },
+      cancelledOrdersCount: { type: Number, default: 0 },
+      cancelledOrdersTotal: { type: Number, default: 0 },
+      cancelledOrders: [
+        {
+          orderId: { type: Number },
+          amount: { type: Number },
+          cancelledBy: { type: String, default: null },
+        },
+      ],
     },
     movementsCount: { type: Number, default: 0 },
     salesCount: { type: Number, default: 0 },

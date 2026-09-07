@@ -40,7 +40,7 @@ export async function GET(req: Request) {
 
     // Fetch all active products — limit 2 000 (sufficient for any branch)
     const products = await Product.find({ active: true })
-      .select("_id title ASIN price currentPrice images variations")
+      .select("_id title ASIN price currentPrice images variations mainCategory subCategory attributes")
       .limit(2000)
       .lean();
 

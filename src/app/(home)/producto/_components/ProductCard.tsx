@@ -156,7 +156,7 @@ const ProductCard = ({ item, index, storeInventoryData }: ProductCardProps) => {
               </p>
             )}
             {item?.category && (
-              <p className="text-primary text-[11px] translate-y-4 group-hover:translate-y-0 transition-transform duration-300 delay-100 mt-0.5">
+              <p className="text-red-500 text-[12px] translate-y-4 group-hover:translate-y-0 transition-transform duration-300 delay-100 mt-0.5">
                 {item?.category}
               </p>
             )}

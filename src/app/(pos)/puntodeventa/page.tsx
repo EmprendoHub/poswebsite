@@ -51,11 +51,17 @@ export default function POSHomePage() {
     }
 
     // Managers (or employees without an assigned store) see the selector
+    // Bodega branches are storage-only and can't process sales, so they're
+    // excluded from the POS branch selector.
     fetch("/api/stores")
       .then((r) => r.json())
       .then((data) => {
         setStores(
-          Array.isArray(data) ? data.filter((s: Store) => s.isActive) : [],
+          Array.isArray(data)
+            ? data.filter(
+                (s: Store) => s.isActive && s.type === "fisica",
+              )
+            : [],
         );
         setLoading(false);
       })
@@ -72,10 +78,7 @@ export default function POSHomePage() {
 
   const typeLabel: Record<string, string> = {
     fisica: "Tienda Física",
-    online: "Tienda Online",
-    instagram: "Instagram",
-    evento: "Evento",
-    otro: "Otro",
+    bodega: "Bodega",
   };
 
   return (

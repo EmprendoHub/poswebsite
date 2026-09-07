@@ -12,6 +12,9 @@ interface SearchResult {
   price: number;
   currentPrice?: number;
   images: { url: string }[];
+  mainCategory?: string;
+  subCategory?: string;
+  attributes?: string[];
   variations: {
     _id: string;
     title?: string;

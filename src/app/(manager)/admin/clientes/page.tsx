@@ -3,10 +3,15 @@ import ServerPagination from "@/components/layouts/ServerPagination";
 import { getAllClient } from "@/app/_actions";
 import { removeUndefinedAndPageKeys } from "@/backend/helpers";
 
-const ClientsPage = async ({ searchParams }: { searchParams: any }) => {
+const ClientsPage = async ({
+  searchParams,
+}: {
+  searchParams: Promise<any>;
+}) => {
+  const resolvedSearchParams = await searchParams;
   const urlParams = {
-    keyword: searchParams.keyword,
-    page: searchParams.page,
+    keyword: resolvedSearchParams.keyword,
+    page: resolvedSearchParams.page,
   };
   const filteredUrlParams = Object.fromEntries(
     Object.entries(urlParams).filter(([key, value]) => value !== undefined)
@@ -20,7 +25,7 @@ const ClientsPage = async ({ searchParams }: { searchParams: any }) => {
   const clients = JSON.parse(data.clients);
   const filteredClientsCount = data?.filteredClientsCount;
   // pagination
-  let page = parseInt(searchParams.page, 10);
+  let page = parseInt(resolvedSearchParams.page, 10);
   page = !page || page < 1 ? 1 : page;
   const perPage = Number(data?.resPerPage);
   const totalPages = Math.ceil(data.filteredClientsCount / perPage);

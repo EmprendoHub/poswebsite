@@ -98,9 +98,15 @@ export default function ReportesClient() {
   const [category, setCategory] = useState("");
   const [brand, setBrand] = useState("");
   const [gender, setGender] = useState("");
+  const [mainCategory, setMainCategory] = useState("");
+  const [subCategory, setSubCategory] = useState("");
+  const [attribute, setAttribute] = useState("");
   const [categories, setCategories] = useState<any[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
   const [genders, setGenders] = useState<any[]>([]);
+  const [mainCategories, setMainCategories] = useState<any[]>([]);
+  const [subCategories, setSubCategories] = useState<any[]>([]);
+  const [attributes, setAttributes] = useState<any[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -109,6 +115,9 @@ export default function ReportesClient() {
     if (category) params.set("category", category);
     if (brand) params.set("brand", brand);
     if (gender) params.set("gender", gender);
+    if (mainCategory) params.set("mainCategory", mainCategory);
+    if (subCategory) params.set("subCategory", subCategory);
+    if (attribute) params.set("attribute", attribute);
 
     console.log("🔍 Loading report with params:", {
       from,
@@ -117,6 +126,9 @@ export default function ReportesClient() {
       category,
       brand,
       gender,
+      mainCategory,
+      subCategory,
+      attribute,
       fullUrl: `/api/reports/full?${params}`,
     });
 
@@ -130,7 +142,7 @@ export default function ReportesClient() {
     } finally {
       setLoading(false);
     }
-  }, [from, to, storeId, category, brand, gender]);
+  }, [from, to, storeId, category, brand, gender, mainCategory, subCategory, attribute]);
 
   useEffect(() => {
     load();
@@ -139,9 +151,10 @@ export default function ReportesClient() {
   // Clear product filters when switching away from ventas tab
   useEffect(() => {
     if (tab !== "ventas") {
-      setCategory("");
       setBrand("");
-      setGender("");
+      setMainCategory("");
+      setSubCategory("");
+      setAttribute("");
     }
   }, [tab]);
 
@@ -151,17 +164,21 @@ export default function ReportesClient() {
         .then((r) => r.json())
         .then((d) => setStores(Array.isArray(d) ? d : (d?.stores ?? [])))
         .catch(() => {}),
-      fetch("/api/product-details?catType=category")
-        .then((r) => r.json())
-        .then((d) => setCategories(d.details ?? []))
-        .catch(() => {}),
       fetch("/api/product-details?catType=brand")
         .then((r) => r.json())
         .then((d) => setBrands(d.details ?? []))
         .catch(() => {}),
-      fetch("/api/product-details?catType=gender")
+      fetch("/api/categories?kind=main")
         .then((r) => r.json())
-        .then((d) => setGenders(d.details ?? []))
+        .then((d) => setMainCategories(d?.categories ?? (Array.isArray(d) ? d : [])))
+        .catch(() => {}),
+      fetch("/api/categories?kind=sub")
+        .then((r) => r.json())
+        .then((d) => setSubCategories(d?.categories ?? (Array.isArray(d) ? d : [])))
+        .catch(() => {}),
+      fetch("/api/categories?kind=attribute")
+        .then((r) => r.json())
+        .then((d) => setAttributes(d?.categories ?? (Array.isArray(d) ? d : [])))
         .catch(() => {}),
     ]);
   }, []);
@@ -305,20 +322,6 @@ export default function ReportesClient() {
         {/* Product filters - only show on ventas tab */}
         {tab === "ventas" && (
           <>
-            <Field label="Categoría">
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="border rounded-lg px-3 py-1.5 text-sm bg-background"
-              >
-                <option value="">Todas</option>
-                {categories.map((c: any) => (
-                  <option key={c._id} value={c.catTitle}>
-                    {c.catTitle}
-                  </option>
-                ))}
-              </select>
-            </Field>
             <Field label="Certificador">
               <select
                 value={brand}
@@ -333,16 +336,49 @@ export default function ReportesClient() {
                 ))}
               </select>
             </Field>
-            <Field label="Género">
+            <Field label="Categoría Ppal">
               <select
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
+                value={mainCategory}
+                onChange={(e) => {
+                  setMainCategory(e.target.value);
+                  setSubCategory("");
+                }}
+                className="border rounded-lg px-3 py-1.5 text-sm bg-background"
+              >
+                <option value="">Todas</option>
+                {mainCategories.map((m: any) => (
+                  <option key={m._id} value={m._id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Subcategoría">
+              <select
+                value={subCategory}
+                onChange={(e) => setSubCategory(e.target.value)}
+                className="border rounded-lg px-3 py-1.5 text-sm bg-background"
+              >
+                <option value="">Todas</option>
+                {subCategories
+                  .filter((s: any) => !mainCategory || s.parent === mainCategory)
+                  .map((s: any) => (
+                    <option key={s._id} value={s._id}>
+                      {s.name}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+            <Field label="Atributo">
+              <select
+                value={attribute}
+                onChange={(e) => setAttribute(e.target.value)}
                 className="border rounded-lg px-3 py-1.5 text-sm bg-background"
               >
                 <option value="">Todos</option>
-                {genders.map((g: any) => (
-                  <option key={g._id} value={g.catTitle}>
-                    {g.catTitle}
+                {attributes.map((a: any) => (
+                  <option key={a._id} value={a._id}>
+                    {a.name}
                   </option>
                 ))}
               </select>

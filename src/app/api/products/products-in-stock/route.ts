@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Product from "@/backend/models/Product";
 import StoreInventory from "@/backend/models/StoreInventory";
+import Store from "@/backend/models/Store";
+import { getPhysicalStoreIds } from "@/lib/storeHelpers";
 import { getToken } from "next-auth/jwt";
 
 export const GET = async (request: any) => {
@@ -50,6 +52,7 @@ export const GET = async (request: any) => {
       .exec();
 
     // Filter availability from StoreInventory (not Product.stock)
+    // Only inventory belonging to physical ("fisica") stores counts for sales
     const productIds = productsData.map((p: any) => p._id);
     const inventoryMatch: Record<string, any> = {
       product: { $in: productIds },
@@ -57,7 +60,16 @@ export const GET = async (request: any) => {
     };
 
     if (storeId) {
+      const store = await Store.findById(storeId).select("type").lean();
+      if ((store as any)?.type !== "fisica") {
+        return NextResponse.json(
+          { error: "La sucursal seleccionada no es una tienda física" },
+          { status: 400 },
+        );
+      }
       inventoryMatch.store = storeId;
+    } else {
+      inventoryMatch.store = { $in: await getPhysicalStoreIds() };
     }
 
     const inventoryRows = await StoreInventory.aggregate([

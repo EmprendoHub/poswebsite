@@ -9,7 +9,8 @@ import { NextResponse } from "next/server";
 
 /**
  * GET /api/pos/report?storeId=xxx&date=2026-05-10
- * Returns all orders for a specific store and date.
+ * GET /api/pos/report?storeId=xxx&date=2026-05-01&endDate=2026-05-10
+ * Returns all orders for a specific store within a date (or date range).
  */
 export async function GET(req: Request) {
   try {
@@ -23,7 +24,8 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     const storeId = url.searchParams.get("storeId");
-    const date = url.searchParams.get("date"); // "YYYY-MM-DD"
+    const date = url.searchParams.get("date"); // "YYYY-MM-DD" (range start)
+    const endDate = url.searchParams.get("endDate"); // optional "YYYY-MM-DD" (range end)
 
     if (!storeId || !date) {
       return NextResponse.json(
@@ -41,7 +43,7 @@ export async function GET(req: Request) {
     }
 
     const start = new Date(date + "T00:00:00.000Z");
-    const end = new Date(date + "T23:59:59.999Z");
+    const end = new Date((endDate || date) + "T23:59:59.999Z");
 
     // Query by slug (branch field POS checkout always saves) OR legacy branch name
     const branchValues = [store.slug];

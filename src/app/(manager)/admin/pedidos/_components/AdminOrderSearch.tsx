@@ -1,28 +1,30 @@
 "use client";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import React, { useState } from "react";
 import { FaSearch } from "react-icons/fa";
 
 const AdminOrderSearch = () => {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [keyword, setKeyword] = useState("");
   const router = useRouter();
   const submitHandler = (e: any) => {
     e.preventDefault();
 
-    if (pathname.includes("admin")) {
-      if (keyword) {
-        router.push(`/admin/pedidos/?keyword=${keyword}`);
-      } else {
-        router.push("/admin/pedidos");
-      }
+    const basePath = pathname.includes("admin")
+      ? "/admin/pedidos"
+      : "/puntodeventa/pedidos";
+
+    // Preserve existing filters (orderStatus, branch) while updating the keyword
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("page");
+    if (keyword) {
+      params.set("keyword", keyword);
     } else {
-      if (keyword) {
-        router.push(`/puntodeventa/pedidos/?keyword=${keyword}`);
-      } else {
-        router.push("/puntodeventa/pedidos");
-      }
+      params.delete("keyword");
     }
+    const query = params.toString();
+    router.push(query ? `${basePath}?${query}` : basePath);
   };
   return (
     <form

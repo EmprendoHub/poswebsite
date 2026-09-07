@@ -674,17 +674,21 @@ export async function calculateShippingQuotesWithPickup(
     try {
       const StoreInventory =
         await import("@/backend/models/StoreInventory").then((m) => m.default);
+      const { getPhysicalStoreIds } = await import("@/lib/storeHelpers");
+      const physicalStoreIds = await getPhysicalStoreIds();
 
       for (const item of unshippableItems) {
         const itemName = item.title || item.name || "Unknown Product";
 
         // Find stores with this product - use product name or ID as variationId
+        // Only physical ("fisica") stores are valid pickup locations
         try {
           const inventoryRecords = await StoreInventory.aggregate([
             {
               $match: {
                 $or: [{ variationId: item.name }, { variationId: item.title }],
                 quantity: { $gt: 0 },
+                store: { $in: physicalStoreIds },
               },
             },
             {

@@ -5,6 +5,7 @@ import {
   POS_ALLOWED_ROLES,
   canUseStore,
   calculateExpectedCash,
+  buildCancelledOrdersDetail,
   CashRegisterCut,
   CashRegisterSession,
 } from "@/lib/posCaja";
@@ -50,40 +51,17 @@ export async function GET(req: Request) {
       .sort({ createdAt: -1 })
       .lean();
 
-    // Populate cancelled orders for cuts that are missing this data
+    // Always recompute cancelled orders for this branch/period at read time.
+    // Cuts persisted before the branch filter was scoped correctly may have
+    // stale, cross-branch data cached in totals.cancelledOrders, so we can't
+    // trust that field just because it's present — recompute it fresh here.
     const enrichedCuts = await Promise.all(
       recentCuts.map(async (cut: any) => {
-        // If the cut already has cancelled orders data, return as-is
-        if (cut.totals?.cancelledOrdersCount !== undefined) {
-          return cut;
-        }
-
-        // Extract calendar date from periodStart in local timezone
-        // The cut's periodStart indicates when the shift started
-        const cutStartDate = new Date(cut.periodStart);
-
-        // Determine local timezone offset by checking the date string
-        // If 17:04 UTC = 11:04 local, the offset is -6 hours
-        const localDate = new Date(cutStartDate.getTime() - 6 * 60 * 60 * 1000);
-        const dayStart = new Date(localDate);
-        dayStart.setUTCHours(0, 0, 0, 0);
-        const dayEnd = new Date(localDate);
-        dayEnd.setUTCHours(23, 59, 59, 999);
-
-        // Query cancelled orders for the local calendar day
-        let cancelledOrders = await Order.find({
+        const cancelledOrders = await Order.find({
           orderStatus: "Cancelado",
-          createdAt: { $gte: dayStart, $lte: dayEnd },
+          storeId: storeId,
+          createdAt: { $gte: cut.periodStart, $lte: cut.periodEnd },
         }).lean();
-
-        // Also check for ALL cancelled orders to see what we have in database
-        const allCancelledOrders = await Order.find({
-          orderStatus: "Cancelado",
-        }).lean();
-
-        allCancelledOrders.forEach((order: any, idx: number) => {
-          const orderDate = new Date(order.createdAt);
-        });
 
         return {
           ...cut,
@@ -94,6 +72,7 @@ export async function GET(req: Request) {
               (sum, order: any) => sum + (order.paymentInfo?.amountPaid ?? 0),
               0,
             ),
+            cancelledOrders: buildCancelledOrdersDetail(cancelledOrders),
           },
         };
       }),

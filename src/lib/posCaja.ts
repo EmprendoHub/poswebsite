@@ -37,6 +37,21 @@ export function calculateExpectedCash(session: any) {
   );
 }
 
+// Cancelled-order comments are stamped as "Cancelado por: <name> (<date>)"
+export function parseCancelledBy(comment?: string): string | null {
+  if (!comment) return null;
+  const match = comment.match(/Cancelado por:\s*([^(]+)/);
+  return match ? match[1].trim() : null;
+}
+
+export function buildCancelledOrdersDetail(orders: any[]) {
+  return orders.map((order: any) => ({
+    orderId: order.orderId,
+    amount: order.paymentInfo?.amountPaid ?? 0,
+    cancelledBy: parseCancelledBy(order.comment),
+  }));
+}
+
 export async function aggregateMovements(
   sessionId: string,
   start: Date,

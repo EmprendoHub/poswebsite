@@ -25,9 +25,20 @@ interface Product {
   category: string;
   brand: string;
   gender: string;
+  mainCategory?: string;
+  subCategory?: string;
+  attributes?: string[];
   ASIN?: string;
   variations: { price: number; stock: number }[];
   discountPercentage?: number;
+}
+
+interface CategoryOption {
+  _id: string;
+  name: string;
+}
+interface SubCategoryOption extends CategoryOption {
+  parent: string;
 }
 
 const PRODUCTS_PER_PAGE = 20;
@@ -37,6 +48,9 @@ const ListProducts = ({
   allCategories,
   allBrands,
   allGenders,
+  allMainCategories,
+  allSubCategories,
+  allAttributes,
   priceRange,
   searchParams,
   filteredProductsCount,
@@ -48,12 +62,18 @@ const ListProducts = ({
   allCategories: string[];
   allBrands: string[];
   allGenders: string[];
+  allMainCategories?: CategoryOption[];
+  allSubCategories?: SubCategoryOption[];
+  allAttributes?: CategoryOption[];
   priceRange: { min: number; max: number };
   searchParams: {
     search?: string;
     category?: string;
     brand?: string;
     gender?: string;
+    mainCategory?: string;
+    subCategory?: string;
+    attribute?: string;
     minPrice?: string;
     maxPrice?: string;
   };
@@ -140,6 +160,23 @@ const ListProducts = ({
     if (searchParams.gender) {
       filtered = filtered.filter(
         (product) => product.gender === searchParams.gender,
+      );
+    }
+
+    // New taxonomy filters
+    if (searchParams.mainCategory) {
+      filtered = filtered.filter(
+        (product) => product.mainCategory === searchParams.mainCategory,
+      );
+    }
+    if (searchParams.subCategory) {
+      filtered = filtered.filter(
+        (product) => product.subCategory === searchParams.subCategory,
+      );
+    }
+    if (searchParams.attribute) {
+      filtered = filtered.filter((product) =>
+        product.attributes?.includes(searchParams.attribute as string),
       );
     }
 
@@ -270,6 +307,9 @@ const ListProducts = ({
                 allBrands={allBrands}
                 allCategories={allCategories}
                 allGenders={allGenders}
+                allMainCategories={allMainCategories}
+                allSubCategories={allSubCategories}
+                allAttributes={allAttributes}
                 priceRange={priceRange}
                 SetIsActive={setIsDesktopFilterOpen}
                 isActive={isDesktopFilterOpen}

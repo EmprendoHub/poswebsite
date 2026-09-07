@@ -625,7 +625,7 @@ const AdminOneOrder = ({
                   Entidad
                 </th>
                 <th scope="col" className="w-1/6 maxsm:w-full px-6 py-2">
-                  Código P.
+                  C.P.
                 </th>
                 <th scope="col" className="w-1/6 maxsm:w-full px-6 py-2">
                   Tel
@@ -809,7 +809,7 @@ const AdminOneOrder = ({
                       <FormattedPrice amount={item.price || 0} />
                     )}
                   </td>
-                  {isManager && (
+                  {isManager && order?.orderStatus !== "Cancelado" && (
                     <td className="px-2 py-2 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button
@@ -840,7 +840,9 @@ const AdminOneOrder = ({
                 </tr>
 
                 {/* Inline replace panel */}
-                {isManager && editingIndex === index && (
+                {isManager &&
+                  order?.orderStatus !== "Cancelado" &&
+                  editingIndex === index && (
                   <tr className="bg-background">
                     <td colSpan={5} className="px-2 py-3">
                       <div className="border border-dashed border-blue-400 rounded-lg p-3 flex flex-col gap-3">

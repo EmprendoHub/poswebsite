@@ -58,6 +58,12 @@ export const GET = async (request: any) => {
         query = query.sort({ brand: sortDir });
       } else if (sortBy === "price") {
         query = query.sort({ "variations.0.price": sortDir });
+      } else if (sortBy === "mainCategory") {
+        query = query.sort({ mainCategory: sortDir });
+      } else if (sortBy === "subCategory") {
+        query = query.sort({ subCategory: sortDir });
+      } else if (sortBy === "attributes") {
+        query = query.sort({ attributes: sortDir });
       } else if (sortBy === "stock") {
         // For stock sorting, we'll handle it after fetching
         query = query.sort({ createdAt: -1 });

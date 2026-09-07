@@ -61,6 +61,7 @@ const NewVariationOptimized = ({
   const [showScanner, setShowScanner] = useState(false);
   const [featured, setFeatured] = useState(false);
   const [updatePrice, setUpdatePrice] = useState(false);
+  const [removeBackground, setRemoveBackground] = useState(true);
   const [discountPercentage, setDiscountPercentage] = useState(0);
   const [showPriceCheckerModal, setShowPriceCheckerModal] = useState(false);
   const [showASINConflictModal, setShowASINConflictModal] = useState(false);
@@ -84,13 +85,27 @@ const NewVariationOptimized = ({
   const [initialCost, setInitialCost] = useState<number | "">("");
   const [initialStock, setInitialStock] = useState<number | "">("");
 
-  // Product Details (Brands, Genders, Categories)
+  // Product Details (Brands, Genders, Categories) — legacy, kept for backward compatibility
   const [brands, setBrands] = useState<{ _id: string; catTitle: string }[]>([]);
   const [genders, setGenders] = useState<{ _id: string; catTitle: string }[]>(
     [],
   );
   const [categories, setCategories] = useState<
     { _id: string; catTitle: string }[]
+  >([]);
+
+  // New taxonomy (Main Category / Subcategory / Attributes)
+  const [mainCategoryId, setMainCategoryId] = useState("");
+  const [subCategoryId, setSubCategoryId] = useState("");
+  const [attributeIds, setAttributeIds] = useState<string[]>([]);
+  const [mainCategories, setMainCategories] = useState<
+    { _id: string; name: string }[]
+  >([]);
+  const [subCategories, setSubCategories] = useState<
+    { _id: string; name: string; parent: string }[]
+  >([]);
+  const [attributeOptions, setAttributeOptions] = useState<
+    { _id: string; name: string }[]
   >([]);
 
   useEffect(() => {
@@ -115,6 +130,19 @@ const NewVariationOptimized = ({
           setGenders(gendersData.details);
         if (categoriesData?.details && Array.isArray(categoriesData.details))
           setCategories(categoriesData.details);
+      })
+      .catch(() => {});
+
+    // Fetch new taxonomy (Main Category / Subcategory / Attributes)
+    Promise.all([
+      fetch("/api/categories?kind=main").then((r) => r.json()),
+      fetch("/api/categories?kind=sub").then((r) => r.json()),
+      fetch("/api/categories?kind=attribute").then((r) => r.json()),
+    ])
+      .then(([mainData, subData, attrData]) => {
+        setMainCategories(mainData?.categories ?? []);
+        setSubCategories(subData?.categories ?? []);
+        setAttributeOptions(attrData?.categories ?? []);
       })
       .catch(() => {});
   }, []);
@@ -698,7 +726,11 @@ const NewVariationOptimized = ({
           setUploadingSecondaryIndices((prev) => [...prev, index]);
 
           // Process image before preview (uses remote API with browser fallback)
-          const processedBlob = await processImagePython(file, true, true);
+          const processedBlob = await processImagePython(
+            file,
+            removeBackground,
+            true,
+          );
 
           // Create preview URL from processed image
           const previewUrl = URL.createObjectURL(processedBlob);
@@ -865,7 +897,11 @@ const NewVariationOptimized = ({
           setIsProcessing(true);
 
           // Process image before preview (uses remote API with browser fallback)
-          const processedBlob = await processImagePython(file, true, true);
+          const processedBlob = await processImagePython(
+            file,
+            removeBackground,
+            true,
+          );
 
           // Create preview URL from processed image
           const previewUrl = URL.createObjectURL(processedBlob);
@@ -1057,6 +1093,9 @@ const NewVariationOptimized = ({
     formData.append("brand", brand);
     formData.append("grade", grade.toString());
     formData.append("gender", gender);
+    formData.append("mainCategory", mainCategoryId);
+    formData.append("subCategory", subCategoryId);
+    formData.append("attributes", JSON.stringify(attributeIds));
     formData.append("weight", weight.toString());
     formData.append("dimensions", JSON.stringify(dimensions));
     formData.append("mainImage", mainImage);
@@ -1137,6 +1176,11 @@ const NewVariationOptimized = ({
                   label="Actualizar Precio"
                   enabled={updatePrice}
                   setEnabled={setUpdatePrice}
+                />
+                <ToggleSwitch
+                  label="Remover Fondo"
+                  enabled={removeBackground}
+                  setEnabled={setRemoveBackground}
                 />
               </div>
             </div>
@@ -1532,10 +1576,75 @@ const NewVariationOptimized = ({
                     </p>
                   </div>
 
-                  {/* Gender */}
+                  {/* New taxonomy: Main Category / Subcategory / Attributes */}
                   <div className="mb-1 w-full">
                     <label className="block mb-1 font-EB_Garamond text-xs">
-                      Género
+                      Categoría Principal
+                    </label>
+                    <select
+                      className="appearance-none border bg-card text-card-foreground rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
+                      value={mainCategoryId}
+                      onChange={(e) => {
+                        setMainCategoryId(e.target.value);
+                        setSubCategoryId("");
+                      }}
+                    >
+                      <option value="">Seleccionar categoría principal...</option>
+                      {mainCategories.map((m) => (
+                        <option key={m._id} value={m._id}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="mb-1 w-full">
+                    <label className="block mb-1 font-EB_Garamond text-xs">
+                      Subcategoría
+                    </label>
+                    <select
+                      className="appearance-none border bg-card text-card-foreground rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full disabled:opacity-50"
+                      value={subCategoryId}
+                      onChange={(e) => setSubCategoryId(e.target.value)}
+                      disabled={!mainCategoryId}
+                    >
+                      <option value="">Seleccionar subcategoría...</option>
+                      {subCategories
+                        .filter((s) => s.parent === mainCategoryId)
+                        .map((s) => (
+                          <option key={s._id} value={s._id}>
+                            {s.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div className="mb-1 w-full">
+                    <label className="block mb-1 font-EB_Garamond text-xs">
+                      Atributos
+                    </label>
+                    <select
+                      multiple
+                      className="appearance-none border bg-card text-card-foreground rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full h-24"
+                      value={attributeIds}
+                      onChange={(e) =>
+                        setAttributeIds(
+                          Array.from(e.target.selectedOptions, (o) => o.value),
+                        )
+                      }
+                    >
+                      {attributeOptions.map((a) => (
+                        <option key={a._id} value={a._id}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Gender (legacy) */}
+                  {/* <div className="mb-1 w-full">
+                    <label className="block mb-1 font-EB_Garamond text-xs">
+                      Género (legado)
                     </label>
                     <select
                       className="appearance-none border bg-card text-card-foreground rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
@@ -1549,12 +1658,12 @@ const NewVariationOptimized = ({
                         </option>
                       ))}
                     </select>
-                  </div>
+                  </div> */}
 
-                  {/* Category */}
-                  <div className="mb-1 w-full">
+                  {/* Category (legacy) */}
+                  {/* <div className="mb-1 w-full">
                     <label className="block mb-1 font-EB_Garamond text-xs">
-                      Categoría
+                      Categoría (legado)
                     </label>
                     <select
                       className="appearance-none border bg-card text-card-foreground rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
@@ -1568,7 +1677,7 @@ const NewVariationOptimized = ({
                         </option>
                       ))}
                     </select>
-                  </div>
+                  </div> */}
 
                   {/* ASIN */}
                   <div className="mb-1 w-full">

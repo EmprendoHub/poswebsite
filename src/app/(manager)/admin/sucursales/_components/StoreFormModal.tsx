@@ -128,10 +128,7 @@ export default function StoreFormModal({ store, onClose, onSaved }: Props) {
                 className={inputClass}
               >
                 <option value="fisica">Tienda Física</option>
-                <option value="online">Online</option>
-                <option value="instagram">Instagram</option>
-                <option value="evento">Evento</option>
-                <option value="otro">Otro</option>
+                <option value="bodega">Bodega</option>
               </select>
             </div>
             <div className="col-span-2">

@@ -2,7 +2,13 @@
 import { increaseLoginAttempts } from "@/redux/shoppingSlice";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CiWarning } from "react-icons/ci";
+import {
+  MdErrorOutline,
+  MdMarkEmailUnread,
+  MdBlock,
+  MdLockClock,
+} from "react-icons/md";
+import { FaRobot } from "react-icons/fa6";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "sonner";
 
@@ -24,66 +30,102 @@ const ErrorComponent = ({
   const dispatch = useDispatch();
 
   return (
-    <main className="flex min-h-screen maxsm:min-h-[70vh] flex-col items-center justify-center ">
-      <div className="h-screen flex flex-col items-center justify-center">
-        <br />
+    <main className="min-h-screen flex items-center justify-center bg-background px-4 py-16">
+      <div className="w-full max-w-md rounded-2xl border border-muted bg-card shadow-lg p-8 text-center flex flex-col items-center">
         {ifEmailNotVerified && (
-          <div>
-            <div>Por favor verifica tu email</div>
-            <div className="mt-3">
-              <Link href={"/exito"} className="bg-black text-white p-3">
-                Reenviar Correo de Verificación.
-              </Link>
+          <>
+            <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center mb-5">
+              <MdMarkEmailUnread className="text-4xl text-amber-500" />
             </div>
-          </div>
-        )}
-        {ifLoginError && (
-          <div>
-            <div>Hubo un error al iniciar sesión</div>
-            <p>
-              Si estas seguro que tu correo y contraseña son correcto por favor
-              vuelve a intentarlo.
+            <h1 className="font-EB_Garamond text-3xl font-bold mb-2">
+              Verifica tu email
+            </h1>
+            <p className="text-sm text-muted-foreground mb-6">
+              Por favor verifica tu correo electrónico para continuar.
             </p>
-            <div className="mt-3">
-              <button
-                onClick={() =>
-                  toast(`${loginAttempts + 1}... de 5 intentes remanentes`) &&
-                  dispatch(increaseLoginAttempts({ count: 1 })) &&
-                  router.push("/iniciar")
-                }
-                className="bg-black text-white p-3"
-              >
-                Inicio de Session
-              </button>
-            </div>
-          </div>
+            <Link
+              href={"/exito"}
+              className="bg-primary text-primary-foreground rounded-full px-8 py-3 text-sm font-semibold hover:opacity-90 transition"
+            >
+              Reenviar Correo de Verificación
+            </Link>
+          </>
         )}
+
+        {ifLoginError && (
+          <>
+            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-5">
+              <MdErrorOutline className="text-4xl text-destructive" />
+            </div>
+            <h1 className="font-EB_Garamond text-3xl font-bold mb-2">
+              Error al iniciar sesión
+            </h1>
+            <p className="text-sm text-muted-foreground mb-6">
+              Si estás seguro que tu correo y contraseña son correctos, por
+              favor vuelve a intentarlo.
+            </p>
+            <button
+              onClick={() => {
+                toast(`${loginAttempts + 1}... de 5 intentos remanentes`);
+                dispatch(increaseLoginAttempts({ count: 1 }));
+                router.push("/iniciar");
+              }}
+              className="bg-primary text-primary-foreground rounded-full px-8 py-3 text-sm font-semibold hover:opacity-90 transition"
+            >
+              Iniciar Sesión
+            </button>
+          </>
+        )}
+
         {ifBotLoginAttempt && (
-          <div>
-            <div>Hubo un error al iniciar sesión</div>
-            <p>Eres un bot malicioso y hemos bloqueado tu ip.</p>
-            <div className="mt-3"></div>
-          </div>
-        )}
-        {ifNoCookieLoginError && (
-          <div>
-            <div>Hubo un error al iniciar sesión</div>
-            <p>Estas intentando un llamado desde un sitio no autorizado.</p>
-            <div className="mt-3"></div>
-          </div>
-        )}
-        {ifExceededAttempts && (
-          <div className=" flex flex-col items-center justify-center gap-5">
-            <CiWarning className="text-7xl text-red-500" />
-            <div>Excediste el limite de intentos!</div>
-            <p>Por seguridad bloqueamos tu cuenta</p>
-            <p>Para desbloquear tu cuenta por favor verifica tu email.</p>
-            <div className="mt-3">
-              <Link href={"/reiniciar"} className="bg-black text-white p-3">
-                Reactivar Cuenta
-              </Link>
+          <>
+            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-5">
+              <FaRobot className="text-4xl text-destructive" />
             </div>
-          </div>
+            <h1 className="font-EB_Garamond text-3xl font-bold mb-2">
+              Error al iniciar sesión
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Detectamos actividad sospechosa y hemos bloqueado tu IP.
+            </p>
+          </>
+        )}
+
+        {ifNoCookieLoginError && (
+          <>
+            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-5">
+              <MdBlock className="text-4xl text-destructive" />
+            </div>
+            <h1 className="font-EB_Garamond text-3xl font-bold mb-2">
+              Error al iniciar sesión
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Estás intentando un llamado desde un sitio no autorizado.
+            </p>
+          </>
+        )}
+
+        {ifExceededAttempts && (
+          <>
+            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-5">
+              <MdLockClock className="text-4xl text-destructive" />
+            </div>
+            <h1 className="font-EB_Garamond text-3xl font-bold mb-2">
+              Excediste el límite de intentos
+            </h1>
+            <p className="text-sm text-muted-foreground mb-1">
+              Por seguridad bloqueamos tu cuenta.
+            </p>
+            <p className="text-sm text-muted-foreground mb-6">
+              Para desbloquear tu cuenta por favor verifica tu email.
+            </p>
+            <Link
+              href={"/reiniciar"}
+              className="bg-primary text-primary-foreground rounded-full px-8 py-3 text-sm font-semibold hover:opacity-90 transition"
+            >
+              Reactivar Cuenta
+            </Link>
+          </>
         )}
       </div>
     </main>

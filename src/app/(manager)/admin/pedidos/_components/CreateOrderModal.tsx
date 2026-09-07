@@ -63,6 +63,7 @@ export default function CreateOrderModal({
   // Payment
   const [paymentMethod, setPaymentMethod] = useState("transferencia");
   const [paymentRefNumber, setPaymentRefNumber] = useState("");
+  const [depositAmount, setDepositAmount] = useState("");
   const [notes, setNotes] = useState("");
 
   // Items
@@ -261,6 +262,17 @@ export default function CreateOrderModal({
       return;
     }
 
+    const minDeposit = 0;
+    if (paymentMethod === "layaway") {
+      const deposit = Number(depositAmount) || 0;
+      if (deposit < minDeposit) {
+        setError(
+          `El anticipo del apartado debe ser al menos el 30% del total ($${minDeposit.toFixed(2)})`,
+        );
+        return;
+      }
+    }
+
     setLoading(true);
     setError("");
 
@@ -278,6 +290,9 @@ export default function CreateOrderModal({
           pickupStore: shippingType === "pickup" ? selectedPickupStore : null,
           paymentMethod,
           paymentRefNumber,
+          isLayaway: paymentMethod === "layaway",
+          depositAmount:
+            paymentMethod === "layaway" ? Number(depositAmount) : undefined,
           notes,
           orderSource: orderSource,
         }),
@@ -322,6 +337,7 @@ export default function CreateOrderModal({
     });
     setPaymentMethod("transferencia");
     setPaymentRefNumber("");
+    setDepositAmount("");
     setNotes("");
     setOrderItems([]);
     setSearchProduct("");
@@ -821,7 +837,9 @@ export default function CreateOrderModal({
                                         const variantRecords = data.filter(
                                           (inv: any) =>
                                             inv.variationId ===
-                                            v._id.toString(),
+                                              v._id.toString() &&
+                                            // Bodega branches can't be a sale source
+                                            inv.store?.type === "fisica",
                                         );
                                         console.log(
                                           "Filtered variant records:",
@@ -1120,6 +1138,7 @@ export default function CreateOrderModal({
                           <option value="tarjeta">Tarjeta</option>
                           <option value="transferencia">Transferencia</option>
                           <option value="efectivo">Efectivo</option>
+                          <option value="layaway">Apartado</option>
                         </select>
                       </div>
                     </div>
@@ -1144,6 +1163,27 @@ export default function CreateOrderModal({
                               : "Ej: REF-2024-001"
                           }
                         />
+                      </div>
+                    )}
+
+                    {/* Layaway Deposit Amount */}
+                    {paymentMethod === "layaway" && (
+                      <div>
+                        <label className="block text-sm font-semibold mb-2 text-gray-300">
+                          Anticipo Recibido 
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={depositAmount}
+                          onChange={(e) => setDepositAmount(e.target.value)}
+                          className="w-full border border-slate-600 rounded-lg px-4 py-3 outline-none focus:border-blue-500 bg-slate-700 text-white placeholder-gray-400"
+                          placeholder={`Ej: ${(getTotalAmount() * 0.3).toFixed(2)}`}
+                        />
+                        <p className="text-xs text-amber-400 mt-2">
+                          El pedido se guardará como Apartado y quedará
+                          pendiente el resto del pago.
+                        </p>
                       </div>
                     )}
                   </div>

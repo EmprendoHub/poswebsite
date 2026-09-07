@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import "./productstyles.css";
 import { FaAngleLeft, FaAngleRight } from "react-icons/fa";
 import { MdClose } from "react-icons/md";
@@ -19,9 +19,11 @@ import { trackProductView, trackAddToCart } from "@/lib/gtm";
 const ProductDetailsComponent = ({
   product,
   trendingProducts,
+  taxonomyLookup = { mainCategories: [], subCategories: [], attributes: [] },
 }: {
   product: any;
   trendingProducts: any;
+  taxonomyLookup?: { mainCategories: any[]; subCategories: any[]; attributes: any[] };
 }) => {
   const [storeInventoryData, setStoreInventoryData] = useState<
     Record<string, Array<{ variationId: string; quantity: number }>>
@@ -39,6 +41,21 @@ const ProductDetailsComponent = ({
   const { productsData } = useSelector((state: any) => state?.compras);
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  // Create lookup maps for taxonomy names
+  const mainCategoryById = useMemo(
+    () => new Map(taxonomyLookup.mainCategories.map((m) => [m._id, m.name])),
+    [taxonomyLookup.mainCategories],
+  );
+  const subCategoryById = useMemo(
+    () => new Map(taxonomyLookup.subCategories.map((s) => [s._id, s.name])),
+    [taxonomyLookup.subCategories],
+  );
+  const attributeById = useMemo(
+    () => new Map(taxonomyLookup.attributes.map((a) => [a._id, a.name])),
+    [taxonomyLookup.attributes],
+  );
+
   const [tokenValid, setTokenValid] = useState(false);
   const [tokenChecking, setTokenChecking] = useState(true);
   const [images, setImages] = useState(product?.images);
@@ -572,18 +589,33 @@ const ProductDetailsComponent = ({
                   </motion.div>
                 )}
                 <div className="w-full border-t border-gray-800 pt-4 space-y-2 text-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400">Categoría:</span>
-                    <span className="text-white font-medium">
-                      {product?.category}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400">Género:</span>
-                    <span className="text-white font-medium">
-                      {product?.gender}
-                    </span>
-                  </div>
+                  {product?.mainCategory && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Categoría Principal:</span>
+                      <span className="text-white font-medium">
+                        {mainCategoryById.get(product.mainCategory) || "—"}
+                      </span>
+                    </div>
+                  )}
+                  {product?.subCategory && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Subcategoría:</span>
+                      <span className="text-white font-medium">
+                        {subCategoryById.get(product.subCategory) || "—"}
+                      </span>
+                    </div>
+                  )}
+                  {product?.attributes && product.attributes.length > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Atributos:</span>
+                      <span className="text-white font-medium text-right">
+                        {product.attributes
+                          .map((attrId: string) => attributeById.get(attrId))
+                          .filter(Boolean)
+                          .join(", ") || "—"}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

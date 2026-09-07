@@ -68,6 +68,9 @@ const AdminProducts = ({
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkGender, setBulkGender] = useState("");
   const [bulkBrand, setBulkBrand] = useState("");
+  const [bulkMainCategory, setBulkMainCategory] = useState("");
+  const [bulkSubCategory, setBulkSubCategory] = useState("");
+  const [bulkAttributes, setBulkAttributes] = useState<string[]>([]);
   const [isBulkLoading, setIsBulkLoading] = useState(false);
   const [bulkLength, setBulkLength] = useState("");
   const [bulkWidth, setBulkWidth] = useState("");
@@ -82,6 +85,15 @@ const AdminProducts = ({
   const [categoryOptions, setCategoryOptions] = useState<any[]>([]);
   const [brandOptions, setBrandOptions] = useState<any[]>([]);
   const [genderOptions, setGenderOptions] = useState<any[]>([]);
+  const [mainCategories, setMainCategories] = useState<
+    { _id: string; name: string }[]
+  >([]);
+  const [subCategories, setSubCategories] = useState<
+    { _id: string; name: string; parent: string }[]
+  >([]);
+  const [attributeOptions, setAttributeOptions] = useState<
+    { _id: string; name: string }[]
+  >([]);
   const [stockPreviewRows, setStockPreviewRows] = useState<
     {
       storeName: string;
@@ -117,7 +129,7 @@ const AdminProducts = ({
 
   // Sorting state - initialize from URL params
   const [sortKey, setSortKey] = useState<
-    "title" | "category" | "gender" | "brand" | "price" | "stock" | null
+    "title" | "category" | "gender" | "brand" | "price" | "stock" | "mainCategory" | "subCategory" | "attributes" | null
   >((sortByParam as any) || null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">(
     (sortDirParam as "asc" | "desc") || "asc",
@@ -130,7 +142,7 @@ const AdminProducts = ({
   }, []);
 
   const toggleSort = (
-    key: "title" | "category" | "gender" | "brand" | "price" | "stock",
+    key: "title" | "category" | "gender" | "brand" | "price" | "stock" | "mainCategory" | "subCategory" | "attributes",
   ) => {
     const newDir = sortKey === key && sortDir === "asc" ? "desc" : "asc";
     setSortKey(key);
@@ -257,6 +269,39 @@ const AdminProducts = ({
     fetchProductDetails();
   }, []);
 
+  // Fetch new taxonomy (Main Category / Subcategory / Attributes) for lookups + bulk edit
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/categories?kind=main").then((r) => r.json()),
+      fetch("/api/categories?kind=sub").then((r) => r.json()),
+      fetch("/api/categories?kind=attribute").then((r) => r.json()),
+    ])
+      .then(([mainData, subData, attrData]) => {
+        setMainCategories(mainData?.categories ?? []);
+        setSubCategories(subData?.categories ?? []);
+        setAttributeOptions(attrData?.categories ?? []);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Name lookups for displaying the new taxonomy in the table
+  const mainCategoryById = useMemo(
+    () => new Map(mainCategories.map((m) => [m._id, m.name])),
+    [mainCategories],
+  );
+  const subCategoryById = useMemo(
+    () => new Map(subCategories.map((s) => [s._id, s.name])),
+    [subCategories],
+  );
+  const attributeById = useMemo(
+    () => new Map(attributeOptions.map((a) => [a._id, a.name])),
+    [attributeOptions],
+  );
+  const availableBulkSubCategories = useMemo(
+    () => subCategories.filter((s) => s.parent === bulkMainCategory),
+    [subCategories, bulkMainCategory],
+  );
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && closePreview();
     window.addEventListener("keydown", onKey);
@@ -303,7 +348,16 @@ const AdminProducts = ({
 
   const handleBulkUpdate = async () => {
     const hasDims = bulkLength || bulkWidth || bulkHeight;
-    if (!bulkCategory && !bulkGender && !bulkBrand && !hasDims && !bulkWeight)
+    if (
+      !bulkCategory &&
+      !bulkGender &&
+      !bulkBrand &&
+      !bulkMainCategory &&
+      !bulkSubCategory &&
+      bulkAttributes.length === 0 &&
+      !hasDims &&
+      !bulkWeight
+    )
       return;
 
     const isSearchWide = selectAllInSearch;
@@ -311,8 +365,15 @@ const AdminProducts = ({
     const scopeLabel = isSearchWide ? "búsqueda" : "página";
 
     const parts = [];
-    if (bulkCategory) parts.push(`categoría "${bulkCategory}"`);
-    if (bulkGender) parts.push(`género "${bulkGender}"`);
+    if (bulkMainCategory)
+      parts.push(
+        `categoría principal "${mainCategoryById.get(bulkMainCategory)}"`,
+      );
+    if (bulkSubCategory)
+      parts.push(`subcategoría "${subCategoryById.get(bulkSubCategory)}"`);
+    if (bulkAttributes.length > 0) parts.push(`${bulkAttributes.length} atributo(s)`);
+    if (bulkCategory) parts.push(`categoría (legado) "${bulkCategory}"`);
+    if (bulkGender) parts.push(`género (legado) "${bulkGender}"`);
     if (bulkBrand) parts.push(`marca "${bulkBrand}"`);
     if (bulkWeight) parts.push(`peso ${bulkWeight}kg`);
     if (hasDims)
@@ -337,6 +398,9 @@ const AdminProducts = ({
         category: bulkCategory || undefined,
         gender: bulkGender || undefined,
         brand: bulkBrand || undefined,
+        mainCategory: bulkMainCategory || undefined,
+        subCategory: bulkSubCategory || undefined,
+        attributes: bulkAttributes.length > 0 ? bulkAttributes : undefined,
         weight: bulkWeight ? Number(bulkWeight) : undefined,
         dimensions: hasDims
           ? {
@@ -376,6 +440,9 @@ const AdminProducts = ({
       setBulkCategory("");
       setBulkGender("");
       setBulkBrand("");
+      setBulkMainCategory("");
+      setBulkSubCategory("");
+      setBulkAttributes([]);
       setBulkWeight("");
       setBulkLength("");
       setBulkWidth("");
@@ -605,33 +672,84 @@ const AdminProducts = ({
               </div>
             )}
 
-            {/* Category select */}
+            {/* Main Category select */}
             <select
+              value={bulkMainCategory}
+              onChange={(e) => {
+                setBulkMainCategory(e.target.value);
+                setBulkSubCategory("");
+              }}
+              className="text-sm border rounded-lg px-2 py-1.5 bg-background"
+            >
+              <option value="">— Categoría Ppal. —</option>
+              {mainCategories.map((m) => (
+                <option key={m._id} value={m._id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Subcategory select */}
+            <select
+              value={bulkSubCategory}
+              onChange={(e) => setBulkSubCategory(e.target.value)}
+              disabled={!bulkMainCategory}
+              className="text-sm border rounded-lg px-2 py-1.5 bg-background disabled:opacity-50"
+            >
+              <option value="">— Subcategoría —</option>
+              {availableBulkSubCategories.map((s) => (
+                <option key={s._id} value={s._id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Attributes multi-select */}
+            <select
+              multiple
+              value={bulkAttributes}
+              onChange={(e) =>
+                setBulkAttributes(
+                  Array.from(e.target.selectedOptions, (o) => o.value),
+                )
+              }
+              title="Atributos"
+              className="text-sm border rounded-lg px-2 py-1.5 bg-background h-9"
+            >
+              {attributeOptions.map((a) => (
+                <option key={a._id} value={a._id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Category select (legado) */}
+            {/* <select
               value={bulkCategory}
               onChange={(e) => setBulkCategory(e.target.value)}
               className="text-sm border rounded-lg px-2 py-1.5 bg-background"
             >
-              <option value="">— Categoría —</option>
+              <option value="">— Categoría (legado) —</option>
               {categoryOptions.map((c) => (
                 <option key={c._id} value={c.catTitle}>
                   {c.catTitle}
                 </option>
               ))}
-            </select>
+            </select> */}
 
-            {/* Gender select */}
-            <select
+            {/* Gender select (legado) */}
+            {/* <select
               value={bulkGender}
               onChange={(e) => setBulkGender(e.target.value)}
               className="text-sm border rounded-lg px-2 py-1.5 bg-background"
             >
-              <option value="">— Género —</option>
+              <option value="">— Género (legado) —</option>
               {genderOptions.map((g) => (
                 <option key={g._id} value={g.catTitle}>
                   {g.catTitle}
                 </option>
               ))}
-            </select>
+            </select> */}
 
             {/* Brand select */}
             <select
@@ -704,6 +822,9 @@ const AdminProducts = ({
                 (!bulkCategory &&
                   !bulkGender &&
                   !bulkBrand &&
+                  !bulkMainCategory &&
+                  !bulkSubCategory &&
+                  bulkAttributes.length === 0 &&
                   !bulkWeight &&
                   !bulkLength &&
                   !bulkWidth &&
@@ -751,26 +872,46 @@ const AdminProducts = ({
               <th scope="col" className="w-full py-3 ">
                 <button
                   type="button"
-                  onClick={() => toggleSort("category")}
+                  onClick={() => toggleSort("mainCategory")}
                   className="flex items-center gap-2 text-blue-600 dark:text-blue-500 font-semibold"
                 >
-                  *Categoría
-                  {sortKey === "category" && (sortDir === "asc" ? "▲" : "▼")}
+                  Cat. Ppal / Sub
+                  {sortKey === "mainCategory" && (sortDir === "asc" ? "▲" : "▼")}
                 </button>
               </th>
               <th scope="col" className="w-full py-3 ">
+                <button
+                  type="button"
+                  onClick={() => toggleSort("attributes")}
+                  className="flex items-center gap-2 text-blue-600 dark:text-blue-500 font-semibold"
+                >
+                  Atributos
+                  {sortKey === "attributes" && (sortDir === "asc" ? "▲" : "▼")}
+                </button>
+              </th>
+              {/* <th scope="col" className="w-full py-3 ">
+                <button
+                  type="button"
+                  onClick={() => toggleSort("category")}
+                  className="flex items-center gap-2 text-blue-600 dark:text-blue-500 font-semibold"
+                >
+                  *Categoría (legado)
+                  {sortKey === "category" && (sortDir === "asc" ? "▲" : "▼")}
+                </button>
+              </th> */}
+              <th scope="col" className="w-full py-3 ">
                 Imagen
               </th>
-              <th scope="col" className="w-full py-3 ">
+              {/* <th scope="col" className="w-full py-3 ">
                 <button
                   type="button"
                   onClick={() => toggleSort("gender")}
                   className="flex items-center gap-2 text-blue-600 dark:text-blue-500 font-semibold"
                 >
-                  *Género
+                  *Género (legado)
                   {sortKey === "gender" && (sortDir === "asc" ? "▲" : "▼")}
                 </button>
-              </th>
+              </th> */}
               <th scope="col" className="w-full py-3 ">
                 <button
                   type="button"
@@ -842,10 +983,32 @@ const AdminProducts = ({
                   {product?.title?.substring(0, 30)}
                 </td>
                 <td
+                  className={`w-full py-0 px-2 maxsm:hidden text-[12px]`}
+                >
+                  <div className="font-bold">
+                    {mainCategoryById.get(product?.mainCategory) || "—"}
+                  </div>
+                  <div className="text-muted-foreground">
+                    {subCategoryById.get(product?.subCategory) || "—"}
+                  </div>
+                </td>
+                <td
+                  className={`w-full py-0 px-2 maxsm:hidden text-[12px]`}
+                >
+                  <div className="text-muted-foreground text-xs">
+                    {product?.attributes && product.attributes.length > 0
+                      ? product.attributes
+                          .map((attrId: string) => attributeById.get(attrId))
+                          .filter(Boolean)
+                          .join(", ")
+                      : "—"}
+                  </div>
+                </td>
+                {/* <td
                   className={`w-full py-0 px-2 font-bold maxsm:hidden text-[12px]`}
                 >
                   {product?.category}
-                </td>
+                </td> */}
                 <td className="w-full px-2 maxsm:px-0 py-0  ">
                   <span className="relative flex items-center justify-center text-foreground w-20 h-20 maxsm:w-8 maxsm:h-8 shadow mt-2">
                     <button
@@ -876,7 +1039,7 @@ const AdminProducts = ({
                     )}
                   </span>
                 </td>
-                <td className="w-full px-1 py-0 ">{product?.gender}</td>
+                {/* <td className="w-full px-1 py-0 ">{product?.gender}</td> */}
                 <td className="w-full px-1 py-0 ">{product?.brand}</td>
                 {/* <td className="w-full px-1 py-0 ">{product?.linea}</td> */}
                 <td className="w-full px-1 py-0 text-[11px] uppercase">

@@ -7,13 +7,18 @@ import { cookies } from "next/headers";
 export const revalidate = 0;
 export const dynamic = "force-dynamic"; // Force dynamic rendering on every request
 
-const ProductDetailsPage = async ({ params }: { params: any }) => {
+const ProductDetailsPage = async ({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) => {
+  const { slug } = await params;
   const nextCookies = await cookies();
   const cookieName = getCookiesName();
   const nextAuthSessionToken = nextCookies.get(cookieName);
   const currentCookies = `${cookieName}=${nextAuthSessionToken?.value}`;
 
-  const data = await getOneProductForEdit(params.slug, false);
+  const data = await getOneProductForEdit(slug, false);
   const product = JSON.parse(data.product);
 
   return (
