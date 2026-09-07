@@ -12,7 +12,7 @@ import FormattedPrice from "@/backend/helpers/FormattedPrice";
 import Swal, { SweetAlertIcon } from "sweetalert2";
 import SearchProducts from "@/app/(manager)/admin/productos/search";
 import BarcodeScannerModal from "@/components/modals/BarcodeScannerModal";
-import { MdQrCodeScanner } from "react-icons/md";
+import { MdQrCodeScanner, MdDownload } from "react-icons/md";
 import {
   changeProductAvailability,
   deleteOneProduct,
@@ -31,6 +31,7 @@ import {
 import { useSession } from "next-auth/react";
 import { SiMercadopago } from "react-icons/si";
 import ExportToTikTokButton from "./ExportToTikTokButton";
+import * as XLSX from "xlsx";
 
 const AdminProducts = ({
   products,
@@ -605,6 +606,259 @@ const AdminProducts = ({
     });
   };
 
+  // Export to CSV
+  const handleExportCSV = useCallback(async () => {
+    try {
+      // Get all filtered products using export endpoint
+      const searchParams = new URLSearchParams(window.location.search);
+      const keyword = searchParams.get("keyword") || "";
+      const sortBy = searchParams.get("sortBy") || "";
+      const sortDir = searchParams.get("sortDir") || "";
+      
+      Swal.fire({
+        title: "Cargando productos...",
+        text: "Por favor espera mientras se descargan todos los productos.",
+        didOpen: () => {
+          Swal.showLoading();
+        },
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      });
+
+      console.log("CSV Export: Fetching from export endpoint...");
+      let exportUrl = `/api/products/export`;
+      const params = new URLSearchParams();
+      if (keyword) params.append("keyword", keyword);
+      if (sortBy) params.append("sortBy", sortBy);
+      if (sortDir) params.append("sortDir", sortDir);
+      
+      if (params.toString()) {
+        exportUrl = `/api/products/export?${params.toString()}`;
+      }
+      
+      const res = await fetch(exportUrl);
+      const data = await res.json();
+      
+      // Extract products from nested structure
+      let allProducts: any[] = [];
+      if (Array.isArray(data.products)) {
+        allProducts = data.products;
+      } else if (data?.products?.products && Array.isArray(data.products.products)) {
+        allProducts = data.products.products;
+      } else if (data?.products && Array.isArray(data.products)) {
+        allProducts = data.products;
+      }
+      
+      console.log(`Total products fetched: ${allProducts.length}`);
+
+      // Filter out products without _id
+      allProducts = allProducts.filter((p: any) => p._id);
+      console.log(`Total products after filtering: ${allProducts.length}`);
+
+      if (!Array.isArray(allProducts) || allProducts.length === 0) {
+        Swal.fire("Sin datos", "No hay productos para exportar.", "warning");
+        return;
+      }
+
+      // Build store names set from all inventory data (already included in response)
+      const allStoreNames = new Set<string>();
+      allProducts.forEach((product: any) => {
+        const inventoryData = product.storeInventory || [];
+        inventoryData.forEach((inv: any) => {
+          const storeName = inv.store?.name ?? "Sin sucursal";
+          allStoreNames.add(storeName);
+        });
+      });
+
+      // Sort store names for consistent column order
+      const sortedStoreNames = Array.from(allStoreNames).sort();
+
+      // Prepare CSV data
+      const csvData = allProducts.map((product: any) => {
+        const inventoryData = product.storeInventory || [];
+        const totalStock = inventoryData.reduce((sum: number, inv: any) => sum + (inv.quantity || 0), 0);
+        
+        // Group by store
+        const grouped: { [storeName: string]: number } = {};
+        inventoryData.forEach((inv: any) => {
+          const storeName = inv.store?.name ?? "Sin sucursal";
+          grouped[storeName] = (grouped[storeName] || 0) + (inv.quantity || 0);
+        });
+
+        const variations = Array.isArray(product.variations) ? product.variations : [];
+        const row: any = {
+          "Título": product.title || "—",
+          "ASIN": product.ASIN || "—",
+          "Precio": variations.length > 0 ? variations[0]?.price || "—" : "—",
+          "Stock Total": totalStock,
+        };
+
+        // Add individual store stocks in consistent order
+        sortedStoreNames.forEach((storeName) => {
+          row[`Stock ${storeName}`] = grouped[storeName] || 0;
+        });
+
+        row["Estado"] = product.active ? "Activo" : "Inactivo";
+        row["Online"] = product.availability?.online ? "Sí" : "No";
+        row["Sucursal"] = product.availability?.branch ? "Sí" : "No";
+
+        return row;
+      });
+
+      // Convert to CSV
+      const headers = Object.keys(csvData[0] || {});
+      const csvContent = [
+        headers.join(","),
+        ...csvData.map((row: any) =>
+          headers.map((header) => {
+            const value = row[header];
+            // Escape quotes and wrap in quotes if contains comma
+            if (typeof value === "string" && (value.includes(",") || value.includes('"'))) {
+              return `"${value.replace(/"/g, '""')}"`;
+            }
+            return value;
+          }).join(",")
+        ),
+      ].join("\n");
+
+      // Download CSV
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `productos_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      Swal.fire("Éxito", `${allProducts.length} producto(s) exportado(s) a CSV.`, "success");
+    } catch (error) {
+      console.error("Error exporting CSV:", error);
+      Swal.fire("Error", "No se pudo exportar los datos a CSV.", "error");
+    }
+  }, []);
+
+  // Export to Excel
+  const handleExportExcel = useCallback(async () => {
+    try {
+      // Get all filtered products using export endpoint
+      const searchParams = new URLSearchParams(window.location.search);
+      const keyword = searchParams.get("keyword") || "";
+      const sortBy = searchParams.get("sortBy") || "";
+      const sortDir = searchParams.get("sortDir") || "";
+      
+      Swal.fire({
+        title: "Cargando productos...",
+        text: "Por favor espera mientras se descargan todos los productos.",
+        didOpen: () => {
+          Swal.showLoading();
+        },
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      });
+
+      console.log("Excel Export: Fetching from export endpoint...");
+      let exportUrl = `/api/products/export`;
+      const params = new URLSearchParams();
+      if (keyword) params.append("keyword", keyword);
+      if (sortBy) params.append("sortBy", sortBy);
+      if (sortDir) params.append("sortDir", sortDir);
+      
+      if (params.toString()) {
+        exportUrl = `/api/products/export?${params.toString()}`;
+      }
+      
+      const res = await fetch(exportUrl);
+      const data = await res.json();
+      
+      // Extract products from nested structure
+      let allProducts: any[] = [];
+      if (Array.isArray(data.products)) {
+        allProducts = data.products;
+      } else if (data?.products?.products && Array.isArray(data.products.products)) {
+        allProducts = data.products.products;
+      } else if (data?.products && Array.isArray(data.products)) {
+        allProducts = data.products;
+      }
+      
+      console.log(`Total products fetched: ${allProducts.length}`);
+
+      // Filter out products without _id
+      allProducts = allProducts.filter((p: any) => p._id);
+      console.log(`Total products after filtering: ${allProducts.length}`);
+
+      if (!Array.isArray(allProducts) || allProducts.length === 0) {
+        Swal.fire("Sin datos", "No hay productos para exportar.", "warning");
+        return;
+      }
+
+      // Build store names set from all inventory data (already included in response)
+      const allStoreNames = new Set<string>();
+      allProducts.forEach((product: any) => {
+        const inventoryData = product.storeInventory || [];
+        inventoryData.forEach((inv: any) => {
+          const storeName = inv.store?.name ?? "Sin sucursal";
+          allStoreNames.add(storeName);
+        });
+      });
+
+      // Sort store names for consistent column order
+      const sortedStoreNames = Array.from(allStoreNames).sort();
+
+      // Prepare Excel data
+      const excelData = allProducts.map((product: any) => {
+        const inventoryData = product.storeInventory || [];
+        const totalStock = inventoryData.reduce((sum: number, inv: any) => sum + (inv.quantity || 0), 0);
+        
+        const grouped: { [storeName: string]: number } = {};
+        inventoryData.forEach((inv: any) => {
+          const storeName = inv.store?.name ?? "Sin sucursal";
+          grouped[storeName] = (grouped[storeName] || 0) + (inv.quantity || 0);
+        });
+
+        const variations = Array.isArray(product.variations) ? product.variations : [];
+        const row: any = {
+          "Título": product.title || "—",
+          "ASIN": product.ASIN || "—",
+          "Precio": variations.length > 0 ? variations[0]?.price || "—" : "—",
+          "Stock Total": totalStock,
+        };
+
+        // Add individual store stocks in consistent order
+        sortedStoreNames.forEach((storeName) => {
+          row[`Stock ${storeName}`] = grouped[storeName] || 0;
+        });
+
+        row["Estado"] = product.active ? "Activo" : "Inactivo";
+        row["Online"] = product.availability?.online ? "Sí" : "No";
+        row["Sucursal"] = product.availability?.branch ? "Sí" : "No";
+
+        return row;
+      });
+
+      // Create workbook
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Productos");
+
+      // Set column widths
+      const maxWidth = 30;
+      const colWidths = Object.keys(excelData[0] || {}).map((key) => ({
+        wch: Math.min(maxWidth, Math.max(key.length, 12)),
+      }));
+      worksheet["!cols"] = colWidths;
+
+      // Write file
+      XLSX.writeFile(workbook, `productos_${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+      Swal.fire("Éxito", `${allProducts.length} producto(s) exportado(s) a Excel.`, "success");
+    } catch (error) {
+      console.error("Error exporting Excel:", error);
+      Swal.fire("Error", "No se pudo exportar los datos a Excel.", "error");
+    }
+  }, []);
+
   return (
     <>
       <hr className="my-4 maxsm:my-1" />
@@ -645,6 +899,26 @@ const AdminProducts = ({
               <MdQrCodeScanner size={20} />
             </button>
             <SearchProducts search={search} />
+            <div className="ml-auto flex gap-2">
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-xl transition-colors text-sm font-medium"
+                title="Exportar a CSV"
+              >
+                <MdDownload size={18} />
+                CSV
+              </button>
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white hover:bg-green-700 rounded-xl transition-colors text-sm font-medium"
+                title="Exportar a Excel"
+              >
+                <MdDownload size={18} />
+                Excel
+              </button>
+            </div>
           </div>
         </div>
 

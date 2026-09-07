@@ -18,8 +18,14 @@ const SearchProducts = ({ search }: { search: any }) => {
   const router = useRouter();
   const initialRender = useRef(true);
 
-  const [text, setText] = useState(search);
+  const [text, setText] = useState("");
   const [query] = useDebounce(text, 750);
+
+  useEffect(() => {
+    if (search) {
+      setText(search);
+    }
+  }, [search]);
 
   useEffect(() => {
     if (initialRender.current) {

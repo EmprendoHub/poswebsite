@@ -88,6 +88,19 @@ export async function GET(req: Request) {
     variation = product?.variations?.[0] ?? null;
   }
 
+  // 5. Partial title match with word boundaries (for searching by product name)
+  if (!variation) {
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const wordBoundaryRegex = `\\b${escaped}\\b`;
+    product = await Product.findOne({
+      title: { $regex: wordBoundaryRegex, $options: "i" },
+      active: true,
+    })
+      .select("_id title images variations ASIN")
+      .lean();
+    variation = product?.variations?.[0] ?? null;
+  }
+
   if (!product || !variation) {
     return NextResponse.json(
       { error: "Producto no encontrado" },

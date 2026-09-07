@@ -440,7 +440,7 @@ export default function POSInventarioPage() {
                 value={scanQuery}
                 onChange={(e) => setScanQuery(e.target.value)}
                 onKeyDown={handleScanKeyDown}
-                placeholder="Escanea código de barras / QR o escribe el SKU…"
+                placeholder="Escanea código de barras / QR, SKU o nombre del producto…"
                 className="flex-1 bg-muted rounded-lg px-4 py-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary"
               />
               <button
