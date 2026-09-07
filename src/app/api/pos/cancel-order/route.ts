@@ -63,6 +63,7 @@ export async function POST(req: Request) {
 
     // ── 1. Mark order cancelled ───────────────────────────────────────────
     order.orderStatus = "Cancelado";
+    order.cancelledAt = new Date();
     order.comment = [
       order.comment,
       `Cancelado por: ${authorizedByName} (${new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" })})`,

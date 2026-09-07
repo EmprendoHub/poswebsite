@@ -46,6 +46,13 @@ export async function POST(req: Request) {
     const periodStart = cajaSession.openedAt;
     const periodEnd = new Date();
 
+    console.log("\n[CIERRE DEBUG] Query filters:", {
+      sessionId,
+      storeId: cajaSession.store?.toString?.() || cajaSession.store,
+      periodStart: periodStart?.toISOString?.() || periodStart,
+      periodEnd: periodEnd.toISOString(),
+    });
+
     // All movements for the full session (cierre covers everything since apertura)
     const movements = await CashRegisterMovement.find({
       session: sessionId,
@@ -53,11 +60,46 @@ export async function POST(req: Request) {
 
     // For cierre, include all cancelled orders from the entire session,
     // scoped to this branch (all calendar days involved in the session period)
+    // Query by cancelledAt (when actually canceled) not createdAt (when originally created)
     const cancelledOrders = await Order.find({
       orderStatus: "Cancelado",
       storeId: cajaSession.store,
-      createdAt: { $gte: periodStart, $lte: periodEnd },
+      cancelledAt: { $gte: periodStart, $lte: periodEnd },
     }).lean();
+
+    console.log("[CIERRE DEBUG] Found cancelled orders:", {
+      count: cancelledOrders.length,
+      orders: cancelledOrders.slice(0, 3).map((o: any) => ({
+        orderId: o.orderId,
+        createdAt: o.createdAt?.toISOString?.() || o.createdAt,
+        storeId: o.storeId?.toString?.() || o.storeId,
+        amount: o.paymentInfo?.amountPaid,
+      })),
+    });
+
+    // DIAGNOSTIC: If no cancelled orders found with cancelledAt filter,
+    // check if orders exist without the cancelledAt requirement (pre-migration orders)
+    if (cancelledOrders.length === 0) {
+      const cancelledWithoutCancelledAt = await Order.find({
+        orderStatus: "Cancelado",
+        storeId: cajaSession.store,
+        cancelledAt: { $exists: false },
+      })
+        .sort({ updatedAt: -1 })
+        .limit(5)
+        .lean();
+      console.log(
+        "[CIERRE DIAGNOSTIC] No orders with cancelledAt. Found pre-migration orders:",
+        {
+          count: cancelledWithoutCancelledAt.length,
+          sample: cancelledWithoutCancelledAt.map((o: any) => ({
+            orderId: o.orderId,
+            updatedAt: o.updatedAt?.toISOString?.() || o.updatedAt,
+            createdAt: o.createdAt?.toISOString?.() || o.createdAt,
+          })),
+        },
+      );
+    }
 
 
 

@@ -195,7 +195,7 @@ function CajaTicket({
           ))}
             <div className="flex justify-between text-xs">
             <span>Total:</span>
-            <span>{fmt(cut.totals.cancelledOrdersTotal ?? 0)}</span>
+            <span className="font-bold text-red-600">{fmt(cut.totals.cancelledOrdersTotal ?? 0)}</span>
           </div>
         </>
       )}

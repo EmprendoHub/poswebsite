@@ -50,6 +50,7 @@ interface OrderDocument extends Document {
   estimatedDelivery?: string;
   user?: mongoose.Types.ObjectId;
   customer: mongoose.Types.ObjectId;
+  cancelledAt?: Date;
 }
 
 const OrderSchema = new Schema<OrderDocument>({
@@ -188,6 +189,9 @@ const OrderSchema = new Schema<OrderDocument>({
   comment: {
     type: String,
   },
+  cancelledAt: {
+    type: Date,
+  },
   shippingInfo: {
     type: Schema.Types.Mixed, // Allows both ObjectId and embedded object
   },
@@ -224,6 +228,7 @@ OrderSchema.index({ "user.name": 1 });
 OrderSchema.index({ posRequestId: 1 }, { unique: true, sparse: true });
 OrderSchema.index({ fulfillmentType: 1, pickupStore: 1, orderStatus: 1 }); // For querying pickup orders
 OrderSchema.index({ fulfillmentType: 1, pickupReadyDate: 1 }); // For querying ready-for-pickup orders
+OrderSchema.index({ orderStatus: 1, storeId: 1, cancelledAt: 1 }); // For querying cancelled orders by store and date
 
 // Apply the pre-save hook to generate the orderNumber
 OrderSchema.pre<OrderDocument>("save", async function (next) {

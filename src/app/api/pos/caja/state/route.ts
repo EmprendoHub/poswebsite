@@ -57,11 +57,25 @@ export async function GET(req: Request) {
     // trust that field just because it's present — recompute it fresh here.
     const enrichedCuts = await Promise.all(
       recentCuts.map(async (cut: any) => {
+        console.log("[STATE DEBUG] Recalculating cut:", {
+          cutNumber: cut.cutNumber,
+          type: cut.type,
+          periodStart: cut.periodStart?.toISOString?.() || cut.periodStart,
+          periodEnd: cut.periodEnd?.toISOString?.() || cut.periodEnd,
+          queryStoreId: storeId,
+        });
         const cancelledOrders = await Order.find({
           orderStatus: "Cancelado",
           storeId: storeId,
-          createdAt: { $gte: cut.periodStart, $lte: cut.periodEnd },
+          cancelledAt: { $gte: cut.periodStart, $lte: cut.periodEnd },
         }).lean();
+
+        console.log("[STATE DEBUG] Recalculation result:", {
+          cutNumber: cut.cutNumber,
+          foundCount: cancelledOrders.length,
+          storedCount: cut.totals?.cancelledOrdersCount,
+          match: cancelledOrders.length === cut.totals?.cancelledOrdersCount,
+        });
 
         return {
           ...cut,
