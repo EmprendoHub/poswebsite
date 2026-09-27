@@ -3141,30 +3141,50 @@ export async function getAllProduct(searchQuery: any) {
     const searchParams = new URLSearchParams(searchQuery);
     const resPerPage = Number(searchParams.get("perpage")) || 20;
     const page = Number(searchParams.get("page")) || 1;
-    const sortBy = searchParams.get("sortBy");
-    const sortDir = searchParams.get("sortDir") === "desc" ? -1 : 1;
+    const sortsParam = searchParams.get("sorts"); // Format: "brand:asc,price:desc"
 
-    // Apply sorting if specified, otherwise default to createdAt
-    if (sortBy) {
-      if (sortBy === "title") {
-        productQuery = productQuery.sort({ title: sortDir });
-      } else if (sortBy === "category") {
-        productQuery = productQuery.sort({ category: sortDir });
-      } else if (sortBy === "gender") {
-        productQuery = productQuery.sort({ gender: sortDir });
-      } else if (sortBy === "brand") {
-        productQuery = productQuery.sort({ brand: sortDir });
-      } else if (sortBy === "price") {
-        productQuery = productQuery.sort({ "variations.0.price": sortDir });
-      } else if (sortBy === "mainCategory") {
-        productQuery = productQuery.sort({ mainCategory: sortDir });
-      } else if (sortBy === "subCategory") {
-        productQuery = productQuery.sort({ subCategory: sortDir });
-      } else if (sortBy === "attributes") {
-        productQuery = productQuery.sort({ attributes: sortDir });
-      } else if (sortBy === "stock") {
-        // Stock sorting will be handled after fetching inventory data
-        productQuery = productQuery.sort({ createdAt: -1 });
+    // Parse sorts parameter into array of {key, dir} objects
+    const sorts: Array<{ key: string; dir: 1 | -1 }> = [];
+    if (sortsParam) {
+      try {
+        const sortPairs = sortsParam.split(",");
+        for (const pair of sortPairs) {
+          const [key, dir] = pair.split(":");
+          if (key) {
+            const direction = dir === "desc" ? -1 : 1;
+            sorts.push({ key, dir: direction });
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to parse sorts parameter:", sortsParam);
+      }
+    }
+
+    // Apply sorting based on sort criteria array
+    if (sorts.length > 0) {
+      // Build a sort object that MongoDB can use
+      const sortObj: any = {};
+      for (const sort of sorts) {
+        if (sort.key === "title") {
+          sortObj.title = sort.dir;
+        } else if (sort.key === "category") {
+          sortObj.category = sort.dir;
+        } else if (sort.key === "gender") {
+          sortObj.gender = sort.dir;
+        } else if (sort.key === "brand") {
+          sortObj.brand = sort.dir;
+        } else if (sort.key === "price") {
+          sortObj["variations.0.price"] = sort.dir;
+        } else if (sort.key === "mainCategory") {
+          sortObj.mainCategory = sort.dir;
+        } else if (sort.key === "subCategory") {
+          sortObj.subCategory = sort.dir;
+        } else if (sort.key === "attributes") {
+          sortObj.attributes = sort.dir;
+        }
+      }
+      if (Object.keys(sortObj).length > 0) {
+        productQuery = productQuery.sort(sortObj);
       } else {
         productQuery = productQuery.sort({ createdAt: -1 });
       }
@@ -3179,15 +3199,124 @@ export async function getAllProduct(searchQuery: any) {
       Product.distinct("brand"),
     ]);
 
-    const apiProductFilters: any = new APIFilters(productQuery, searchParams)
+    const filterSearchParams = new URLSearchParams(searchParams);
+    filterSearchParams.delete("sorts");
+    // Also remove custom filter params before passing to APIFilters
+    filterSearchParams.delete("filterTitle");
+    filterSearchParams.delete("filterMainCategories");
+    filterSearchParams.delete("filterSubCategories");
+    filterSearchParams.delete("filterAttributes");
+    filterSearchParams.delete("filterBrands");
+    filterSearchParams.delete("filterPriceMin");
+    filterSearchParams.delete("filterPriceMax");
+    filterSearchParams.delete("filterStockMin");
+    filterSearchParams.delete("filterStockMax");
+
+    // Helper function to check if any custom filters are active
+    const hasFilterParams = (params: URLSearchParams): boolean => {
+      return (
+        !!params.get("filterTitle") ||
+        !!params.get("filterMainCategories") ||
+        !!params.get("filterSubCategories") ||
+        !!params.get("filterAttributes") ||
+        !!params.get("filterBrands") ||
+        !!params.get("filterPriceMin") ||
+        !!params.get("filterPriceMax") ||
+        !!params.get("filterStockMin") ||
+        !!params.get("filterStockMax")
+      );
+    };
+
+    const apiProductFilters: any = new APIFilters(productQuery, filterSearchParams)
       .searchAllFields()
       .filter();
 
     let productsData = await apiProductFilters.query.exec();
-    const filteredProductsCount = productsData.length;
 
-    // For stock sorting, we need inventory data first to sort properly
-    if (sortBy === "stock" && productsData.length > 0) {
+    // Apply custom filters
+    const filterTitle = searchParams.get("filterTitle") || "";
+    const filterMainCategoriesStr = searchParams.get("filterMainCategories") || "";
+    const filterSubCategoriesStr = searchParams.get("filterSubCategories") || "";
+    const filterAttributesStr = searchParams.get("filterAttributes") || "";
+    const filterBrandsStr = searchParams.get("filterBrands") || "";
+    const filterPriceMin = Number(searchParams.get("filterPriceMin")) || null;
+    const filterPriceMax = Number(searchParams.get("filterPriceMax")) || null;
+    const filterStockMin = Number(searchParams.get("filterStockMin")) || null;
+    const filterStockMax = Number(searchParams.get("filterStockMax")) || null;
+
+    const filterMainCategories = filterMainCategoriesStr
+      ? filterMainCategoriesStr.split(",").map((id) => id.trim())
+      : [];
+    const filterSubCategories = filterSubCategoriesStr
+      ? filterSubCategoriesStr.split(",").map((id) => id.trim())
+      : [];
+    const filterAttributes = filterAttributesStr
+      ? filterAttributesStr.split(",").map((id) => id.trim())
+      : [];
+    const filterBrands = filterBrandsStr ? filterBrandsStr.split(",").map((b) => b.trim()) : [];
+
+    // Apply all filters (AND logic - must match all criteria)
+    if (hasFilterParams(searchParams)) {
+      productsData = productsData.filter((product: any) => {
+        // Title filter
+        if (filterTitle && !product.title?.toLowerCase().includes(filterTitle.toLowerCase())) {
+          return false;
+        }
+
+        // Main category filter
+        if (
+          filterMainCategories.length > 0 &&
+          !filterMainCategories.includes(product.mainCategory?.toString())
+        ) {
+          return false;
+        }
+
+        // Sub category filter
+        if (
+          filterSubCategories.length > 0 &&
+          !filterSubCategories.includes(product.subCategory?.toString())
+        ) {
+          return false;
+        }
+
+        // Attributes filter - product must have at least one of the selected attributes
+        if (filterAttributes.length > 0) {
+          const productAttrs = (product.attributes || []).map((a: any) => a.toString());
+          const hasAttr = filterAttributes.some((attr) => productAttrs.includes(attr));
+          if (!hasAttr) {
+            return false;
+          }
+        }
+
+        // Brand filter
+        if (filterBrands.length > 0) {
+          const productBrand = product.brand ? product.brand.toString() : "";
+          if (!filterBrands.includes(productBrand)) {
+            return false;
+          }
+        }
+
+        // Price filter
+        if ((filterPriceMin || filterPriceMax) && product.variations && product.variations.length > 0) {
+          const productPrice = product.variations[0]?.price || 0;
+          if (filterPriceMin && productPrice < filterPriceMin) {
+            return false;
+          }
+          if (filterPriceMax && productPrice > filterPriceMax) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+    }
+
+    let filteredProductsCount = productsData.length;
+
+    // For stock sorting or filtering, we need inventory data first
+    const hasStockSort = sorts.some((s) => s.key === "stock");
+    const hasStockFilter = filterStockMin || filterStockMax;
+    if ((hasStockSort || hasStockFilter) && productsData.length > 0) {
       const allProductIds = productsData.map((p: any) => p._id);
 
       // Get stock totals for all products
@@ -3199,11 +3328,61 @@ export async function getAllProduct(searchQuery: any) {
         allStockTotals.map((r: any) => [r._id.toString(), r.total]),
       );
 
-      // Sort by stock before pagination
+      // Apply stock filter
+      if (hasStockFilter) {
+        productsData = productsData.filter((product: any) => {
+          const stock = allStockMap.get(product._id.toString()) || 0;
+          if (filterStockMin && stock < filterStockMin) {
+            return false;
+          }
+          if (filterStockMax && stock > filterStockMax) {
+            return false;
+          }
+          return true;
+        });
+        filteredProductsCount = productsData.length;
+      }
+
+      // Sort by all criteria including stock using multi-level comparator
       productsData.sort((a: any, b: any) => {
-        const stockA = allStockMap.get(a._id.toString()) || 0;
-        const stockB = allStockMap.get(b._id.toString()) || 0;
-        return sortDir === 1 ? stockA - stockB : stockB - stockA;
+        for (const sort of sorts) {
+          let compareResult = 0;
+
+          if (sort.key === "stock") {
+            const stockA = allStockMap.get(a._id.toString()) || 0;
+            const stockB = allStockMap.get(b._id.toString()) || 0;
+            compareResult = stockA - stockB;
+          } else if (sort.key === "price") {
+            const priceA = a.variations?.[0]?.price || 0;
+            const priceB = b.variations?.[0]?.price || 0;
+            compareResult = priceA - priceB;
+          } else if (sort.key === "title") {
+            compareResult = (a.title || "").localeCompare(b.title || "");
+          } else if (sort.key === "brand") {
+            compareResult = (a.brand || "").localeCompare(b.brand || "");
+          } else if (sort.key === "category") {
+            compareResult = (a.category || "").localeCompare(b.category || "");
+          } else if (sort.key === "gender") {
+            compareResult = (a.gender || "").localeCompare(b.gender || "");
+          } else if (sort.key === "mainCategory") {
+            compareResult = (a.mainCategory?.toString() || "").localeCompare(
+              b.mainCategory?.toString() || "",
+            );
+          } else if (sort.key === "subCategory") {
+            compareResult = (a.subCategory?.toString() || "").localeCompare(
+              b.subCategory?.toString() || "",
+            );
+          } else if (sort.key === "attributes") {
+            const attrsA = (a.attributes || []).join(",");
+            const attrsB = (b.attributes || []).join(",");
+            compareResult = attrsA.localeCompare(attrsB);
+          }
+
+          if (compareResult !== 0) {
+            return sort.dir === 1 ? compareResult : -compareResult;
+          }
+        }
+        return 0;
       });
     }
 

@@ -12,7 +12,7 @@ import FormattedPrice from "@/backend/helpers/FormattedPrice";
 import Swal, { SweetAlertIcon } from "sweetalert2";
 import SearchProducts from "@/app/(manager)/admin/productos/search";
 import BarcodeScannerModal from "@/components/modals/BarcodeScannerModal";
-import { MdQrCodeScanner, MdDownload } from "react-icons/md";
+import { MdQrCodeScanner, MdDownload, MdFilterList } from "react-icons/md";
 import {
   changeProductAvailability,
   deleteOneProduct,
@@ -59,8 +59,7 @@ const AdminProducts = ({
   }
   const searchParams = useSearchParams();
   const searchValue = searchParams.get("page");
-  const sortByParam = searchParams.get("sortBy");
-  const sortDirParam = searchParams.get("sortDir");
+  const sortsParam = searchParams.get("sorts"); // Format: "brand:asc,price:desc"
   const [currentPage, setCurrentPage] = useState<string>("");
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(
     new Set(),
@@ -129,12 +128,134 @@ const AdminProducts = ({
   }, [products]);
 
   // Sorting state - initialize from URL params
-  const [sortKey, setSortKey] = useState<
-    "title" | "category" | "gender" | "brand" | "price" | "stock" | "mainCategory" | "subCategory" | "attributes" | null
-  >((sortByParam as any) || null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">(
-    (sortDirParam as "asc" | "desc") || "asc",
-  );
+  type SortCriterion = { key: "title" | "category" | "gender" | "brand" | "price" | "stock" | "mainCategory" | "subCategory" | "attributes"; dir: "asc" | "desc" };
+  const [sorts, setSorts] = useState<SortCriterion[]>(() => {
+    if (!sortsParam) return [];
+    try {
+      return sortsParam.split(",").map((s) => {
+        const [key, dir] = s.split(":");
+        return { key: key as any, dir: (dir || "asc") as "asc" | "desc" };
+      });
+    } catch {
+      return [];
+    }
+  });
+
+  // Filter state - initialize from URL params
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [filterTitle, setFilterTitle] = useState(() => searchParams.get("filterTitle") || "");
+  const [filterMainCategories, setFilterMainCategories] = useState<string[]>(() => {
+    const param = searchParams.get("filterMainCategories");
+    return param ? param.split(",") : [];
+  });
+  const [filterSubCategories, setFilterSubCategories] = useState<string[]>(() => {
+    const param = searchParams.get("filterSubCategories");
+    return param ? param.split(",") : [];
+  });
+  const [filterAttributes, setFilterAttributes] = useState<string[]>(() => {
+    const param = searchParams.get("filterAttributes");
+    return param ? param.split(",") : [];
+  });
+  const [filterBrands, setFilterBrands] = useState<string[]>(() => {
+    const param = searchParams.get("filterBrands");
+    return param ? param.split(",") : [];
+  });
+  const [filterPriceMin, setFilterPriceMin] = useState(() => searchParams.get("filterPriceMin") || "");
+  const [filterPriceMax, setFilterPriceMax] = useState(() => searchParams.get("filterPriceMax") || "");
+  const [filterStockMin, setFilterStockMin] = useState(() => searchParams.get("filterStockMin") || "");
+  const [filterStockMax, setFilterStockMax] = useState(() => searchParams.get("filterStockMax") || "");
+
+  // Check if any filters are active
+  const hasActiveFilters = () => {
+    return (
+      filterTitle !== "" ||
+      filterMainCategories.length > 0 ||
+      filterSubCategories.length > 0 ||
+      filterAttributes.length > 0 ||
+      filterBrands.length > 0 ||
+      filterPriceMin !== "" ||
+      filterPriceMax !== "" ||
+      filterStockMin !== "" ||
+      filterStockMax !== ""
+    );
+  };
+
+  const applyFilters = () => {
+    const params = new URLSearchParams(window.location.search);
+    const keyword = params.get("keyword") || "";
+    const sortsStr = params.get("sorts") || "";
+
+    let newUrl = "?page=1";
+
+    if (keyword) {
+      newUrl += `&keyword=${encodeURIComponent(keyword)}`;
+    }
+    if (sortsStr) {
+      newUrl += `&sorts=${sortsStr}`;
+    }
+
+    // Add filter params
+    if (filterTitle) {
+      newUrl += `&filterTitle=${encodeURIComponent(filterTitle)}`;
+    }
+    if (filterMainCategories.length > 0) {
+      newUrl += `&filterMainCategories=${filterMainCategories.join(",")}`;
+    }
+    if (filterSubCategories.length > 0) {
+      newUrl += `&filterSubCategories=${filterSubCategories.join(",")}`;
+    }
+    if (filterAttributes.length > 0) {
+      newUrl += `&filterAttributes=${filterAttributes.join(",")}`;
+    }
+    if (filterBrands.length > 0) {
+      newUrl += `&filterBrands=${filterBrands.join(",")}`;
+    }
+    if (filterPriceMin) {
+      newUrl += `&filterPriceMin=${filterPriceMin}`;
+    }
+    if (filterPriceMax) {
+      newUrl += `&filterPriceMax=${filterPriceMax}`;
+    }
+    if (filterStockMin) {
+      newUrl += `&filterStockMin=${filterStockMin}`;
+    }
+    if (filterStockMax) {
+      newUrl += `&filterStockMax=${filterStockMax}`;
+    }
+
+    setShowFilterModal(false);
+    startTransition(() => {
+      router.push(newUrl);
+    });
+  };
+
+  const clearFilters = () => {
+    setFilterTitle("");
+    setFilterMainCategories([]);
+    setFilterSubCategories([]);
+    setFilterAttributes([]);
+    setFilterBrands([]);
+    setFilterPriceMin("");
+    setFilterPriceMax("");
+    setFilterStockMin("");
+    setFilterStockMax("");
+
+    const params = new URLSearchParams(window.location.search);
+    const keyword = params.get("keyword") || "";
+    const sortsStr = params.get("sorts") || "";
+
+    let newUrl = "?page=1";
+    if (keyword) {
+      newUrl += `&keyword=${encodeURIComponent(keyword)}`;
+    }
+    if (sortsStr) {
+      newUrl += `&sorts=${sortsStr}`;
+    }
+
+    startTransition(() => {
+      router.push(newUrl);
+    });
+  };
 
   const closePreview = useCallback(() => setPreviewImage(null), []);
   const closeStockPreview = useCallback(() => {
@@ -145,16 +266,154 @@ const AdminProducts = ({
   const toggleSort = (
     key: "title" | "category" | "gender" | "brand" | "price" | "stock" | "mainCategory" | "subCategory" | "attributes",
   ) => {
-    const newDir = sortKey === key && sortDir === "asc" ? "desc" : "asc";
-    setSortKey(key);
-    setSortDir(newDir);
+    let newSorts: SortCriterion[];
+    const existingIndex = sorts.findIndex((s) => s.key === key);
+
+    if (existingIndex !== -1) {
+      // If sort exists, toggle its direction or remove it if it was desc
+      const existing = sorts[existingIndex];
+      if (existing.dir === "asc") {
+        newSorts = sorts.map((s, i) =>
+          i === existingIndex ? { ...s, dir: "desc" } : s,
+        );
+      } else {
+        // Remove if already desc
+        newSorts = sorts.filter((_, i) => i !== existingIndex);
+      }
+    } else {
+      // Add new sort criterion at the end
+      newSorts = [...sorts, { key, dir: "asc" }];
+    }
+
+    setSorts(newSorts);
 
     // Update URL with sort params and reset to page 1
     const params = new URLSearchParams(window.location.search);
     const keyword = params.get("keyword") || "";
-    let newUrl = `?sortBy=${key}&sortDir=${newDir}&page=1`;
+    let newUrl = "?page=1";
+    if (newSorts.length > 0) {
+      const sortsStr = newSorts.map((s) => `${s.key}:${s.dir}`).join(",");
+      newUrl += `&sorts=${sortsStr}`;
+    }
     if (keyword) {
       newUrl += `&keyword=${encodeURIComponent(keyword)}`;
+    }
+    // Preserve all filter parameters
+    if (filterTitle) {
+      newUrl += `&filterTitle=${encodeURIComponent(filterTitle)}`;
+    }
+    if (filterMainCategories.length > 0) {
+      newUrl += `&filterMainCategories=${filterMainCategories.join(",")}`;
+    }
+    if (filterSubCategories.length > 0) {
+      newUrl += `&filterSubCategories=${filterSubCategories.join(",")}`;
+    }
+    if (filterAttributes.length > 0) {
+      newUrl += `&filterAttributes=${filterAttributes.join(",")}`;
+    }
+    if (filterBrands.length > 0) {
+      newUrl += `&filterBrands=${filterBrands.join(",")}`;
+    }
+    if (filterPriceMin) {
+      newUrl += `&filterPriceMin=${filterPriceMin}`;
+    }
+    if (filterPriceMax) {
+      newUrl += `&filterPriceMax=${filterPriceMax}`;
+    }
+    if (filterStockMin) {
+      newUrl += `&filterStockMin=${filterStockMin}`;
+    }
+    if (filterStockMax) {
+      newUrl += `&filterStockMax=${filterStockMax}`;
+    }
+    startTransition(() => {
+      router.push(newUrl);
+    });
+  };
+
+  const removeSort = (index: number) => {
+    const newSorts = sorts.filter((_, i) => i !== index);
+    setSorts(newSorts);
+
+    // Update URL
+    const params = new URLSearchParams(window.location.search);
+    const keyword = params.get("keyword") || "";
+    let newUrl = "?page=1";
+    if (newSorts.length > 0) {
+      const sortsStr = newSorts.map((s) => `${s.key}:${s.dir}`).join(",");
+      newUrl += `&sorts=${sortsStr}`;
+    }
+    if (keyword) {
+      newUrl += `&keyword=${encodeURIComponent(keyword)}`;
+    }
+    // Preserve all filter parameters
+    if (filterTitle) {
+      newUrl += `&filterTitle=${encodeURIComponent(filterTitle)}`;
+    }
+    if (filterMainCategories.length > 0) {
+      newUrl += `&filterMainCategories=${filterMainCategories.join(",")}`;
+    }
+    if (filterSubCategories.length > 0) {
+      newUrl += `&filterSubCategories=${filterSubCategories.join(",")}`;
+    }
+    if (filterAttributes.length > 0) {
+      newUrl += `&filterAttributes=${filterAttributes.join(",")}`;
+    }
+    if (filterBrands.length > 0) {
+      newUrl += `&filterBrands=${filterBrands.join(",")}`;
+    }
+    if (filterPriceMin) {
+      newUrl += `&filterPriceMin=${filterPriceMin}`;
+    }
+    if (filterPriceMax) {
+      newUrl += `&filterPriceMax=${filterPriceMax}`;
+    }
+    if (filterStockMin) {
+      newUrl += `&filterStockMin=${filterStockMin}`;
+    }
+    if (filterStockMax) {
+      newUrl += `&filterStockMax=${filterStockMax}`;
+    }
+    startTransition(() => {
+      router.push(newUrl);
+    });
+  };
+
+  const clearAllSorts = () => {
+    setSorts([]);
+    const params = new URLSearchParams(window.location.search);
+    const keyword = params.get("keyword") || "";
+    let newUrl = "?page=1";
+    if (keyword) {
+      newUrl += `&keyword=${encodeURIComponent(keyword)}`;
+    }
+    // Preserve all filter parameters
+    if (filterTitle) {
+      newUrl += `&filterTitle=${encodeURIComponent(filterTitle)}`;
+    }
+    if (filterMainCategories.length > 0) {
+      newUrl += `&filterMainCategories=${filterMainCategories.join(",")}`;
+    }
+    if (filterSubCategories.length > 0) {
+      newUrl += `&filterSubCategories=${filterSubCategories.join(",")}`;
+    }
+    if (filterAttributes.length > 0) {
+      newUrl += `&filterAttributes=${filterAttributes.join(",")}`;
+    }
+    if (filterBrands.length > 0) {
+      newUrl += `&filterBrands=${filterBrands.join(",")}`;
+    }
+    if (filterPriceMin) {
+      newUrl += `&filterPriceMin=${filterPriceMin}`;
+    }
+    if (filterPriceMax) {
+      newUrl += `&filterPriceMax=${filterPriceMax}`;
+    }
+    if (filterStockMin) {
+      newUrl += `&filterStockMin=${filterStockMin}`;
+    }
+    if (filterStockMax) {
+      newUrl += `&filterStockMax=${filterStockMax}`;
     }
     startTransition(() => {
       router.push(newUrl);
@@ -609,11 +868,19 @@ const AdminProducts = ({
   // Export to CSV
   const handleExportCSV = useCallback(async () => {
     try {
-      // Get all filtered products using export endpoint
+      // Get all filtered and sorted products using export endpoint
       const searchParams = new URLSearchParams(window.location.search);
       const keyword = searchParams.get("keyword") || "";
-      const sortBy = searchParams.get("sortBy") || "";
-      const sortDir = searchParams.get("sortDir") || "";
+      const sorts = searchParams.get("sorts") || "";
+      const filterTitle = searchParams.get("filterTitle") || "";
+      const filterMainCategories = searchParams.get("filterMainCategories") || "";
+      const filterSubCategories = searchParams.get("filterSubCategories") || "";
+      const filterAttributes = searchParams.get("filterAttributes") || "";
+      const filterBrands = searchParams.get("filterBrands") || "";
+      const filterPriceMin = searchParams.get("filterPriceMin") || "";
+      const filterPriceMax = searchParams.get("filterPriceMax") || "";
+      const filterStockMin = searchParams.get("filterStockMin") || "";
+      const filterStockMax = searchParams.get("filterStockMax") || "";
       
       Swal.fire({
         title: "Cargando productos...",
@@ -626,12 +893,20 @@ const AdminProducts = ({
       });
 
       console.log("CSV Export: Fetching from export endpoint...");
-      let exportUrl = `/api/products/export`;
       const params = new URLSearchParams();
       if (keyword) params.append("keyword", keyword);
-      if (sortBy) params.append("sortBy", sortBy);
-      if (sortDir) params.append("sortDir", sortDir);
+      if (sorts) params.append("sorts", sorts);
+      if (filterTitle) params.append("filterTitle", filterTitle);
+      if (filterMainCategories) params.append("filterMainCategories", filterMainCategories);
+      if (filterSubCategories) params.append("filterSubCategories", filterSubCategories);
+      if (filterAttributes) params.append("filterAttributes", filterAttributes);
+      if (filterBrands) params.append("filterBrands", filterBrands);
+      if (filterPriceMin) params.append("filterPriceMin", filterPriceMin);
+      if (filterPriceMax) params.append("filterPriceMax", filterPriceMax);
+      if (filterStockMin) params.append("filterStockMin", filterStockMin);
+      if (filterStockMax) params.append("filterStockMax", filterStockMax);
       
+      let exportUrl = `/api/products/export`;
       if (params.toString()) {
         exportUrl = `/api/products/export?${params.toString()}`;
       }
@@ -737,16 +1012,24 @@ const AdminProducts = ({
       console.error("Error exporting CSV:", error);
       Swal.fire("Error", "No se pudo exportar los datos a CSV.", "error");
     }
-  }, []);
+  }, [filterTitle, filterMainCategories, filterSubCategories, filterAttributes, filterBrands, filterPriceMin, filterPriceMax, filterStockMin, filterStockMax]);
 
   // Export to Excel
   const handleExportExcel = useCallback(async () => {
     try {
-      // Get all filtered products using export endpoint
+      // Get all filtered and sorted products using export endpoint
       const searchParams = new URLSearchParams(window.location.search);
       const keyword = searchParams.get("keyword") || "";
-      const sortBy = searchParams.get("sortBy") || "";
-      const sortDir = searchParams.get("sortDir") || "";
+      const sorts = searchParams.get("sorts") || "";
+      const filterTitle = searchParams.get("filterTitle") || "";
+      const filterMainCategories = searchParams.get("filterMainCategories") || "";
+      const filterSubCategories = searchParams.get("filterSubCategories") || "";
+      const filterAttributes = searchParams.get("filterAttributes") || "";
+      const filterBrands = searchParams.get("filterBrands") || "";
+      const filterPriceMin = searchParams.get("filterPriceMin") || "";
+      const filterPriceMax = searchParams.get("filterPriceMax") || "";
+      const filterStockMin = searchParams.get("filterStockMin") || "";
+      const filterStockMax = searchParams.get("filterStockMax") || "";
       
       Swal.fire({
         title: "Cargando productos...",
@@ -759,12 +1042,20 @@ const AdminProducts = ({
       });
 
       console.log("Excel Export: Fetching from export endpoint...");
-      let exportUrl = `/api/products/export`;
       const params = new URLSearchParams();
       if (keyword) params.append("keyword", keyword);
-      if (sortBy) params.append("sortBy", sortBy);
-      if (sortDir) params.append("sortDir", sortDir);
+      if (sorts) params.append("sorts", sorts);
+      if (filterTitle) params.append("filterTitle", filterTitle);
+      if (filterMainCategories) params.append("filterMainCategories", filterMainCategories);
+      if (filterSubCategories) params.append("filterSubCategories", filterSubCategories);
+      if (filterAttributes) params.append("filterAttributes", filterAttributes);
+      if (filterBrands) params.append("filterBrands", filterBrands);
+      if (filterPriceMin) params.append("filterPriceMin", filterPriceMin);
+      if (filterPriceMax) params.append("filterPriceMax", filterPriceMax);
+      if (filterStockMin) params.append("filterStockMin", filterStockMin);
+      if (filterStockMax) params.append("filterStockMax", filterStockMax);
       
+      let exportUrl = `/api/products/export`;
       if (params.toString()) {
         exportUrl = `/api/products/export?${params.toString()}`;
       }
@@ -857,7 +1148,7 @@ const AdminProducts = ({
       console.error("Error exporting Excel:", error);
       Swal.fire("Error", "No se pudo exportar los datos a Excel.", "error");
     }
-  }, []);
+  }, [filterTitle, filterMainCategories, filterSubCategories, filterAttributes, filterBrands, filterPriceMin, filterPriceMax, filterStockMin, filterStockMax]);
 
   return (
     <>
@@ -897,6 +1188,19 @@ const AdminProducts = ({
               title="Escanear código de barras/QR para buscar"
             >
               <MdQrCodeScanner size={20} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowFilterModal(true)}
+              className={`flex-shrink-0 flex items-center gap-1 px-3 py-2 rounded-xl transition-colors text-sm font-medium ${
+                hasActiveFilters()
+                  ? "bg-orange-600 text-white hover:bg-orange-700"
+                  : "bg-muted hover:bg-primary hover:text-primary-foreground"
+              }`}
+              title="Abrir panel de filtros"
+            >
+              <MdFilterList size={20} />
+              {hasActiveFilters() && <span className="text-xs">(Activo)</span>}
             </button>
             <SearchProducts search={search} />
             <div className="ml-auto flex gap-2">
@@ -1118,6 +1422,57 @@ const AdminProducts = ({
           </div>
         )}
 
+        {/* Active sorts display */}
+        {sorts.length > 0 && (
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                Ordenando por:
+              </span>
+              {sorts.map((sort, index) => {
+                const sortTitles: { [key: string]: string } = {
+                  title: "*Titulo",
+                  mainCategory: "Cat. Ppal / Sub",
+                  attributes: "Atributos",
+                  brand: "*Cert.",
+                  price: "*Precio",
+                  stock: "*Exst.",
+                  category: "*Categoría (legado)",
+                  gender: "*Género (legado)",
+                };
+                const displayTitle = sortTitles[sort.key] || sort.key;
+                return (
+                  <div
+                    key={`${sort.key}-${index}`}
+                    className="flex items-center gap-1 bg-blue-600 text-white px-3 py-1.5 rounded-full text-sm font-medium"
+                  >
+                    <span>
+                      {index + 1}. {displayTitle} ({sort.dir === "asc" ? "▲" : "▼"})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeSort(index)}
+                      className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full hover:bg-blue-700 transition-colors"
+                      title="Remover este criterio"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                );
+              })}
+              {sorts.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearAllSorts}
+                  className="text-sm text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 font-medium underline"
+                >
+                  Limpiar todo
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         <table className="w-full text-sm  text-left h-full">
           <thead className="text-l dark:text-slate-300 text-gray-700 capitalize border-b dark:border-slate-200 border-gray-300">
             <tr className="flex flex-row items-center">
@@ -1140,7 +1495,15 @@ const AdminProducts = ({
                   className="flex items-center gap-2 text-blue-600 dark:text-blue-500 font-semibold"
                 >
                   *Titulo
-                  {sortKey === "title" && (sortDir === "asc" ? "▲" : "▼")}
+                  {(() => {
+                    const sortIndex = sorts.findIndex((s) => s.key === "title");
+                    return sortIndex !== -1 && (
+                      <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
+                        {sortIndex + 1}{" "}
+                        {sorts[sortIndex].dir === "asc" ? "▲" : "▼"}
+                      </span>
+                    );
+                  })()}
                 </button>
               </th>
               <th scope="col" className="w-full py-3 ">
@@ -1150,7 +1513,15 @@ const AdminProducts = ({
                   className="flex items-center gap-2 text-blue-600 dark:text-blue-500 font-semibold"
                 >
                   Cat. Ppal / Sub
-                  {sortKey === "mainCategory" && (sortDir === "asc" ? "▲" : "▼")}
+                  {(() => {
+                    const sortIndex = sorts.findIndex((s) => s.key === "mainCategory");
+                    return sortIndex !== -1 && (
+                      <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
+                        {sortIndex + 1}{" "}
+                        {sorts[sortIndex].dir === "asc" ? "▲" : "▼"}
+                      </span>
+                    );
+                  })()}
                 </button>
               </th>
               <th scope="col" className="w-full py-3 ">
@@ -1160,7 +1531,15 @@ const AdminProducts = ({
                   className="flex items-center gap-2 text-blue-600 dark:text-blue-500 font-semibold"
                 >
                   Atributos
-                  {sortKey === "attributes" && (sortDir === "asc" ? "▲" : "▼")}
+                  {(() => {
+                    const sortIndex = sorts.findIndex((s) => s.key === "attributes");
+                    return sortIndex !== -1 && (
+                      <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
+                        {sortIndex + 1}{" "}
+                        {sorts[sortIndex].dir === "asc" ? "▲" : "▼"}
+                      </span>
+                    );
+                  })()}
                 </button>
               </th>
               {/* <th scope="col" className="w-full py-3 ">
@@ -1193,7 +1572,15 @@ const AdminProducts = ({
                   className="flex items-center gap-2 text-blue-600 dark:text-blue-500 font-semibold"
                 >
                   *Cert.
-                  {sortKey === "brand" && (sortDir === "asc" ? "▲" : "▼")}
+                  {(() => {
+                    const sortIndex = sorts.findIndex((s) => s.key === "brand");
+                    return sortIndex !== -1 && (
+                      <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
+                        {sortIndex + 1}{" "}
+                        {sorts[sortIndex].dir === "asc" ? "▲" : "▼"}
+                      </span>
+                    );
+                  })()}
                 </button>
               </th>
               {/* <th scope="col" className="w-full py-3 ">
@@ -1209,7 +1596,15 @@ const AdminProducts = ({
                   className="flex items-center gap-2 text-blue-600 dark:text-blue-500 font-semibold"
                 >
                   *Precio
-                  {sortKey === "price" && (sortDir === "asc" ? "▲" : "▼")}
+                  {(() => {
+                    const sortIndex = sorts.findIndex((s) => s.key === "price");
+                    return sortIndex !== -1 && (
+                      <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
+                        {sortIndex + 1}{" "}
+                        {sorts[sortIndex].dir === "asc" ? "▲" : "▼"}
+                      </span>
+                    );
+                  })()}
                 </button>
               </th>
               <th scope="col" className="w-full px-1 py-3 ">
@@ -1219,7 +1614,15 @@ const AdminProducts = ({
                   className="flex items-center gap-2 text-blue-600 dark:text-blue-500 font-semibold"
                 >
                   *Exst.
-                  {sortKey === "stock" && (sortDir === "asc" ? "▲" : "▼")}
+                  {(() => {
+                    const sortIndex = sorts.findIndex((s) => s.key === "stock");
+                    return sortIndex !== -1 && (
+                      <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
+                        {sortIndex + 1}{" "}
+                        {sorts[sortIndex].dir === "asc" ? "▲" : "▼"}
+                      </span>
+                    );
+                  })()}
                 </button>
               </th>
               <th scope="col" className="w-full px-1 py-3 maxsm:hidden">
@@ -1561,6 +1964,221 @@ const AdminProducts = ({
           }}
           onClose={() => setShowScanner(false)}
         />
+      )}
+
+      {/* Filter Modal */}
+      {showFilterModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-background shadow-2xl border border-muted overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-muted">
+              <h2 className="text-xl font-bold">Filtrar Productos</h2>
+              <button
+                onClick={() => setShowFilterModal(false)}
+                className="rounded-lg p-2 hover:bg-muted transition-colors"
+                aria-label="Cerrar"
+              >
+                <MdClose size={20} />
+              </button>
+            </div>
+
+            {/* Body - Scrollable */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+              {/* Title Filter */}
+              <div>
+                <label className="block text-sm font-semibold mb-2">Título (contiene)</label>
+                <input
+                  type="text"
+                  value={filterTitle}
+                  onChange={(e) => setFilterTitle(e.target.value)}
+                  placeholder="Buscar por título..."
+                  className="w-full px-3 py-2 border rounded-lg bg-background text-foreground"
+                />
+              </div>
+
+              {/* Main Category Filter */}
+              <div>
+                <label className="block text-sm font-semibold mb-2">Categoría Principal</label>
+                <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
+                  {mainCategories.map((cat) => (
+                    <label key={cat._id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={filterMainCategories.includes(cat._id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFilterMainCategories([...filterMainCategories, cat._id]);
+                          } else {
+                            setFilterMainCategories(
+                              filterMainCategories.filter((id) => id !== cat._id),
+                            );
+                          }
+                        }}
+                        className="w-4 h-4 cursor-pointer"
+                      />
+                      <span className="text-sm">{cat.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sub Category Filter */}
+              <div>
+                <label className="block text-sm font-semibold mb-2">Subcategoría</label>
+                <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
+                  {subCategories.map((cat) => (
+                    <label key={cat._id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={filterSubCategories.includes(cat._id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFilterSubCategories([...filterSubCategories, cat._id]);
+                          } else {
+                            setFilterSubCategories(
+                              filterSubCategories.filter((id) => id !== cat._id),
+                            );
+                          }
+                        }}
+                        className="w-4 h-4 cursor-pointer"
+                      />
+                      <span className="text-sm">{cat.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Attributes Filter */}
+              <div>
+                <label className="block text-sm font-semibold mb-2">Atributos</label>
+                <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
+                  {attributeOptions.map((attr) => (
+                    <label key={attr._id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={filterAttributes.includes(attr._id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFilterAttributes([...filterAttributes, attr._id]);
+                          } else {
+                            setFilterAttributes(
+                              filterAttributes.filter((id) => id !== attr._id),
+                            );
+                          }
+                        }}
+                        className="w-4 h-4 cursor-pointer"
+                      />
+                      <span className="text-sm">{attr.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Brand Filter */}
+              <div>
+                <label className="block text-sm font-semibold mb-2">Marca (Cert.)</label>
+                <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
+                  {brandOptions.map((brand) => (
+                    <label key={brand._id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={filterBrands.includes(brand.catTitle)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFilterBrands([...filterBrands, brand.catTitle]);
+                          } else {
+                            setFilterBrands(filterBrands.filter((b) => b !== brand.catTitle));
+                          }
+                        }}
+                        className="w-4 h-4 cursor-pointer"
+                      />
+                      <span className="text-sm">{brand.catTitle}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Price Range Filter */}
+              <div>
+                <label className="block text-sm font-semibold mb-3">Rango de Precio</label>
+                <div className="flex gap-3 items-end">
+                  <div className="flex-1">
+                    <label className="text-xs text-muted-foreground">Mínimo</label>
+                    <input
+                      type="number"
+                      value={filterPriceMin}
+                      onChange={(e) => setFilterPriceMin(e.target.value)}
+                      placeholder="Mín"
+                      className="w-full px-3 py-2 border rounded-lg bg-background text-foreground"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-xs text-muted-foreground">Máximo</label>
+                    <input
+                      type="number"
+                      value={filterPriceMax}
+                      onChange={(e) => setFilterPriceMax(e.target.value)}
+                      placeholder="Máx"
+                      className="w-full px-3 py-2 border rounded-lg bg-background text-foreground"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Stock Range Filter */}
+              <div>
+                <label className="block text-sm font-semibold mb-3">Rango de Existencias</label>
+                <div className="flex gap-3 items-end">
+                  <div className="flex-1">
+                    <label className="text-xs text-muted-foreground">Mínimo</label>
+                    <input
+                      type="number"
+                      value={filterStockMin}
+                      onChange={(e) => setFilterStockMin(e.target.value)}
+                      placeholder="Mín"
+                      className="w-full px-3 py-2 border rounded-lg bg-background text-foreground"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-xs text-muted-foreground">Máximo</label>
+                    <input
+                      type="number"
+                      value={filterStockMax}
+                      onChange={(e) => setFilterStockMax(e.target.value)}
+                      placeholder="Máx"
+                      className="w-full px-3 py-2 border rounded-lg bg-background text-foreground"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex gap-2 px-6 py-4 border-t border-muted bg-muted/30">
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="flex-1 px-4 py-2 rounded-lg border border-muted text-foreground hover:bg-muted transition-colors"
+              >
+                Limpiar Filtros
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowFilterModal(false)}
+                className="flex-1 px-4 py-2 rounded-lg bg-muted text-foreground hover:bg-muted-foreground transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={applyFilters}
+                className="flex-1 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium"
+              >
+                Aplicar Filtros
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

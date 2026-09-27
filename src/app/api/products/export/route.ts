@@ -22,9 +22,22 @@ export const GET = async (request: any) => {
 
     await dbConnect();
 
+    // Get URL parameters
     const keyword = request.nextUrl.searchParams.get("keyword");
-    const sortBy = request.nextUrl.searchParams.get("sortBy");
+    const sortsParam = request.nextUrl.searchParams.get("sorts"); // New format: "brand:asc,price:desc"
+    const sortBy = request.nextUrl.searchParams.get("sortBy"); // Old format (for backward compatibility)
     const sortDir = request.nextUrl.searchParams.get("sortDir") === "desc" ? -1 : 1;
+    
+    // Get filter parameters
+    const filterTitle = request.nextUrl.searchParams.get("filterTitle");
+    const filterMainCategoriesStr = request.nextUrl.searchParams.get("filterMainCategories");
+    const filterSubCategoriesStr = request.nextUrl.searchParams.get("filterSubCategories");
+    const filterAttributesStr = request.nextUrl.searchParams.get("filterAttributes");
+    const filterBrandsStr = request.nextUrl.searchParams.get("filterBrands");
+    const filterPriceMin = request.nextUrl.searchParams.get("filterPriceMin");
+    const filterPriceMax = request.nextUrl.searchParams.get("filterPriceMax");
+    const filterStockMin = request.nextUrl.searchParams.get("filterStockMin");
+    const filterStockMax = request.nextUrl.searchParams.get("filterStockMax");
 
     // Build search filter - match the frontend ListProducts filtering logic exactly
     let searchFilter: any = {};
@@ -44,13 +57,70 @@ export const GET = async (request: any) => {
       ];
     }
 
+    // Add custom filter criteria
+    if (filterTitle) {
+      searchFilter.title = { $regex: filterTitle, $options: "i" };
+    }
+    if (filterMainCategoriesStr) {
+      const mainCats = filterMainCategoriesStr.split(",").map((id) => id.trim());
+      searchFilter.mainCategory = { $in: mainCats };
+    }
+    if (filterSubCategoriesStr) {
+      const subCats = filterSubCategoriesStr.split(",").map((id) => id.trim());
+      searchFilter.subCategory = { $in: subCats };
+    }
+    if (filterAttributesStr) {
+      const attrs = filterAttributesStr.split(",").map((id) => id.trim());
+      searchFilter.attributes = { $in: attrs };
+    }
+    if (filterBrandsStr) {
+      const brands = filterBrandsStr.split(",").map((b) => b.trim());
+      searchFilter.brand = { $in: brands };
+    }
+
     // Get total counts
     const productsCount = await Product.countDocuments();
     const filteredProductsCount = await Product.countDocuments(searchFilter);
 
-    // Build sort object
+    // Build sort object - handle both new and old format
     let sortObj: any = { createdAt: -1 }; // Default sort
-    if (sortBy && sortBy !== "stock") {
+    
+    // Parse new format: "brand:asc,price:desc"
+    if (sortsParam) {
+      try {
+        const newSortObj: any = {};
+        const sortPairs = sortsParam.split(",");
+        for (const pair of sortPairs) {
+          const [key, dir] = pair.split(":");
+          if (key) {
+            const direction = dir === "desc" ? -1 : 1;
+            if (key === "title") {
+              newSortObj.title = direction;
+            } else if (key === "category") {
+              newSortObj.category = direction;
+            } else if (key === "gender") {
+              newSortObj.gender = direction;
+            } else if (key === "brand") {
+              newSortObj.brand = direction;
+            } else if (key === "price") {
+              newSortObj["variations.0.price"] = direction;
+            } else if (key === "mainCategory") {
+              newSortObj.mainCategory = direction;
+            } else if (key === "subCategory") {
+              newSortObj.subCategory = direction;
+            } else if (key === "attributes") {
+              newSortObj.attributes = direction;
+            }
+          }
+        }
+        if (Object.keys(newSortObj).length > 0) {
+          sortObj = newSortObj;
+        }
+      } catch (e) {
+        console.warn("Failed to parse sorts parameter:", sortsParam);
+      }
+    } else if (sortBy && sortBy !== "stock") {
+      // Fallback to old format for backward compatibility
       // Skip stock here - it will be sorted after inventory is fetched
       if (sortBy === "title") {
         sortObj = { title: sortDir };
@@ -98,9 +168,61 @@ export const GET = async (request: any) => {
       storeInventory: inventoryByProduct[p._id.toString()] || [],
     }));
 
-    // Handle stock sorting if requested (must be done after inventory is attached)
-    if (sortBy === "stock") {
-      productsWithInventory.sort((a: any, b: any) => {
+    // Apply price and stock range filters (client-side after inventory is attached)
+    let filteredProducts = productsWithInventory.filter((product: any) => {
+      // Price filter
+      if (filterPriceMin || filterPriceMax) {
+        const variations = Array.isArray(product.variations) ? product.variations : [];
+        const price = variations.length > 0 ? variations[0]?.price : 0;
+        const min = filterPriceMin ? parseFloat(filterPriceMin) : 0;
+        const max = filterPriceMax ? parseFloat(filterPriceMax) : Infinity;
+        if (price < min || price > max) return false;
+      }
+      
+      // Stock filter
+      if (filterStockMin || filterStockMax) {
+        const totalStock = (product.storeInventory || []).reduce((sum: number, inv: any) => sum + (inv.quantity || 0), 0);
+        const min = filterStockMin ? parseInt(filterStockMin) : 0;
+        const max = filterStockMax ? parseInt(filterStockMax) : Infinity;
+        if (totalStock < min || totalStock > max) return false;
+      }
+      
+      return true;
+    });
+
+    // Handle multi-sort for new format (needs to be done after inventory is attached)
+    if (sortsParam && sortsParam.includes("stock")) {
+      // If stock is one of the sort criteria, we need to do client-side sort
+      const sortCriteria = sortsParam.split(",").map((pair) => {
+        const [key, dir] = pair.split(":");
+        return { key, dir: dir === "desc" ? -1 : 1 };
+      });
+
+      filteredProducts.sort((a: any, b: any) => {
+        for (const criterion of sortCriteria) {
+          let aVal: any, bVal: any;
+
+          if (criterion.key === "stock") {
+            aVal = (a.storeInventory || []).reduce((sum: number, inv: any) => sum + (inv.quantity || 0), 0);
+            bVal = (b.storeInventory || []).reduce((sum: number, inv: any) => sum + (inv.quantity || 0), 0);
+          } else if (criterion.key === "price") {
+            const aVariations = Array.isArray(a.variations) ? a.variations : [];
+            const bVariations = Array.isArray(b.variations) ? b.variations : [];
+            aVal = aVariations.length > 0 ? aVariations[0]?.price : 0;
+            bVal = bVariations.length > 0 ? bVariations[0]?.price : 0;
+          } else {
+            aVal = a[criterion.key];
+            bVal = b[criterion.key];
+          }
+
+          if (aVal < bVal) return criterion.dir === 1 ? -1 : 1;
+          if (aVal > bVal) return criterion.dir === 1 ? 1 : -1;
+        }
+        return 0;
+      });
+    } else if (sortBy === "stock") {
+      // Backward compatibility: old format stock sort
+      filteredProducts.sort((a: any, b: any) => {
         const stockA = (a.storeInventory || []).reduce((sum: number, inv: any) => sum + (inv.quantity || 0), 0);
         const stockB = (b.storeInventory || []).reduce((sum: number, inv: any) => sum + (inv.quantity || 0), 0);
         return sortDir === 1 ? stockA - stockB : stockB - stockA;
@@ -111,9 +233,9 @@ export const GET = async (request: any) => {
     const allBrands = await Product.distinct("brand");
 
     return NextResponse.json({
-      products: { products: productsWithInventory },
+      products: { products: filteredProducts },
       productsCount,
-      filteredProductsCount,
+      filteredProductsCount: filteredProducts.length,
       allCategories,
       allBrands,
     });

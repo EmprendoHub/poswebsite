@@ -13,8 +13,16 @@ const AdminProductsPage = async ({
   const urlParams = {
     keyword: resolvedSearchParams.keyword,
     page: resolvedSearchParams.page,
-    sortBy: resolvedSearchParams.sortBy,
-    sortDir: resolvedSearchParams.sortDir,
+    sorts: resolvedSearchParams.sorts, // Format: "brand:asc,price:desc"
+    filterTitle: resolvedSearchParams.filterTitle,
+    filterMainCategories: resolvedSearchParams.filterMainCategories,
+    filterSubCategories: resolvedSearchParams.filterSubCategories,
+    filterAttributes: resolvedSearchParams.filterAttributes,
+    filterBrands: resolvedSearchParams.filterBrands,
+    filterPriceMin: resolvedSearchParams.filterPriceMin,
+    filterPriceMax: resolvedSearchParams.filterPriceMax,
+    filterStockMin: resolvedSearchParams.filterStockMin,
+    filterStockMax: resolvedSearchParams.filterStockMax,
   };
   const filteredUrlParams = Object.fromEntries(
     Object.entries(urlParams).filter(([key, value]) => value !== undefined),
@@ -50,10 +58,26 @@ const AdminProductsPage = async ({
   const paginationParams = new URLSearchParams();
   if (resolvedSearchParams.keyword)
     paginationParams.append("keyword", resolvedSearchParams.keyword);
-  if (resolvedSearchParams.sortBy)
-    paginationParams.append("sortBy", resolvedSearchParams.sortBy);
-  if (resolvedSearchParams.sortDir)
-    paginationParams.append("sortDir", resolvedSearchParams.sortDir);
+  if (resolvedSearchParams.sorts)
+    paginationParams.append("sorts", resolvedSearchParams.sorts);
+  if (resolvedSearchParams.filterTitle)
+    paginationParams.append("filterTitle", resolvedSearchParams.filterTitle);
+  if (resolvedSearchParams.filterMainCategories)
+    paginationParams.append("filterMainCategories", resolvedSearchParams.filterMainCategories);
+  if (resolvedSearchParams.filterSubCategories)
+    paginationParams.append("filterSubCategories", resolvedSearchParams.filterSubCategories);
+  if (resolvedSearchParams.filterAttributes)
+    paginationParams.append("filterAttributes", resolvedSearchParams.filterAttributes);
+  if (resolvedSearchParams.filterBrands)
+    paginationParams.append("filterBrands", resolvedSearchParams.filterBrands);
+  if (resolvedSearchParams.filterPriceMin)
+    paginationParams.append("filterPriceMin", resolvedSearchParams.filterPriceMin);
+  if (resolvedSearchParams.filterPriceMax)
+    paginationParams.append("filterPriceMax", resolvedSearchParams.filterPriceMax);
+  if (resolvedSearchParams.filterStockMin)
+    paginationParams.append("filterStockMin", resolvedSearchParams.filterStockMin);
+  if (resolvedSearchParams.filterStockMax)
+    paginationParams.append("filterStockMax", resolvedSearchParams.filterStockMax);
   const allSearchParams = paginationParams.toString();
 
   for (let i = page - offsetNumber; i <= page + offsetNumber; i++) {
