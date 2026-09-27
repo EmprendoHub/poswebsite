@@ -94,6 +94,9 @@ const AdminProducts = ({
   const [attributeOptions, setAttributeOptions] = useState<
     { _id: string; name: string }[]
   >([]);
+  const [stores, setStores] = useState<
+    { _id: string; name: string }[]
+  >([]);
   const [stockPreviewRows, setStockPreviewRows] = useState<
     {
       storeName: string;
@@ -164,6 +167,10 @@ const AdminProducts = ({
   const [filterPriceMax, setFilterPriceMax] = useState(() => searchParams.get("filterPriceMax") || "");
   const [filterStockMin, setFilterStockMin] = useState(() => searchParams.get("filterStockMin") || "");
   const [filterStockMax, setFilterStockMax] = useState(() => searchParams.get("filterStockMax") || "");
+  const [filterSucursales, setFilterSucursales] = useState<string[]>(() => {
+    const param = searchParams.get("filterSucursales");
+    return param ? param.split(",") : [];
+  });
 
   // Check if any filters are active
   const hasActiveFilters = () => {
@@ -176,7 +183,8 @@ const AdminProducts = ({
       filterPriceMin !== "" ||
       filterPriceMax !== "" ||
       filterStockMin !== "" ||
-      filterStockMax !== ""
+      filterStockMax !== "" ||
+      filterSucursales.length > 0
     );
   };
 
@@ -222,6 +230,9 @@ const AdminProducts = ({
     if (filterStockMax) {
       newUrl += `&filterStockMax=${filterStockMax}`;
     }
+    if (filterSucursales.length > 0) {
+      newUrl += `&filterSucursales=${filterSucursales.join(",")}`;
+    }
 
     setShowFilterModal(false);
     startTransition(() => {
@@ -239,6 +250,7 @@ const AdminProducts = ({
     setFilterPriceMax("");
     setFilterStockMin("");
     setFilterStockMax("");
+    setFilterSucursales([]);
 
     const params = new URLSearchParams(window.location.search);
     const keyword = params.get("keyword") || "";
@@ -535,11 +547,13 @@ const AdminProducts = ({
       fetch("/api/categories?kind=main").then((r) => r.json()),
       fetch("/api/categories?kind=sub").then((r) => r.json()),
       fetch("/api/categories?kind=attribute").then((r) => r.json()),
+      fetch("/api/stores", { credentials: "include" }).then((r) => r.json()),
     ])
-      .then(([mainData, subData, attrData]) => {
+      .then(([mainData, subData, attrData, storesData]) => {
         setMainCategories(mainData?.categories ?? []);
         setSubCategories(subData?.categories ?? []);
         setAttributeOptions(attrData?.categories ?? []);
+        setStores(Array.isArray(storesData) ? storesData : []);
       })
       .catch(() => {});
   }, []);
@@ -881,6 +895,7 @@ const AdminProducts = ({
       const filterPriceMax = searchParams.get("filterPriceMax") || "";
       const filterStockMin = searchParams.get("filterStockMin") || "";
       const filterStockMax = searchParams.get("filterStockMax") || "";
+      const filterSucursales = searchParams.get("filterSucursales") || "";
       
       Swal.fire({
         title: "Cargando productos...",
@@ -905,6 +920,7 @@ const AdminProducts = ({
       if (filterPriceMax) params.append("filterPriceMax", filterPriceMax);
       if (filterStockMin) params.append("filterStockMin", filterStockMin);
       if (filterStockMax) params.append("filterStockMax", filterStockMax);
+      if (filterSucursales) params.append("filterSucursales", filterSucursales);
       
       let exportUrl = `/api/products/export`;
       if (params.toString()) {
@@ -1030,6 +1046,7 @@ const AdminProducts = ({
       const filterPriceMax = searchParams.get("filterPriceMax") || "";
       const filterStockMin = searchParams.get("filterStockMin") || "";
       const filterStockMax = searchParams.get("filterStockMax") || "";
+      const filterSucursales = searchParams.get("filterSucursales") || "";
       
       Swal.fire({
         title: "Cargando productos...",
@@ -1054,6 +1071,7 @@ const AdminProducts = ({
       if (filterPriceMax) params.append("filterPriceMax", filterPriceMax);
       if (filterStockMin) params.append("filterStockMin", filterStockMin);
       if (filterStockMax) params.append("filterStockMax", filterStockMax);
+      if (filterSucursales) params.append("filterSucursales", filterSucursales);
       
       let exportUrl = `/api/products/export`;
       if (params.toString()) {
@@ -2149,6 +2167,36 @@ const AdminProducts = ({
                       className="w-full px-3 py-2 border rounded-lg bg-background text-foreground"
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Sucursal Filter */}
+              <div>
+                <label className="block text-sm font-semibold mb-2">Sucursal</label>
+                <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
+                  {stores.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No hay sucursales disponibles</p>
+                  ) : (
+                    stores.map((store) => (
+                      <label key={store._id} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={filterSucursales.includes(store._id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFilterSucursales([...filterSucursales, store._id]);
+                            } else {
+                              setFilterSucursales(
+                                filterSucursales.filter((id) => id !== store._id),
+                              );
+                            }
+                          }}
+                          className="w-4 h-4 cursor-pointer"
+                        />
+                        <span className="text-sm">{store.name}</span>
+                      </label>
+                    ))
+                  )}
                 </div>
               </div>
             </div>

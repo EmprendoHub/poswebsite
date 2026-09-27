@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Product from "@/backend/models/Product";
@@ -38,6 +39,7 @@ export const GET = async (request: any) => {
     const filterPriceMax = request.nextUrl.searchParams.get("filterPriceMax");
     const filterStockMin = request.nextUrl.searchParams.get("filterStockMin");
     const filterStockMax = request.nextUrl.searchParams.get("filterStockMax");
+    const filterSucursalesStr = request.nextUrl.searchParams.get("filterSucursales");
 
     // Build search filter - match the frontend ListProducts filtering logic exactly
     let searchFilter: any = {};
@@ -148,7 +150,14 @@ export const GET = async (request: any) => {
 
     // Bulk fetch all inventory data for these products in ONE query
     const productIds = products.map((p: any) => p._id);
-    const allInventory = await StoreInventory.find({ product: { $in: productIds } })
+    const inventoryQuery: any = { product: { $in: productIds } };
+    if (filterSucursalesStr) {
+      const filterSucursales = filterSucursalesStr
+        .split(",")
+        .map((id: string) => new mongoose.Types.ObjectId(id.trim()));
+      inventoryQuery.store = { $in: filterSucursales };
+    }
+    const allInventory = await StoreInventory.find(inventoryQuery)
       .populate("store", "name")
       .exec();
 
@@ -185,6 +194,12 @@ export const GET = async (request: any) => {
         const min = filterStockMin ? parseInt(filterStockMin) : 0;
         const max = filterStockMax ? parseInt(filterStockMax) : Infinity;
         if (totalStock < min || totalStock > max) return false;
+      }
+
+      // Sucursal filter - only keep products that have inventory in selected stores
+      if (filterSucursalesStr) {
+        const totalStock = (product.storeInventory || []).reduce((sum: number, inv: any) => sum + (inv.quantity || 0), 0);
+        if (totalStock === 0) return false;
       }
       
       return true;

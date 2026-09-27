@@ -1,4 +1,5 @@
 "use server";
+import mongoose from "mongoose";
 import Address from "@/backend/models/Address";
 import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
@@ -3211,6 +3212,7 @@ export async function getAllProduct(searchQuery: any) {
     filterSearchParams.delete("filterPriceMax");
     filterSearchParams.delete("filterStockMin");
     filterSearchParams.delete("filterStockMax");
+    filterSearchParams.delete("filterSucursales");
 
     // Helper function to check if any custom filters are active
     const hasFilterParams = (params: URLSearchParams): boolean => {
@@ -3223,7 +3225,8 @@ export async function getAllProduct(searchQuery: any) {
         !!params.get("filterPriceMin") ||
         !!params.get("filterPriceMax") ||
         !!params.get("filterStockMin") ||
-        !!params.get("filterStockMax")
+        !!params.get("filterStockMax") ||
+        !!params.get("filterSucursales")
       );
     };
 
@@ -3243,6 +3246,7 @@ export async function getAllProduct(searchQuery: any) {
     const filterPriceMax = Number(searchParams.get("filterPriceMax")) || null;
     const filterStockMin = Number(searchParams.get("filterStockMin")) || null;
     const filterStockMax = Number(searchParams.get("filterStockMax")) || null;
+    const filterSucursalesStr = searchParams.get("filterSucursales") || "";
 
     const filterMainCategories = filterMainCategoriesStr
       ? filterMainCategoriesStr.split(",").map((id) => id.trim())
@@ -3313,15 +3317,25 @@ export async function getAllProduct(searchQuery: any) {
 
     let filteredProductsCount = productsData.length;
 
-    // For stock sorting or filtering, we need inventory data first
+    // For stock sorting, stock filtering, or sucursal filtering, we need inventory data first
     const hasStockSort = sorts.some((s) => s.key === "stock");
     const hasStockFilter = filterStockMin || filterStockMax;
-    if ((hasStockSort || hasStockFilter) && productsData.length > 0) {
+    const hasSucursalFilter = filterSucursalesStr.length > 0;
+    if ((hasStockSort || hasStockFilter || hasSucursalFilter) && productsData.length > 0) {
       const allProductIds = productsData.map((p: any) => p._id);
+
+      // Get inventory data for products with selected stores filter
+      const inventoryQuery: any = { product: { $in: allProductIds } };
+      if (hasSucursalFilter) {
+        const filterSucursales = filterSucursalesStr
+          .split(",")
+          .map((id: string) => new mongoose.Types.ObjectId(id.trim()));
+        inventoryQuery.store = { $in: filterSucursales };
+      }
 
       // Get stock totals for all products
       const allStockTotals = await StoreInventory.aggregate([
-        { $match: { product: { $in: allProductIds } } },
+        { $match: inventoryQuery },
         { $group: { _id: "$product", total: { $sum: "$quantity" } } },
       ]);
       const allStockMap = new Map<string, number>(
@@ -3339,6 +3353,15 @@ export async function getAllProduct(searchQuery: any) {
             return false;
           }
           return true;
+        });
+        filteredProductsCount = productsData.length;
+      }
+
+      // Apply sucursal filter - only keep products that have inventory in selected stores
+      if (hasSucursalFilter) {
+        productsData = productsData.filter((product: any) => {
+          const stock = allStockMap.get(product._id.toString()) || 0;
+          return stock > 0;
         });
         filteredProductsCount = productsData.length;
       }

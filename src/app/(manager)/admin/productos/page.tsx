@@ -23,6 +23,7 @@ const AdminProductsPage = async ({
     filterPriceMax: resolvedSearchParams.filterPriceMax,
     filterStockMin: resolvedSearchParams.filterStockMin,
     filterStockMax: resolvedSearchParams.filterStockMax,
+    filterSucursales: resolvedSearchParams.filterSucursales,
   };
   const filteredUrlParams = Object.fromEntries(
     Object.entries(urlParams).filter(([key, value]) => value !== undefined),
@@ -78,6 +79,8 @@ const AdminProductsPage = async ({
     paginationParams.append("filterStockMin", resolvedSearchParams.filterStockMin);
   if (resolvedSearchParams.filterStockMax)
     paginationParams.append("filterStockMax", resolvedSearchParams.filterStockMax);
+  if (resolvedSearchParams.filterSucursales)
+    paginationParams.append("filterSucursales", resolvedSearchParams.filterSucursales);
   const allSearchParams = paginationParams.toString();
 
   for (let i = page - offsetNumber; i <= page + offsetNumber; i++) {
