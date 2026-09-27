@@ -1012,7 +1012,7 @@ const AdminProducts = ({
       console.error("Error exporting CSV:", error);
       Swal.fire("Error", "No se pudo exportar los datos a CSV.", "error");
     }
-  }, [filterTitle, filterMainCategories, filterSubCategories, filterAttributes, filterBrands, filterPriceMin, filterPriceMax, filterStockMin, filterStockMax]);
+  }, []);
 
   // Export to Excel
   const handleExportExcel = useCallback(async () => {
@@ -1148,7 +1148,7 @@ const AdminProducts = ({
       console.error("Error exporting Excel:", error);
       Swal.fire("Error", "No se pudo exportar los datos a Excel.", "error");
     }
-  }, [filterTitle, filterMainCategories, filterSubCategories, filterAttributes, filterBrands, filterPriceMin, filterPriceMax, filterStockMin, filterStockMax]);
+  }, []);
 
   return (
     <>

@@ -62,19 +62,19 @@ export const GET = async (request: any) => {
       searchFilter.title = { $regex: filterTitle, $options: "i" };
     }
     if (filterMainCategoriesStr) {
-      const mainCats = filterMainCategoriesStr.split(",").map((id) => id.trim());
+      const mainCats = filterMainCategoriesStr.split(",").map((id: string) => id.trim());
       searchFilter.mainCategory = { $in: mainCats };
     }
     if (filterSubCategoriesStr) {
-      const subCats = filterSubCategoriesStr.split(",").map((id) => id.trim());
+      const subCats = filterSubCategoriesStr.split(",").map((id: string) => id.trim());
       searchFilter.subCategory = { $in: subCats };
     }
     if (filterAttributesStr) {
-      const attrs = filterAttributesStr.split(",").map((id) => id.trim());
+      const attrs = filterAttributesStr.split(",").map((id: string) => id.trim());
       searchFilter.attributes = { $in: attrs };
     }
     if (filterBrandsStr) {
-      const brands = filterBrandsStr.split(",").map((b) => b.trim());
+      const brands = filterBrandsStr.split(",").map((b: string) => b.trim());
       searchFilter.brand = { $in: brands };
     }
 
@@ -193,7 +193,7 @@ export const GET = async (request: any) => {
     // Handle multi-sort for new format (needs to be done after inventory is attached)
     if (sortsParam && sortsParam.includes("stock")) {
       // If stock is one of the sort criteria, we need to do client-side sort
-      const sortCriteria = sortsParam.split(",").map((pair) => {
+      const sortCriteria = sortsParam.split(",").map((pair: string) => {
         const [key, dir] = pair.split(":");
         return { key, dir: dir === "desc" ? -1 : 1 };
       });
