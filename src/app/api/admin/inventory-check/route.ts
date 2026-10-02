@@ -52,7 +52,7 @@ export async function POST(req: Request) {
   await dbConnect();
 
   const body = await req.json();
-  const { storeId } = body;
+  const { storeId, selectedProducts, filters } = body;
   if (!storeId) {
     return NextResponse.json({ error: "Se requiere storeId" }, { status: 400 });
   }
@@ -70,10 +70,13 @@ export async function POST(req: Request) {
     store: storeId,
     storeName: store.name,
     status: "in_progress",
+    selectedProducts: selectedProducts || [],
     scannedItems: [],
+    filters: filters || {},
     startedBy: user._id || user.id,
     startedByName: user.name || user.email,
     startedAt: new Date(),
+    totalSelected: selectedProducts?.length || 0,
   });
 
   return NextResponse.json({ session: newSession }, { status: 201 });

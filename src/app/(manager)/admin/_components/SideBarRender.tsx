@@ -16,6 +16,7 @@ import {
   MdFactCheck,
   MdTableChart,
   MdCategory,
+  MdEditAttributes,
 } from "react-icons/md";
 import { FaCartPlus } from "react-icons/fa6";
 import { BsCardImage } from "react-icons/bs";
@@ -187,6 +188,17 @@ const SideBarRender = () => {
             : "false"
         }
         url={"/admin/inventario"}
+      />
+        <SideBarItem
+        icon={<MdEditAttributes size={20} />}
+        text={"Inventario - Discrepancias"}
+        active={
+          pathname.startsWith("/admin/ajuste-discrepancias") &&
+          !pathname.startsWith("/admin/ajuste-discrepancias")
+            ? "true"
+            : "false"
+        }
+        url={"/admin/ajuste-discrepancias"}
       />
       <SideBarItem
         icon={<MdBadge size={20} />}

@@ -41,7 +41,7 @@ export async function GET(
 
 /**
  * PATCH /api/admin/inventory-check/[id]
- * Body: { variationId, physicalCount, productTitle, variationTitle, sku, image, systemCount, productId }
+ * Body: { variationId, physicalCount, productTitle, variationTitle, sku, image, systemCount, productId, price, note, isDiscrepancy }
  * Adds or updates a scanned item count in the session.
  */
 export async function PATCH(
@@ -66,11 +66,16 @@ export async function PATCH(
     image,
     systemCount,
     productId,
+    price,
+    note,
+    isDiscrepancy,
+    updateNote, // boolean: true if only updating the note
+    updateDiscrepancy, // boolean: true if only updating discrepancy flag
   } = body;
 
-  if (!variationId || physicalCount === undefined) {
+  if (!variationId) {
     return NextResponse.json(
-      { error: "variationId y physicalCount son requeridos" },
+      { error: "variationId es requerido" },
       { status: 400 },
     );
   }
@@ -92,25 +97,59 @@ export async function PATCH(
   const existingIndex = doc.scannedItems.findIndex(
     (i: any) => i.variationId === variationId,
   );
-  const count = Number(physicalCount);
-  const sysCount = Number(systemCount ?? 0);
-  const item = {
-    variationId,
-    productId: productId || "",
-    productTitle: productTitle || "",
-    variationTitle: variationTitle || "",
-    sku: sku || "",
-    image: image || "",
-    physicalCount: count,
-    systemCount: sysCount,
-    difference: count - sysCount,
-  };
 
-  if (existingIndex >= 0) {
-    doc.scannedItems[existingIndex] = item as any;
+  if (updateNote || updateDiscrepancy) {
+    // Only update note or discrepancy flag
+    if (existingIndex >= 0) {
+      if (updateNote !== undefined) {
+        (doc.scannedItems[existingIndex] as any).note = note || "";
+      }
+      if (updateDiscrepancy !== undefined) {
+        (doc.scannedItems[existingIndex] as any).isDiscrepancy =
+          isDiscrepancy ?? false;
+      }
+    }
   } else {
-    doc.scannedItems.push(item as any);
+    // Full item update (add/update scan)
+    if (physicalCount === undefined) {
+      return NextResponse.json(
+        { error: "physicalCount es requerido para actualizar conteo" },
+        { status: 400 },
+      );
+    }
+
+    const count = Number(physicalCount);
+    const sysCount = Number(systemCount ?? 0);
+    const item: any = {
+      variationId,
+      productId: productId || "",
+      productTitle: productTitle || "",
+      variationTitle: variationTitle || "",
+      sku: sku || "",
+      image: image || "",
+      price: price || 0,
+      physicalCount: count,
+      systemCount: sysCount,
+      difference: count - sysCount,
+      note: note || "",
+      isDiscrepancy: isDiscrepancy ?? false,
+    };
+
+    if (existingIndex >= 0) {
+      doc.scannedItems[existingIndex] = item;
+    } else {
+      doc.scannedItems.push(item);
+    }
   }
+
+  // Recalculate totals
+  doc.totalScanned = doc.scannedItems.length;
+  doc.totalMatched = doc.scannedItems.filter(
+    (i: any) => i.difference === 0
+  ).length;
+  doc.totalDiscrepancies = doc.scannedItems.filter(
+    (i: any) => i.isDiscrepancy || i.difference !== 0
+  ).length;
 
   await doc.save();
   return NextResponse.json({ session: doc });
