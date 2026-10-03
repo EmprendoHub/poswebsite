@@ -330,19 +330,14 @@ export default function InventarioPage() {
     
     filterDebounceRef.current = setTimeout(() => {
       if (selectedStore) {
-        // Search or filter even with just search query (no category required)
-        if (searchQuery || selectedFilters.mainCategory) {
-          fetchFilteredProducts(
-            selectedFilters.mainCategory,
-            selectedFilters.subCategory,
-            selectedFilters.attributes,
-            searchQuery,
-            selectedFilters.brand
-          );
-        } else {
-          // Clear products if no search and no filter
-          setFilteredProducts([]);
-        }
+        // Always fetch products with current filters (category/subcategory/brand/attributes are optional)
+        fetchFilteredProducts(
+          selectedFilters.mainCategory,
+          selectedFilters.subCategory,
+          selectedFilters.attributes,
+          searchQuery,
+          selectedFilters.brand
+        );
       }
     }, 300);
 
@@ -842,39 +837,45 @@ export default function InventarioPage() {
               </div>
 
               {/* Sub category */}
-              {selectedFilters.mainCategory && (
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground block mb-2">
-                    Subcategoría
-                  </label>
-                  <select
-                    value={selectedFilters.subCategory}
-                    onChange={(e) => {
-                      setSelectedFilters({
-                        ...selectedFilters,
-                        subCategory: e.target.value,
+              <div>
+                <label className="text-sm font-medium text-muted-foreground block mb-2">
+                  Subcategoría
+                </label>
+                <select
+                  value={selectedFilters.subCategory}
+                  onChange={(e) => {
+                    setSelectedFilters({
+                      ...selectedFilters,
+                      subCategory: e.target.value,
+                    });
+                    if (activeSession) {
+                      setActiveSession({
+                        ...activeSession,
+                        selectedProducts: [],
                       });
-                      if (activeSession) {
-                        setActiveSession({
-                          ...activeSession,
-                          selectedProducts: [],
-                        });
-                        setSelectAllChecked(false);
-                      }
-                    }}
-                    className="w-full bg-muted border border-muted rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="">Todas</option>
-                    {categories
-                      .find((c) => c._id === selectedFilters.mainCategory)
-                      ?.subcategories?.map((sub: any) => (
-                        <option key={sub._id} value={sub._id}>
-                          {sub.name}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-              )}
+                      setSelectAllChecked(false);
+                    }
+                  }}
+                  className="w-full bg-muted border border-muted rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">Todas</option>
+                  {selectedFilters.mainCategory
+                    ? categories
+                        .find((c) => c._id === selectedFilters.mainCategory)
+                        ?.subcategories?.map((sub: any) => (
+                          <option key={sub._id} value={sub._id}>
+                            {sub.name}
+                          </option>
+                        ))
+                    : categories.flatMap((cat: any) =>
+                        (cat.subcategories || []).map((sub: any) => (
+                          <option key={sub._id} value={sub._id}>
+                            {sub.name}
+                          </option>
+                        ))
+                      )}
+                </select>
+              </div>
 
               {/* Brand */}
               <div>
@@ -969,15 +970,13 @@ export default function InventarioPage() {
                 </button>
                 <button
                   onClick={() => {
-                    if (selectedFilters.mainCategory || searchQuery) {
-                      fetchFilteredProducts(
-                        selectedFilters.mainCategory,
-                        selectedFilters.subCategory,
-                        selectedFilters.attributes,
-                        searchQuery,
-                        selectedFilters.brand
-                      );
-                    }
+                    fetchFilteredProducts(
+                      selectedFilters.mainCategory,
+                      selectedFilters.subCategory,
+                      selectedFilters.attributes,
+                      searchQuery,
+                      selectedFilters.brand
+                    );
                     setShowFilterModal(false);
                   }}
                   className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium"

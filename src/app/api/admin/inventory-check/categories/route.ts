@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import { options } from "@/app/api/auth/[...nextauth]/options";
 import Category from "@/backend/models/Category";
+import Product from "@/backend/models/Product";
 import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
@@ -56,6 +57,16 @@ export async function GET(req: Request) {
       .sort({ order: 1 })
       .lean();
 
+    // Get all unique brands from products
+    const brandDocuments = await Product.distinct("brand");
+    const brands = brandDocuments
+      .filter((brand: string) => brand && brand.trim())
+      .map((brand: string) => ({
+        _id: brand,
+        name: brand,
+      }))
+      .sort((a: any, b: any) => a.name.localeCompare(b.name));
+
     // Group subcategories by parent
     const subCategoriesByParent: { [key: string]: any[] } = {};
     subCategories.forEach((sub: any) => {
@@ -79,6 +90,7 @@ export async function GET(req: Request) {
         ...a,
         _id: a._id?.toString(),
       })),
+      brands: brands,
     });
   } catch (error) {
     console.error("Error fetching categories:", error);

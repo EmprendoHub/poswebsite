@@ -38,6 +38,7 @@ export async function GET(req: Request) {
   const subCategory = url.searchParams.get("subCategory")?.trim();
   const attributesStr = url.searchParams.get("attributes")?.trim();
   const searchQuery = url.searchParams.get("search")?.trim();
+  const brand = url.searchParams.get("brand")?.trim();
 
   if (!storeId) {
     return NextResponse.json(
@@ -59,6 +60,10 @@ export async function GET(req: Request) {
     if (mongoose.isValidObjectId(subCategory)) {
       filter.subCategory = new mongoose.Types.ObjectId(subCategory);
     }
+  }
+
+  if (brand) {
+    filter.brand = brand;
   }
 
   if (attributesStr) {
