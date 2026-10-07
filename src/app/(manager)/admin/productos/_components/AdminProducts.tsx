@@ -980,6 +980,8 @@ const AdminProducts = ({
         const row: any = {
           "Título": product.title || "—",
           "ASIN": product.ASIN || "—",
+          "Categoría Principal": product.mainCategory?.name || "—",
+          "Subcategoría": product.subCategory?.name || "—",
           "Precio": variations.length > 0 ? variations[0]?.price || "—" : "—",
           "Stock Total": totalStock,
         };
@@ -1130,6 +1132,8 @@ const AdminProducts = ({
         const row: any = {
           "Título": product.title || "—",
           "ASIN": product.ASIN || "—",
+          "Categoría Principal": product.mainCategory?.name || "—",
+          "Subcategoría": product.subCategory?.name || "—",
           "Precio": variations.length > 0 ? variations[0]?.price || "—" : "—",
           "Stock Total": totalStock,
         };

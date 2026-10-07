@@ -145,6 +145,8 @@ export const GET = async (request: any) => {
 
     // Fetch ALL products matching filter (no limit)
     const products = await Product.find(searchFilter)
+      .populate("mainCategory", "name")
+      .populate("subCategory", "name")
       .sort(sortObj)
       .exec();
 

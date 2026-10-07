@@ -159,6 +159,11 @@ const EditVariationProduct = ({
     variations?.[0]?.price?.toString() || "",
   );
 
+  // Local state for cost input
+  const [costInputValue, setCostInputValue] = useState<string>(
+    variations?.[0]?.cost?.toString() || "",
+  );
+
   // Price verification state
   const [showPriceVerification, setShowPriceVerification] = useState(false);
   const [pendingPriceChange, setPendingPriceChange] = useState<{
@@ -214,6 +219,7 @@ const EditVariationProduct = ({
       );
       // Update price input with the fresh product variations price
       setPriceInputValue(product?.variations?.[0]?.price?.toString() || "");
+      setCostInputValue(product?.variations?.[0]?.cost?.toString() || "");
       console.log(
         "🔄 Product state reinitialized with price:",
         product?.variations?.[0]?.price,
@@ -1916,6 +1922,37 @@ const EditVariationProduct = ({
                           {validationError.price._errors.join(", ")}
                         </p>
                       )}
+                    </div>
+
+                    {/* Cost Price */}
+                    <div className="mt-6">
+                      <label className="block mb-3 text-sm font-semibold text-foreground">
+                        Costo Unitario ($)
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-blue-500">
+                          $
+                        </span>
+                        <input
+                          type="number"
+                          className="w-full pl-9 pr-4 py-3 border-2 border-border rounded-xl bg-gradient-to-br from-blue-50/50 to-background text-foreground text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all hover:border-blue-300/50"
+                          placeholder="0.00"
+                          min="0"
+                          step="0.01"
+                          value={costInputValue}
+                          onChange={(e) => {
+                            setCostInputValue(e.target.value);
+                          }}
+                          onBlur={(e) => {
+                            const newCostStr = e.target.value;
+                            const numCost = parseFloat(newCostStr) || 0;
+                            const newVariations = [...variations];
+                            newVariations[0].cost = numCost;
+                            setVariations(newVariations);
+                          }}
+                          name="cost"
+                        />
+                      </div>
                     </div>
 
                     {/* Check Prices Button */}
