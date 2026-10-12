@@ -14,6 +14,8 @@ export interface CashRegisterSessionDocument extends Document {
     cardSales: number;
     mixedCashSales: number;
     mixedCardSales: number;
+    transfers: number;
+    mixedTransferSales: number;
     inflows: number;
     outflows: number;
   };
@@ -51,6 +53,8 @@ const CashRegisterSessionSchema = new Schema<CashRegisterSessionDocument>(
       cardSales: { type: Number, default: 0 },
       mixedCashSales: { type: Number, default: 0 },
       mixedCardSales: { type: Number, default: 0 },
+      transfers: { type: Number, default: 0 },
+      mixedTransferSales: { type: Number, default: 0 },
       inflows: { type: Number, default: 0 },
       outflows: { type: Number, default: 0 },
     },

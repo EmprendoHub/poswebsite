@@ -9,7 +9,9 @@ import {
   MdStorefront,
   MdNavigateBefore,
   MdNavigateNext,
+  MdQrCodeScanner,
 } from "react-icons/md";
+import BarcodeScannerModal from "@/components/modals/BarcodeScannerModal";
 
 /* ─── Types ─────────────────────────────────────────────────────────── */
 interface Store {
@@ -282,6 +284,7 @@ export default function AdminCardexPage() {
     "all",
   );
   const [movementSearch, setMovementSearch] = useState("");
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const movementsPerPage = 10;
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -490,6 +493,13 @@ export default function AdminCardexPage() {
               <MdClose size={18} />
             </button>
           )}
+          <button
+            onClick={() => setIsScannerOpen(true)}
+            className=" hover:text-foreground transition-colors p-1 hover:bg-muted rounded flex-shrink-0"
+            title="Escanear código"
+          >
+            <MdQrCodeScanner size={18} />
+          </button>
           {searching && (
             <span className="text-xs text-muted-foreground animate-pulse">
               Buscando…
@@ -882,6 +892,17 @@ export default function AdminCardexPage() {
           <MdInventory2 size={48} />
           <p className="text-sm">Busca un producto para ver su cardex global</p>
         </div>
+      )}
+
+      {/* Camara Scanner  */}
+      {isScannerOpen && (
+        <BarcodeScannerModal
+          onScan={(value) => {
+            setQuery(value);
+            setIsScannerOpen(false);
+          }}
+          onClose={() => setIsScannerOpen(false)}
+        />
       )}
     </div>
   );

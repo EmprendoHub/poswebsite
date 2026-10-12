@@ -4,7 +4,7 @@ export interface CashRegisterMovementDocument extends Document {
   session: mongoose.Types.ObjectId;
   store: mongoose.Types.ObjectId;
   type: "sale" | "manual_in" | "manual_out";
-  payMethod: "EFECTIVO" | "TERMINAL" | "MIXTO" | "N/A";
+  payMethod: "EFECTIVO" | "TERMINAL" | "TRANSFERENCIA" | "MIXTO" | "N/A";
   cashAmount: number;
   cardAmount: number;
   totalAmount: number;
@@ -40,7 +40,7 @@ const CashRegisterMovementSchema = new Schema<CashRegisterMovementDocument>(
     },
     payMethod: {
       type: String,
-      enum: ["EFECTIVO", "TERMINAL", "MIXTO", "N/A"],
+      enum: ["EFECTIVO", "TERMINAL", "TRANSFERENCIA", "MIXTO", "N/A"],
       default: "N/A",
     },
     cashAmount: { type: Number, default: 0 },

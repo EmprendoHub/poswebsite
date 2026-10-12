@@ -111,9 +111,20 @@ export default function POSSalesPage() {
         .map((i) => {
           if (i.variationId !== variationId) return i;
           const next = i.quantity + delta;
-          // Don't go above stock; don't go below 0 (filter removes it)
-          const clamped = Math.min(next, i.stock);
-          return { ...i, quantity: clamped };
+          // Allow unlimited quantities regardless of stock
+          // Only remove if quantity goes below 1
+          return { ...i, quantity: next };
+        })
+        .filter((i) => i.quantity > 0),
+    );
+  }
+
+  function handleUpdateQtyDirect(variationId: string, newQty: number) {
+    setCart((prev) =>
+      prev
+        .map((i) => {
+          if (i.variationId !== variationId) return i;
+          return { ...i, quantity: newQty };
         })
         .filter((i) => i.quantity > 0),
     );
@@ -277,6 +288,7 @@ export default function POSSalesPage() {
             <POSCart
               items={cart}
               onUpdateQty={handleUpdateQty}
+              onUpdateQtyDirect={handleUpdateQtyDirect}
               onRemove={handleRemove}
               onCheckout={() => setShowCheckout(true)}
               customerName={customerName}

@@ -96,7 +96,7 @@ export async function POST(req: Request) {
       cashAmount: expenseAmount,
       cardAmount: 0,
       totalAmount: expenseAmount,
-      notes: `[Gasto - ${CATEGORY_LABELS[category]}] ${description.trim()}`,
+      notes: `Gasto-${description.trim()}`,
       createdBy: user._id,
       createdByName: user?.name || "Cajero",
       authorizedById: authorizedById || null,

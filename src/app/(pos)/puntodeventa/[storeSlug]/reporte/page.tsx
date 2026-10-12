@@ -30,6 +30,7 @@ interface DayOrder {
   orderId: number;
   customerName: string;
   paymentMethod: string;
+  payMethod?: "EFECTIVO" | "TERMINAL" | "TRANSFERENCIA" | "MIXTO";
   phone: string;
   orderStatus: string;
   paymentInfo: { amountPaid: number; status: string; id?: string };
@@ -699,21 +700,47 @@ export default function POSReportPage() {
           }
         }
       } else {
-        const ref = o.paymentInfo?.id ?? "";
-        if (ref === "EFECTIVO") {
-          acc["Efectivo"] =
-            (acc["Efectivo"] ?? 0) + (o.paymentInfo?.amountPaid ?? 0);
-        } else if (ref.startsWith("MIXTO")) {
-          const mixto = parseMixtoAmounts(ref);
-          if (mixto) {
-            if (mixto.cash > 0)
-              acc["Efectivo"] = (acc["Efectivo"] ?? 0) + mixto.cash;
-            if (mixto.card > 0)
-              acc["Terminal"] = (acc["Terminal"] ?? 0) + mixto.card;
+        // Use payMethod field if available (for new orders)
+        if (o.payMethod) {
+          if (o.payMethod === "EFECTIVO") {
+            acc["Efectivo"] =
+              (acc["Efectivo"] ?? 0) + (o.paymentInfo?.amountPaid ?? 0);
+          } else if (o.payMethod === "TERMINAL") {
+            acc["Terminal"] =
+              (acc["Terminal"] ?? 0) + (o.paymentInfo?.amountPaid ?? 0);
+          } else if (o.payMethod === "TRANSFERENCIA") {
+            acc["Transfer."] =
+              (acc["Transfer."] ?? 0) + (o.paymentInfo?.amountPaid ?? 0);
+          } else if (o.payMethod === "MIXTO") {
+            const mixto = parseMixtoAmounts(o.paymentInfo?.id ?? "");
+            if (mixto) {
+              if (mixto.cash > 0)
+                acc["Efectivo"] = (acc["Efectivo"] ?? 0) + mixto.cash;
+              if (mixto.card > 0)
+                acc["Terminal"] = (acc["Terminal"] ?? 0) + mixto.card;
+            }
           }
-        } else if (ref) {
-          acc["Terminal"] =
-            (acc["Terminal"] ?? 0) + (o.paymentInfo?.amountPaid ?? 0);
+        } else {
+          // Fallback to reference-based detection for legacy orders
+          const ref = o.paymentInfo?.id ?? "";
+          if (ref === "EFECTIVO") {
+            acc["Efectivo"] =
+              (acc["Efectivo"] ?? 0) + (o.paymentInfo?.amountPaid ?? 0);
+          } else if (ref.startsWith("TRANSFERENCIA")) {
+            acc["Transfer."] =
+              (acc["Transfer."] ?? 0) + (o.paymentInfo?.amountPaid ?? 0);
+          } else if (ref.startsWith("MIXTO")) {
+            const mixto = parseMixtoAmounts(ref);
+            if (mixto) {
+              if (mixto.cash > 0)
+                acc["Efectivo"] = (acc["Efectivo"] ?? 0) + mixto.cash;
+              if (mixto.card > 0)
+                acc["Terminal"] = (acc["Terminal"] ?? 0) + mixto.card;
+            }
+          } else if (ref) {
+            acc["Terminal"] =
+              (acc["Terminal"] ?? 0) + (o.paymentInfo?.amountPaid ?? 0);
+          }
         }
       }
       return acc;
@@ -942,8 +969,15 @@ export default function POSReportPage() {
                                     ),
                                   ).join(" + ")
                                 : (() => {
+                                    if (order.payMethod) {
+                                      if (order.payMethod === "EFECTIVO") return "Efectivo";
+                                      if (order.payMethod === "TERMINAL") return "Terminal";
+                                      if (order.payMethod === "TRANSFERENCIA") return "Transferencia";
+                                      if (order.payMethod === "MIXTO") return "Mixto";
+                                    }
                                     const ref = order.paymentInfo?.id ?? "";
                                     if (ref === "EFECTIVO") return "Efectivo";
+                                    if (ref.startsWith("TRANSFERENCIA")) return "Transferencia";
                                     if (ref.startsWith("MIXTO")) return "Mixto";
                                     if (ref) return "Terminal";
                                     return order.paymentMethod || "—";

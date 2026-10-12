@@ -13,6 +13,7 @@ import {
 interface POSCartProps {
   items: CartItem[];
   onUpdateQty: (variationId: string, delta: number) => void;
+  onUpdateQtyDirect?: (variationId: string, newQty: number) => void;
   onRemove: (variationId: string) => void;
   onCheckout: () => void;
   customerName: string;
@@ -25,6 +26,7 @@ interface POSCartProps {
 export default function POSCart({
   items,
   onUpdateQty,
+  onUpdateQtyDirect,
   onRemove,
   onCheckout,
   customerName,
@@ -41,6 +43,16 @@ export default function POSCart({
   const iva = Math.round(((rawSubtotal * 16) / 116) * 100) / 100;
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
+  const [editingQtyValue, setEditingQtyValue] = useState<string>("");
+
+  const handleQtyInputBlur = (variationId: string) => {
+    const newQty = Math.max(1, Number(editingQtyValue) || 1);
+    if (onUpdateQtyDirect) {
+      onUpdateQtyDirect(variationId, newQty);
+    }
+    setEditingQtyId(null);
+  };
 
   return (
     <div className="flex flex-col h-full bg-card dark:bg-gradient-to-br dark:from-slate-700 dark:to-slate-900 border border-muted rounded-xl overflow-hidden">
@@ -136,13 +148,38 @@ export default function POSCart({
               >
                 <MdRemove size={12} />
               </button>
-              <span className="text-xs w-5 text-center font-bold">
-                {item.quantity}
-              </span>
+              {editingQtyId === item.variationId ? (
+                <input
+                  type="number"
+                  min="1"
+                  value={editingQtyValue}
+                  onChange={(e) => setEditingQtyValue(e.target.value)}
+                  onBlur={() => handleQtyInputBlur(item.variationId)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleQtyInputBlur(item.variationId);
+                    } else if (e.key === "Escape") {
+                      setEditingQtyId(null);
+                    }
+                  }}
+                  autoFocus
+                  className="text-xs w-10 text-center font-bold bg-emerald-100 dark:bg-emerald-900 rounded px-1 outline-none"
+                />
+              ) : (
+                <span
+                  onClick={() => {
+                    setEditingQtyId(item.variationId);
+                    setEditingQtyValue("");
+                  }}
+                  className="text-xs w-7 text-center font-bold cursor-pointer hover:bg-muted px-1.5 py-0.5 rounded transition-colors"
+                  title="Click para editar cantidad"
+                >
+                  {item.quantity}
+                </span>
+              )}
               <button
                 onClick={() => onUpdateQty(item.variationId, 1)}
-                disabled={item.quantity >= item.stock}
-                className="w-6 h-6 rounded-full bg-muted hover:bg-primary hover:text-primary-foreground flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="w-6 h-6 rounded-full bg-muted hover:bg-primary hover:text-primary-foreground flex items-center justify-center transition-colors"
               >
                 <MdAdd size={12} />
               </button>

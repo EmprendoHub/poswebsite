@@ -18,8 +18,9 @@ const ALLOWED_ROLES = [
 ];
 
 // GET /api/pos/search?q=xxx&storeId=xxx&limit=8&mainCategory=xxx&subCategory=xxx&attribute=xxx
-// Searches active products by title, ASIN, category, mainCategory, subCategory, attributes, brand OR exact _id.
-// When storeId is provided, filters out variations with 0 branch stock.
+// Searches active products by substring matching on title, ASIN, category, brand, variation title, or exact _id.
+// When storeId is provided, annotates variations with store inventory from StoreInventory table (source of truth).
+// Products with no StoreInventory records are still returned with stock=0 for each variation.
 // Optional filter params: mainCategory, subCategory, attribute (narrow results by new taxonomy)
 export async function GET(req: Request) {
   try {
@@ -49,27 +50,41 @@ export async function GET(req: Request) {
     if (attributeFilter) filter.attributes = attributeFilter;
 
     if (q) {
-      // Search by keyword with word boundary matching
+      // Search by keyword - use flexible substring matching
       const isObjectId = /^[a-f\d]{24}$/i.test(q);
 
-      // Escape special regex characters and add word boundaries for whole word matching
+      // For substring matching, escape only truly dangerous regex chars but preserve the search intent
       const escapedQ = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const wordBoundaryRegex = `\\b${escapedQ}\\b`;
 
       if (isObjectId) {
         // Search by exact product _id OR by name/ASIN
         filter.$or = [
           { _id: new mongoose.Types.ObjectId(q) },
-          { title: { $regex: wordBoundaryRegex, $options: "i" } },
-          { ASIN: { $regex: wordBoundaryRegex, $options: "i" } },
+          { title: { $regex: escapedQ, $options: "i" } },
+          { ASIN: { $regex: escapedQ, $options: "i" } },
         ];
       } else {
+        // For non-ObjectId searches, try matching the entire escaped query first,
+        // then fall back to individual words for more flexible matching
+        const words = q.trim().split(/\s+/);
+        const wordRegexes = words.map(word => 
+          ({ $regex: word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" })
+        );
+
         filter.$or = [
-          { title: { $regex: wordBoundaryRegex, $options: "i" } },
-          { ASIN: { $regex: wordBoundaryRegex, $options: "i" } },
-          { category: { $regex: wordBoundaryRegex, $options: "i" } },
-          { brand: { $regex: wordBoundaryRegex, $options: "i" } },
-          { "variations.title": { $regex: wordBoundaryRegex, $options: "i" } },
+          // Full phrase match
+          { title: { $regex: escapedQ, $options: "i" } },
+          { ASIN: { $regex: escapedQ, $options: "i" } },
+          { category: { $regex: escapedQ, $options: "i" } },
+          { brand: { $regex: escapedQ, $options: "i" } },
+          { "variations.title": { $regex: escapedQ, $options: "i" } },
+          // Individual word matches (all words must be in title for this clause)
+          ...(words.length > 1 ? [{
+            title: {
+              $regex: words.map(w => `(?=.*${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`).join("") + ".*",
+              $options: "i"
+            }
+          }] : []),
         ];
       }
     }
@@ -81,11 +96,17 @@ export async function GET(req: Request) {
       .limit(limit)
       .lean();
 
-    if (!storeId || products.length === 0) {
+    // If no storeId provided, return products as-is with their legacy variation stock
+    if (!storeId) {
       return NextResponse.json(products, { status: 200 });
     }
 
-    // Fetch StoreInventory records for these products in this branch
+    if (products.length === 0) {
+      return NextResponse.json(products, { status: 200 });
+    }
+
+    // Fetch StoreInventory records for these products in this store
+    // StoreInventory is ONLY used to annotate inventory levels, NOT to filter results
     const productIds = products.map((p: any) => p._id);
     const inventoryRecords = await StoreInventory.find({
       store: storeId,
@@ -94,30 +115,30 @@ export async function GET(req: Request) {
       .select("variationId quantity")
       .lean();
 
-    // Build lookup: variationId -> branch quantity
+    // Build lookup: variationId -> store quantity
+    // This is the source of truth for inventory at this store
     const stockMap = new Map<string, number>();
     for (const rec of inventoryRecords) {
       stockMap.set(rec.variationId, rec.quantity);
     }
 
-    // Annotate each variation with branch stock.
-    // If no StoreInventory record exists for this branch, the variation is NOT
-    // available here (stock = 0) — never fall back to global product stock.
-    const filtered = products
-      .map((product: any) => {
-        const variations = product.variations
-          .map((v: any) => {
-            const variationId = v._id.toString();
-            const branchStock = stockMap.get(variationId) ?? 0;
-            return { ...v, stock: branchStock };
-          })
-          .filter((v: any) => v.stock > 0);
-        return { ...product, variations };
-      })
-      // Drop products where every variation has 0 branch stock
-      .filter((p: any) => p.variations.length > 0);
+    // Annotate each variation with store inventory quantity from StoreInventory table.
+    // If no StoreInventory record exists for a variation, its quantity is 0.
+    // ALL search results are returned regardless of stock level.
+    const annotated = products.map((product: any) => {
+      const variations = product.variations.map((v: any) => {
+        const variationId = v._id.toString();
+        // Use StoreInventory data as the source of truth, defaulting to 0 if no record exists
+        const storeStock = stockMap.get(variationId) ?? 0;
+        return {
+          ...v,
+          stock: storeStock, // Override with store inventory
+        };
+      });
+      return { ...product, variations };
+    });
 
-    return NextResponse.json(filtered, { status: 200 });
+    return NextResponse.json(annotated, { status: 200 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -143,9 +143,17 @@ export async function POST(req: Request) {
           inc["totals.cashSales"] = -cash;
         } else if (pm === "TERMINAL") {
           inc["totals.cardSales"] = -card;
+        } else if (pm === "TRANSFERENCIA") {
+          inc["totals.transfers"] = -card;
         } else if (pm === "MIXTO") {
           inc["totals.mixedCashSales"] = -cash;
-          inc["totals.mixedCardSales"] = -card;
+          // Check notes to determine if card portion was TARJETA or TRANSFERENCIA
+          const isMixedTransfer = saleMovement.notes?.includes("TRANSFERENCIA");
+          if (isMixedTransfer) {
+            inc["totals.mixedTransferSales"] = -card;
+          } else {
+            inc["totals.mixedCardSales"] = -card;
+          }
         }
 
         if (Object.keys(inc).length > 0) {

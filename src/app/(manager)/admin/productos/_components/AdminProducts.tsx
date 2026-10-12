@@ -1203,6 +1203,7 @@ const AdminProducts = ({
         </div>
         <div className="flex flex-col maxsm:flex-col-reverse gap-2 maxsm:gap-1 items-center justify-between mb-4">
           <div className="flex gap-2 items-center w-full">
+           {/* Camara Scanner  */}
             <button
               type="button"
               onClick={() => setShowScanner(true)}

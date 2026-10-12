@@ -8,7 +8,9 @@ import {
   MdClose,
   MdAdd,
   MdDelete,
+  MdQrCodeScanner,
 } from "react-icons/md";
+import BarcodeScannerModal from "@/components/modals/BarcodeScannerModal";
 
 const TYPE_OPTIONS = [
   {
@@ -75,6 +77,7 @@ export default function NuevaOrdenTrabajoPage() {
   const [debouncedQuery] = useDebounce(query, 300);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/stores")
@@ -288,6 +291,14 @@ export default function NuevaOrdenTrabajoPage() {
                 <MdClose size={16} className="text-muted-foreground" />
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => setIsScannerOpen(true)}
+              className="hover:text-foreground transition-colors p-1 hover:bg-muted rounded flex-shrink-0"
+              title="Escanear código"
+            >
+              <MdQrCodeScanner size={18} />
+            </button>
           </div>
 
           {(searching || searchResults.length > 0) && (
@@ -460,6 +471,17 @@ export default function NuevaOrdenTrabajoPage() {
       >
         {submitting ? "Creando orden..." : "Crear Orden de Trabajo"}
       </button>
+
+      {/* Camara Scanner  */}
+      {isScannerOpen && (
+        <BarcodeScannerModal
+          onScan={(value) => {
+            setQuery(value);
+            setIsScannerOpen(false);
+          }}
+          onClose={() => setIsScannerOpen(false)}
+        />
+      )}
     </div>
   );
 }

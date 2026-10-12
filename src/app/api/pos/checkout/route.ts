@@ -73,11 +73,11 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  if (!["EFECTIVO", "TERMINAL", "MIXTO"].includes(payMethod)) {
+  if (!["EFECTIVO", "TERMINAL", "TRANSFERENCIA", "MIXTO"].includes(payMethod)) {
     return NextResponse.json(
       {
         error:
-          "Selecciona un método de pago válido (Efectivo, Terminal o Mixto).",
+          "Selecciona un método de pago válido (Efectivo, Terminal, Transferencia o Mixto).",
       },
       { status: 400 },
     );
@@ -97,9 +97,10 @@ export async function POST(req: Request) {
 
   if (payMethod === "MIXTO") {
     const cashMatch = (transactionRef ?? "").match(/CASH:([\d.]+)/);
-    const cardMatch = (transactionRef ?? "").match(/CARD:([\d.]+)/);
+    // Match either CARD, TARJETA, or TRANSFERENCIA format
+    const cardMatch = (transactionRef ?? "").match(/(CARD|TARJETA|TRANSFERENCIA):([\d.]+)/);
     const mixCash = cashMatch ? Number(cashMatch[1]) : 0;
-    const mixCard = cardMatch ? Number(cardMatch[1]) : 0;
+    const mixCard = cardMatch ? Number(cardMatch[2]) : 0;
     const mixTotalCents = Math.round((mixCash + mixCard) * 100);
     if (mixTotalCents < owedCents) {
       return NextResponse.json(
@@ -156,6 +157,7 @@ export async function POST(req: Request) {
             phone: customerPhone || "",
             branch: store.slug,
             storeId: store._id,
+            payMethod,
             ...(posRequestId ? { posRequestId } : {}),
             paymentInfo: {
               id: transactionRef || "POS",
@@ -173,18 +175,20 @@ export async function POST(req: Request) {
       );
 
       // 2. Decrement branch inventory for each line item
+      // Note: Allow overselling even if stock is insufficient
       for (const item of orderItems) {
         const inv = await StoreInventory.findOne({
           store: storeId,
           variationId: item.variation,
         }).session(mongoSession);
 
-        if (!inv || inv.quantity < item.quantity) {
-          throw new Error(
-            `Stock insuficiente para "${item.name ?? item.variation}" en esta sucursal. ` +
-              `Disponible: ${inv?.quantity ?? 0}, solicitado: ${item.quantity}.`,
-          );
-        }
+        // Skip stock validation - allow negative inventory
+        // if (!inv || inv.quantity < item.quantity) {
+        //   throw new Error(
+        //     `Stock insuficiente para "${item.name ?? item.variation}" en esta sucursal. ` +
+        //       `Disponible: ${inv?.quantity ?? 0}, solicitado: ${item.quantity}.`,
+        //   );
+        // }
 
         await StoreInventory.findOneAndUpdate(
           { store: storeId, variationId: item.variation },
@@ -207,11 +211,13 @@ export async function POST(req: Request) {
           cashAmount = Number(amountPaid);
         } else if (payMethod === "TERMINAL") {
           cardAmount = Number(amountPaid);
+        } else if (payMethod === "TRANSFERENCIA") {
+          cardAmount = Number(amountPaid);
         } else if (payMethod === "MIXTO") {
           const cashMatch = transactionRef?.match(/CASH:([\d.]+)/);
-          const cardMatch = transactionRef?.match(/CARD:([\d.]+)/);
+          const cardMatch = transactionRef?.match(/(CARD|TARJETA|TRANSFERENCIA):([\d.]+)/);
           cashAmount = cashMatch ? Number(cashMatch[1]) : 0;
-          cardAmount = cardMatch ? Number(cardMatch[1]) : 0;
+          cardAmount = cardMatch ? Number(cardMatch[2]) : 0;
         }
 
         await CashRegisterMovement.create(
@@ -228,6 +234,7 @@ export async function POST(req: Request) {
               orderId: newOrder.orderId,
               createdByName: (authSession?.user as any)?.name || "Cajero",
               createdBy: (authSession?.user as any)?._id,
+              notes: payMethod === "MIXTO" ? transactionRef : undefined,
             },
           ],
           { session: mongoSession },
@@ -238,9 +245,18 @@ export async function POST(req: Request) {
           totalsUpdate["totals.cashSales"] = cashAmount;
         } else if (payMethod === "TERMINAL") {
           totalsUpdate["totals.cardSales"] = cardAmount;
+        } else if (payMethod === "TRANSFERENCIA") {
+          totalsUpdate["totals.transfers"] = cardAmount;
         } else if (payMethod === "MIXTO") {
           totalsUpdate["totals.mixedCashSales"] = cashAmount;
-          totalsUpdate["totals.mixedCardSales"] = cardAmount;
+          // Parse the ref to determine if card portion is TARJETA or TRANSFERENCIA
+          // ref format: MIXTO-CASH:150.00-TARJETA:150.00 or MIXTO-CASH:150.00-TRANSFERENCIA:150.00
+          const isMixedTransfer = transactionRef?.includes("TRANSFERENCIA");
+          if (isMixedTransfer) {
+            totalsUpdate["totals.mixedTransferSales"] = cardAmount;
+          } else {
+            totalsUpdate["totals.mixedCardSales"] = cardAmount;
+          }
         }
         if (Object.keys(totalsUpdate).length > 0) {
           await CashRegisterSession.findByIdAndUpdate(

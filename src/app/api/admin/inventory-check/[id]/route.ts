@@ -155,7 +155,7 @@ export async function PATCH(
   return NextResponse.json({ session: doc });
 }
 
-/** DELETE /api/admin/inventory-check/[id]?variationId= — remove one scanned item */
+/** DELETE /api/admin/inventory-check/[id] — delete entire session OR remove one scanned item */
 export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -178,16 +178,24 @@ export async function DELETE(
       { status: 404 },
     );
   }
-  if (doc.status === "finalized") {
-    return NextResponse.json(
-      { error: "La sesión ya fue finalizada" },
-      { status: 400 },
-    );
+
+  // If variationId is provided, delete just that scanned item
+  if (variationId) {
+    if (doc.status === "finalized") {
+      return NextResponse.json(
+        { error: "La sesión ya fue finalizada" },
+        { status: 400 },
+      );
+    }
+
+    doc.scannedItems = doc.scannedItems.filter(
+      (i: any) => i.variationId !== variationId,
+    ) as any;
+    await doc.save();
+    return NextResponse.json({ session: doc });
   }
 
-  doc.scannedItems = doc.scannedItems.filter(
-    (i: any) => i.variationId !== variationId,
-  ) as any;
-  await doc.save();
-  return NextResponse.json({ session: doc });
+  // Otherwise, delete the entire session
+  await InventoryCheckSession.findByIdAndDelete(id);
+  return NextResponse.json({ success: true, message: "Sesión eliminada" });
 }

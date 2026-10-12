@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { options } from "@/app/api/auth/[...nextauth]/options";
 import CashRegisterMovement from "@/backend/models/CashRegisterMovement";
 import Order from "@/backend/models/Order";
+import Expense from "@/backend/models/Expense";
 import dbConnect from "@/lib/db";
 import {
   POS_ALLOWED_ROLES,
@@ -102,7 +103,22 @@ export async function POST(req: Request) {
       );
     }
 
+    // Get expenses (gastos) registered during this period
+    const expenses = await Expense.find({
+      store: cajaSession.store,
+      createdAt: { $gte: periodStart, $lte: periodEnd },
+    }).populate("createdBy", "name").lean();
 
+    const gastos = {
+      items: expenses.map((exp: any) => ({
+        description: exp.description,
+        amount: exp.amount,
+        category: exp.category,
+        createdBy: exp.createdBy?.name || "Desconocido",
+        createdAt: exp.createdAt,
+      })),
+      total: expenses.reduce((sum, exp: any) => sum + exp.amount, 0),
+    };
 
     const totals = movements.reduce(
       (acc, m) => {
@@ -111,6 +127,8 @@ export async function POST(req: Request) {
             acc.cashSales += m.cashAmount;
           } else if (m.payMethod === "TERMINAL") {
             acc.cardSales += m.cardAmount;
+          } else if (m.payMethod === "TRANSFERENCIA") {
+            acc.transfers += m.cardAmount;
           } else if (m.payMethod === "MIXTO") {
             acc.mixedCashSales += m.cashAmount;
             acc.mixedCardSales += m.cardAmount;
@@ -127,6 +145,8 @@ export async function POST(req: Request) {
         cardSales: 0,
         mixedCashSales: 0,
         mixedCardSales: 0,
+        transfers: 0,
+        mixedTransferSales: 0,
         inflows: 0,
         outflows: 0,
         cancelledOrdersCount: cancelledOrders.length,
@@ -137,18 +157,74 @@ export async function POST(req: Request) {
       },
     );
 
+    // Deduct cancelled orders by payment method
+    const cancelledByMethod = cancelledOrders.reduce(
+      (acc, order: any) => {
+        const amount = order.paymentInfo?.amountPaid ?? 0;
+        const method = order.payMethod || "EFECTIVO";
+        
+        if (method === "EFECTIVO") {
+          acc.cashCancelled += amount;
+        } else if (method === "TERMINAL") {
+          acc.cardCancelled += amount;
+        } else if (method === "TRANSFERENCIA") {
+          acc.transferCancelled += amount;
+        } else if (method === "MIXTO") {
+          acc.mixedCashCancelled += amount;
+          // Will be corrected later with movement data
+          acc.mixedCardCancelled += amount;
+        }
+        return acc;
+      },
+      {
+        cashCancelled: 0,
+        cardCancelled: 0,
+        transferCancelled: 0,
+        mixedCashCancelled: 0,
+        mixedCardCancelled: 0,
+        mixedTransferCancelled: 0,
+      },
+    );
 
+    // Adjust for MIXTO orders: check movement notes to split correctly
+    for (const order of cancelledOrders) {
+      if (order.payMethod === "MIXTO") {
+        const movement = await CashRegisterMovement.findOne({
+          order: order._id,
+          type: "sale",
+        });
+        if (movement && movement.notes?.includes("TRANSFERENCIA")) {
+          // This MIXTO order had transfer as the card portion
+          const amount = order.paymentInfo?.amountPaid ?? 0;
+          cancelledByMethod.mixedCardCancelled -= amount;
+          cancelledByMethod.mixedTransferCancelled += amount;
+        }
+      }
+    }
 
-    // Combine payment methods: Efectivo includes mixed cash, Terminal includes mixed card
-    const totalCashSales = totals.cashSales + totals.mixedCashSales;
-    const totalCardSales = totals.cardSales + totals.mixedCardSales;
-    const totalSales = totalCashSales + totalCardSales;
+    // Combine payment methods: Efectivo includes mixed cash, Terminal includes mixed card, Transfers includes mixed transfer
+    const totalCashSales = totals.cashSales + totals.mixedCashSales - cancelledByMethod.cashCancelled - cancelledByMethod.mixedCashCancelled;
+    const totalCardSales = totals.cardSales + totals.mixedCardSales - cancelledByMethod.cardCancelled - cancelledByMethod.mixedCardCancelled;
+    const totalTransfers = totals.transfers + totals.mixedTransferSales - cancelledByMethod.transferCancelled - cancelledByMethod.mixedTransferCancelled;
+    const totalSales = totalCashSales + totalCardSales + totalTransfers;
 
     const expectedCash = calculateExpectedCash(cajaSession);
     const declared = Number(declaredCash ?? expectedCash);
     const difference = declared - expectedCash;
 
     const cutNum = await nextCutNumber(sessionId);
+
+    // Format movements for storage (exclude sales, only manual_in and manual_out)
+    const manualMovements = movements
+      .filter((m) => m.type === "manual_in" || m.type === "manual_out")
+      .map((m) => ({
+        type: m.type,
+        cashAmount: m.cashAmount,
+        notes: m.notes,
+        createdByName: m.createdByName,
+        authorizedByName: m.authorizedByName,
+        createdAt: m.createdAt,
+      }));
 
     const cut = await CashRegisterCut.create({
       session: cajaSession._id,
@@ -166,6 +242,8 @@ export async function POST(req: Request) {
       totals: {
         cashSales: totalCashSales,
         cardSales: totalCardSales,
+        transfers: totalTransfers,
+        mixedTransferSales: totals.mixedTransferSales - cancelledByMethod.mixedTransferCancelled,
         inflows: totals.inflows,
         outflows: totals.outflows,
         totalSales,
@@ -173,6 +251,8 @@ export async function POST(req: Request) {
         cancelledOrdersTotal: totals.cancelledOrdersTotal,
         cancelledOrders: buildCancelledOrdersDetail(cancelledOrders),
       },
+      gastos: gastos.items.length > 0 ? gastos : undefined,
+      movements: manualMovements,
       movementsCount: movements.length,
       salesCount: movements.filter((m) => m.type === "sale").length,
       notes: notes || "",

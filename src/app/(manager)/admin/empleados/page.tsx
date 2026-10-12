@@ -177,13 +177,13 @@ export default function EmployeesAdminPage() {
               <tr>
                 <th className="text-left px-4 py-3 font-medium">Nombre</th>
                 <th className="text-left px-4 py-3 font-medium">Email</th>
-                <th className="text-left px-4 py-3 font-medium">Teléfono</th>
+                {/* <th className="text-left px-4 py-3 font-medium">Teléfono</th> */}
                 <th className="text-left px-4 py-3 font-medium">Rol</th>
                 <th className="text-left px-4 py-3 font-medium">Sucursal</th>
                 <th className="text-center px-4 py-3 font-medium">
                   Cód. Manager
                 </th>
-                <th className="text-center px-4 py-3 font-medium">Estado</th>
+                {/* <th className="text-center px-4 py-3 font-medium">Estado</th> */}
                 <th className="text-center px-4 py-3 font-medium">Acciones</th>
               </tr>
             </thead>
@@ -197,9 +197,9 @@ export default function EmployeesAdminPage() {
                   <td className="px-4 py-3 text-muted-foreground">
                     {emp.email}
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">
+                  {/* <td className="px-4 py-3 text-muted-foreground">
                     {emp.phone || "—"}
-                  </td>
+                  </td> */}
                   <td className="px-4 py-3">
                     <span
                       className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
@@ -213,7 +213,7 @@ export default function EmployeesAdminPage() {
                   <td className="px-4 py-3 text-muted-foreground">
                     {getStoreName(emp.assignedStore)}
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  {/* <td className="px-4 py-3 text-center">
                     {emp.hasManagerCode ? (
                       <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
                         ✓ Activo
@@ -221,7 +221,7 @@ export default function EmployeesAdminPage() {
                     ) : (
                       <span className="text-muted-foreground text-xs">—</span>
                     )}
-                  </td>
+                  </td> */}
                   <td className="px-4 py-3 text-center">
                     <button
                       onClick={() => handleToggleActive(emp)}

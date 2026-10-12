@@ -135,6 +135,8 @@ export async function POST(req: Request) {
             cashAmount = Number(order.amountPaid);
           } else if (order.payMethod === "TERMINAL") {
             cardAmount = Number(order.amountPaid);
+          } else if (order.payMethod === "TRANSFERENCIA") {
+            cardAmount = Number(order.amountPaid);
           } else if (order.payMethod === "MIXTO") {
             const cashMatch = order.transactionRef?.match(/CASH:([\d.]+)/);
             const cardMatch = order.transactionRef?.match(/CARD:([\d.]+)/);
@@ -152,8 +154,8 @@ export async function POST(req: Request) {
             totalAmount: Number(order.amountPaid),
             order: newOrder._id,
             orderId: newOrder.orderId,
-            // Tag so managers can identify which orders came in offline
-            notes: `[OFFLINE ${new Date(order.createdAt).toLocaleString("es-MX")}]`,
+            // Tag so managers can identify which orders came in offline + include MIXTO breakdown
+            notes: `[OFFLINE ${new Date(order.createdAt).toLocaleString("es-MX")}]${order.payMethod === "MIXTO" ? ` ${order.transactionRef}` : ""}`,
             createdByName: (session?.user as any)?.name || "Cajero",
             createdBy: (session?.user as any)?._id,
           });
@@ -163,9 +165,18 @@ export async function POST(req: Request) {
             totalsUpdate["totals.cashSales"] = cashAmount;
           } else if (order.payMethod === "TERMINAL") {
             totalsUpdate["totals.cardSales"] = cardAmount;
+          } else if (order.payMethod === "TRANSFERENCIA") {
+            totalsUpdate["totals.transfers"] = cardAmount;
           } else if (order.payMethod === "MIXTO") {
             totalsUpdate["totals.mixedCashSales"] = cashAmount;
-            totalsUpdate["totals.mixedCardSales"] = cardAmount;
+            // Parse the transactionRef to determine if card portion is TARJETA or TRANSFERENCIA
+            // ref format: MIXTO-CASH:150.00-TARJETA:150.00 or MIXTO-CASH:150.00-TRANSFERENCIA:150.00
+            const isMixedTransfer = order.transactionRef?.includes("TRANSFERENCIA");
+            if (isMixedTransfer) {
+              totalsUpdate["totals.mixedTransferSales"] = cardAmount;
+            } else {
+              totalsUpdate["totals.mixedCardSales"] = cardAmount;
+            }
           }
           if (Object.keys(totalsUpdate).length > 0) {
             await CashRegisterSession.findByIdAndUpdate(cajaSession._id, {

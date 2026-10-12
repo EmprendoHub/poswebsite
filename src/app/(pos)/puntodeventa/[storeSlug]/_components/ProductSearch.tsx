@@ -1,9 +1,10 @@
 "use client";
 import { useState, useCallback, useRef, useEffect } from "react";
-import { MdSearch, MdClose, MdWifiOff } from "react-icons/md";
+import { MdSearch, MdClose, MdWifiOff, MdQrCodeScanner } from "react-icons/md";
 import Image from "next/image";
 import { useDebounce } from "use-debounce";
 import { posDB } from "@/lib/posDB";
+import BarcodeScannerModal from "@/components/modals/BarcodeScannerModal";
 
 interface SearchResult {
   _id: string;
@@ -55,6 +56,7 @@ export default function ProductSearch({
   const [debouncedQuery] = useDebounce(query, 300);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Auto-focus on mount so barcode/QR scanner input goes here immediately
@@ -136,8 +138,7 @@ export default function ProductSearch({
     product: SearchResult,
     variation: SearchResult["variations"][0],
   ) => {
-    if (variation.stock <= 0) return; // never add out-of-stock
-
+    // Allow adding products regardless of stock availability
     // Use product.currentPrice if available (freshly fetched from search),
     // otherwise fall back to variation price
     const price = product.currentPrice ?? variation.price;
@@ -188,8 +189,9 @@ export default function ProductSearch({
           }
           className="flex-1 bg-transparent outline-none text-sm placeholder:text-slate-300 rounded-xl"
           // Recapture focus if user clicks away (keeps scanner working)
+          // Increased timeout to 5000ms to allow time for editing quantity field
           onBlur={() => {
-            if (!pauseFocus) setTimeout(() => inputRef.current?.focus(), 150);
+            if (!pauseFocus) setTimeout(() => inputRef.current?.focus(), 5000);
           }}
         />
         {query && (
@@ -205,6 +207,14 @@ export default function ProductSearch({
             />
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => setIsScannerOpen(true)}
+          className="hover:text-foreground transition-colors p-1 hover:bg-muted rounded flex-shrink-0"
+          title="Escanear código"
+        >
+          <MdQrCodeScanner size={18} />
+        </button>
       </div>
 
       {/* Results dropdown */}
@@ -220,16 +230,21 @@ export default function ProductSearch({
               key={product._id}
               className="border-b border-muted last:border-0"
             >
-              {/* One row per in-stock variation */}
+              {/* All variations shown - including out-of-stock */}
               {product.variations.map((v) => {
                 const label =
                   [v.color, v.size, v.title].filter(Boolean).join(" / ") ||
                   "Default";
+                const isOutOfStock = v.stock <= 0;
                 return (
                   <button
                     key={v._id}
                     onClick={() => handleAdd(product, v)}
-                    className="w-full flex items-center gap-3 pl-1 pr-2 py-2 hover:bg-muted transition-colors text-left"
+                    className={`w-full flex items-center gap-3 pl-1 pr-2 py-2 transition-colors text-left ${
+                      isOutOfStock
+                        ? "opacity-60 hover:bg-red-50 dark:hover:bg-red-950/20"
+                        : "hover:bg-muted"
+                    }`}
                   >
                     <div className="flex-1 min-w-0">
                       {/* Product header row */}
@@ -240,14 +255,23 @@ export default function ProductSearch({
                             alt={product.title}
                             width={64}
                             height={64}
-                            className="rounded object-cover w-16 h-16 flex-shrink-0"
+                            className={`rounded object-cover w-16 h-16 flex-shrink-0 ${
+                              isOutOfStock ? "grayscale opacity-50" : ""
+                            }`}
                           />
                         )}
                         <div className="text-sm font-semibold truncate flex-1">
                           {product.title}
-                          <p className="text-xs text-muted-foreground">
-                            {v.stock} disponible{v.stock !== 1 ? "s" : ""} en
-                            sucursal
+                          <p
+                            className={`text-xs ${
+                              isOutOfStock
+                                ? "text-red-600 dark:text-red-400 font-medium"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            {isOutOfStock
+                              ? "SIN STOCK"
+                              : `${v.stock} disponible${v.stock !== 1 ? "s" : ""} en sucursal`}
                           </p>
                         </div>
                         {/* <p className="text-xs font-medium text-foreground">
@@ -264,6 +288,17 @@ export default function ProductSearch({
             </div>
           ))}
         </div>
+      )}
+
+      {/* Camara Scanner  */}
+      {isScannerOpen && (
+        <BarcodeScannerModal
+          onScan={(value) => {
+            setQuery(value);
+            setIsScannerOpen(false);
+          }}
+          onClose={() => setIsScannerOpen(false)}
+        />
       )}
     </div>
   );

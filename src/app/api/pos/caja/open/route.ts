@@ -71,7 +71,9 @@ export async function POST(req: Request) {
     });
 
     // Register fondo inicial as a manual_in movement so it appears in the
-    // shift's "Entradas y Salidas" table and counts toward expectedCash.
+    // shift's "Entradas y Salidas" table for visibility.
+    // Note: NOT added to totals.inflows because it's already in openingCash
+    // and calculateExpectedCash includes both openingCash and inflows separately.
     if (opening > 0) {
       await CashRegisterMovement.create({
         session: newSession._id,

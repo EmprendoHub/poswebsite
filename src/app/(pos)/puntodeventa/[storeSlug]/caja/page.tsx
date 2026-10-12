@@ -11,7 +11,10 @@ import {
   MdPrint,
   MdShield,
   MdReceipt,
+  MdQrCodeScanner,
+  MdClose,
 } from "react-icons/md";
+import BarcodeScannerModal from "@/components/modals/BarcodeScannerModal";
 
 /* ──────────────────── Types ──────────────────── */
 interface CajaTotals {
@@ -19,6 +22,8 @@ interface CajaTotals {
   cardSales: number;
   mixedCashSales: number;
   mixedCardSales: number;
+  transfers: number;
+  mixedTransferSales: number;
   inflows: number;
   outflows: number;
   totalSales?: number;
@@ -30,6 +35,24 @@ interface CajaTotals {
     cancelledBy: string | null;
   }[];
 }
+
+interface GastoItem {
+  description: string;
+  amount: number;
+  category: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+interface MovementItem {
+  type: "manual_in" | "manual_out";
+  cashAmount: number;
+  notes?: string;
+  createdByName?: string;
+  authorizedByName?: string;
+  createdAt: string;
+}
+
 interface CajaSession {
   _id: string;
   storeName: string;
@@ -55,6 +78,11 @@ interface CorteRecord {
   salesCount: number;
   notes?: string;
   createdAt: string;
+  gastos?: {
+    items: GastoItem[];
+    total: number;
+  };
+  movements?: MovementItem[];
 }
 interface MovementRecord {
   _id: string;
@@ -150,6 +178,10 @@ function CajaTicket({
         <span>Terminal:</span>
         <span>{fmt(cut.totals.cardSales + cut.totals.mixedCardSales)}</span>
       </div>
+      <div className="flex justify-between text-xs">
+        <span>Transferencias:</span>
+        <span>{fmt(cut.totals.transfers + cut.totals.mixedTransferSales)}</span>
+      </div>
       {/* <div className="flex justify-between text-xs">
         <span>Mixto (efe):</span>
         <span>{fmt(cut.totals.mixedCashSales)}</span>
@@ -164,8 +196,10 @@ function CajaTicket({
           {fmt(
             cut.totals.cashSales +
               cut.totals.cardSales +
+              cut.totals.transfers +
               cut.totals.mixedCashSales +
-              cut.totals.mixedCardSales,
+              cut.totals.mixedCardSales +
+              cut.totals.mixedTransferSales,
           )}
         </span>
       </div>
@@ -201,16 +235,65 @@ function CajaTicket({
       )}
 
       <div className="text-xs text-center my-1">{line}</div>
-      <div className="text-xs font-bold text-center mb-1">CAJA</div>
+      <div className="text-xs font-bold text-center mb-1">ENTRADAS Y SALIDAS</div>
 
-      <div className="flex justify-between text-xs">
-        <span>Entradas manuales:</span>
-        <span>{fmt(cut.totals.inflows)}</span>
-      </div>
-      <div className="flex justify-between text-xs">
-        <span>Salidas manuales:</span>
-        <span>{fmt(cut.totals.outflows)}</span>
-      </div>
+      {cut.movements && cut.movements.length > 0 ? (
+        <>
+          {cut.movements.map((m, i) => (
+            <div key={i} className="flex justify-between text-xs">
+              <span>
+                {m.type === "manual_in" ? "↓ Entrada" : "↑ Salida"}
+                {m.notes ? `: ${m.notes.substring(0, 12)}` : ""}
+              </span>
+              <span className={m.type === "manual_in" ? "text-green-600" : "text-red-600"}>
+                {m.type === "manual_in" ? "+" : "-"}{fmt(m.cashAmount)}
+              </span>
+            </div>
+          ))}
+          <div className="flex justify-between text-xs mt-1 border-t border-gray-300">
+            <span>Entradas:</span>
+            <span className="text-green-600">{fmt(cut.totals.inflows)}</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span>Salidas:</span>
+            <span className="text-red-600">{fmt(cut.totals.outflows)}</span>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex justify-between text-xs">
+            <span>Entradas:</span>
+            <span>{fmt(cut.totals.inflows)}</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span>Salidas:</span>
+            <span>{fmt(cut.totals.outflows)}</span>
+          </div>
+        </>
+      )}
+
+      {cut.gastos && cut.gastos.items && cut.gastos.items.length > 0 && (
+        <>
+          <div className="text-xs text-center my-1">{line}</div>
+          <div className="text-xs font-bold text-center mb-1">GASTOS DEL DÍA</div>
+          <div className="flex justify-between text-xs">
+            <span>Cantidad:</span>
+            <span>{cut.gastos.items.length}</span>
+          </div>
+          {cut.gastos.items.map((g, i) => (
+            <div key={i} className="flex justify-between text-xs">
+              <span>
+                {g.category} - {g.description.substring(0, 10)}
+              </span>
+              <span>{fmt(g.amount)}</span>
+            </div>
+          ))}
+          <div className="flex justify-between text-xs">
+            <span>Total Gastos:</span>
+            <span className="font-bold">{fmt(cut.gastos.total)}</span>
+          </div>
+        </>
+      )}
 
       <div className="text-xs text-center my-1">{line}</div>
 
@@ -266,6 +349,7 @@ export default function CajaPage() {
 
   // Pagination & search
   const [searchQuery, setSearchQuery] = useState("");
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -676,7 +760,7 @@ export default function CajaPage() {
             </div>
 
             {/* KPI cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
               {[
                 {
                   label: "Ventas Totales",
@@ -693,6 +777,13 @@ export default function CajaPage() {
                   value: fmt(
                     activeSession.totals.cardSales +
                       activeSession.totals.mixedCardSales,
+                  ),
+                  color: "text-blue-500",
+                },
+                {
+                  label: "Transferencias",
+                  value: fmt(
+                    activeSession.totals.transfers + activeSession.totals.mixedTransferSales,
                   ),
                   color: "text-blue-500",
                 },
@@ -811,14 +902,22 @@ export default function CajaPage() {
             </h2>
 
             {/* Search bar */}
-            <div className="mb-4">
+            <div className="mb-4 relative">
               <input
                 type="text"
                 placeholder="Buscar por folio o fecha..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-muted rounded-lg px-4 py-2.5 text-sm outline-none border border-muted focus:border-primary transition-colors"
+                className="w-full bg-muted rounded-lg px-4 py-2.5 pr-12 text-sm outline-none border border-muted focus:border-primary transition-colors"
               />
+              <button
+                type="button"
+                onClick={() => setIsScannerOpen(true)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1 hover:bg-muted rounded"
+                title="Escanear código"
+              >
+                <MdQrCodeScanner className="w-5 h-5" />
+              </button>
             </div>
 
             {filteredCuts.length === 0 ? (
@@ -1149,6 +1248,17 @@ export default function CajaPage() {
           onClose={() => setShowCloseModal(false)}
           confirmLabel="Cerrar Caja"
           confirmClass="bg-red-600 text-white"
+        />
+      )}
+
+      {/* Camara Scanner  */}
+      {isScannerOpen && (
+        <BarcodeScannerModal
+          onScan={(value) => {
+            setSearchQuery(value);
+            setIsScannerOpen(false);
+          }}
+          onClose={() => setIsScannerOpen(false)}
         />
       )}
     </div>

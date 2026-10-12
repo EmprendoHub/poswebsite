@@ -17,6 +17,7 @@ import {
   MdTableChart,
   MdCategory,
   MdEditAttributes,
+  MdCheckCircle,
 } from "react-icons/md";
 import { FaCartPlus } from "react-icons/fa6";
 import { BsCardImage } from "react-icons/bs";
@@ -222,6 +223,18 @@ const SideBarRender = () => {
           text={"Finanzas"}
           active={pathname.startsWith("/admin/finanzas") ? "true" : "false"}
           url={"/admin/finanzas"}
+        />
+      )}
+      {(userRole === "manager" ||
+        userRole === "director" ||
+        userRole === "super_admin") && (
+        <SideBarItem
+          icon={<MdCheckCircle size={20} />}
+          text={"Revisión de Cortes"}
+          active={
+            pathname.startsWith("/admin/revision-cortes") ? "true" : "false"
+          }
+          url={"/admin/revision-cortes"}
         />
       )}
     </AdminSidebar>

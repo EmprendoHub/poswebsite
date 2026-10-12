@@ -15,6 +15,7 @@ import {
   MdReceiptLong,
   MdStorefront,
   MdArticle,
+  MdCheckCircle,
 } from "react-icons/md";
 import { IoArrowRedoSharp } from "react-icons/io5";
 import { HiOutlineUserGroup, HiDocumentText } from "react-icons/hi";
@@ -287,6 +288,14 @@ const DashComponent = () => {
           icon={<MdPeople />}
           color="bg-rose-600"
           href="/admin/finanzas/nomina"
+        />
+        <CountCard
+          label="Revisión de Cortes"
+          value={0}
+          sub="Verificar montos por sucursal"
+          icon={<MdCheckCircle />}
+          color="bg-green-600"
+          href="/admin/revision-cortes"
         />
       </div>
 

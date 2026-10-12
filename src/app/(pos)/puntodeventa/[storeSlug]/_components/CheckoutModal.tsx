@@ -45,9 +45,13 @@ interface ReceiptData {
   discountAuthBy?: string;
   discountLabel?: string;
   isOffline?: boolean;
+  mixedCardType?: CardType;
+  mixedCashPart?: number;
+  mixedCardPart?: number;
 }
 
-type PayMethod = "EFECTIVO" | "TERMINAL" | "MIXTO";
+type PayMethod = "EFECTIVO" | "TERMINAL" | "MIXTO" | "TRANSFERENCIA";
+type CardType = "TARJETA" | "TRANSFERENCIA";
 
 export default function CheckoutModal({
   items,
@@ -68,7 +72,6 @@ export default function CheckoutModal({
   }, 0);
   const [discountApplied, setDiscountApplied] = useState(false);
   const [discountAuthBy, setDiscountAuthBy] = useState<string | null>(null);
-  const [showDiscountAuth, setShowDiscountAuth] = useState(false);
   const [showDiscountInput, setShowDiscountInput] = useState(false);
   const [discountType, setDiscountType] = useState<"percent" | "amount">(
     "percent",
@@ -92,6 +95,7 @@ export default function CheckoutModal({
   const [cashPart, setCashPart] = useState("");
   const [cardPart, setCardPart] = useState("");
   const [mixedCardRef, setMixedCardRef] = useState("");
+  const [mixedCardType, setMixedCardType] = useState<CardType>("TARJETA");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
@@ -104,6 +108,16 @@ export default function CheckoutModal({
 
   const change =
     payMethod === "EFECTIVO" ? Math.max(0, Number(cashReceived) - subtotal) : 0;
+
+  function handlePayMethodChange(newMethod: PayMethod) {
+    setPayMethod(newMethod);
+    // Reset input fields when changing payment method
+    setCashReceived("");
+    setTransactionRef("");
+    setCashPart("");
+    setCardPart("");
+    setMixedCardRef("");
+  }
 
   async function handleCheckout() {
     if (inFlightRef.current) return;
@@ -134,13 +148,14 @@ export default function CheckoutModal({
         const cashNum = cashReceived !== "" ? Number(cashReceived) : subtotal;
         amountPaid = Math.min(cashNum, subtotal);
         ref = "EFECTIVO";
+      } else if (payMethod === "TRANSFERENCIA") {
+        amountPaid = subtotal;
+        ref = transactionRef || "TRANSFERENCIA";
       } else if (payMethod === "MIXTO") {
-        const cardAmount = Math.max(
-          0,
-          Math.round((subtotal - Number(cashPart)) * 100) / 100,
-        );
-        amountPaid = Number(cashPart) + cardAmount;
-        ref = `MIXTO-CASH:${cashPart}-CARD:${cardAmount.toFixed(2)}${mixedCardRef ? `-REF:${mixedCardRef}` : ""}`;
+        const cashAmount = Number(cashPart || 0);
+        const cardAmount = Number(cardPart || 0);
+        amountPaid = cashAmount + cardAmount;
+        ref = `MIXTO-CASH:${cashAmount.toFixed(2)}-${mixedCardType}:${cardAmount.toFixed(2)}${mixedCardRef ? `-REF:${mixedCardRef}` : ""}`;
       }
 
       // ── OFFLINE: queue in IndexedDB and show local receipt ──────────────────
@@ -190,6 +205,11 @@ export default function CheckoutModal({
           discountAuthBy: discountAuthBy ?? undefined,
           discountLabel: discount > 0 ? discountLabel : undefined,
           isOffline: true,
+          mixedCardType: payMethod === "MIXTO" ? mixedCardType : undefined,
+          mixedCashPart:
+            payMethod === "MIXTO" ? Number(cashPart || 0) : undefined,
+          mixedCardPart:
+            payMethod === "MIXTO" ? Number(cardPart || 0) : undefined,
         });
         return;
       }
@@ -236,6 +256,11 @@ export default function CheckoutModal({
         discountAuthBy: discountAuthBy ?? undefined,
         discountLabel: discount > 0 ? discountLabel : undefined,
         isOffline: false,
+        mixedCardType: payMethod === "MIXTO" ? mixedCardType : undefined,
+        mixedCashPart:
+          payMethod === "MIXTO" ? Number(cashPart || 0) : undefined,
+        mixedCardPart:
+          payMethod === "MIXTO" ? Number(cardPart || 0) : undefined,
       });
     } catch (err: any) {
       setError(err.message);
@@ -398,7 +423,11 @@ export default function CheckoutModal({
                         Cancelar
                       </button>
                       <button
-                        onClick={() => setShowDiscountAuth(true)}
+                        onClick={() => {
+                          setDiscountApplied(true);
+                          setDiscountAuthBy(cashierName);
+                          setShowDiscountInput(false);
+                        }}
                         disabled={discountValue <= 0}
                         className="flex-1 flex items-center justify-center gap-1 text-xs bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-emerald-300 py-1.5 rounded-lg transition-colors font-semibold"
                       >
@@ -424,11 +453,11 @@ export default function CheckoutModal({
               <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">
                 Método de pago
               </p>
-              <div className="grid grid-cols-3 gap-2">
-                {(["EFECTIVO", "TERMINAL", "MIXTO"] as PayMethod[]).map((m) => (
+              <div className="grid grid-cols-2 gap-2">
+                {(["EFECTIVO", "TERMINAL", "TRANSFERENCIA", "MIXTO"] as PayMethod[]).map((m) => (
                   <button
                     key={m}
-                    onClick={() => setPayMethod(m)}
+                    onClick={() => handlePayMethodChange(m)}
                     className={`rounded-lg py-2.5 text-xs font-semibold flex flex-col items-center gap-1 border transition-colors ${
                       payMethod === m
                         ? "border-emerald-600 bg-primary/10 text-emerald-600"
@@ -437,6 +466,8 @@ export default function CheckoutModal({
                   >
                     {m === "EFECTIVO" ? (
                       <MdMoney size={18} />
+                    ) : m === "TRANSFERENCIA" ? (
+                      <span className="text-lg">💸</span>
                     ) : (
                       <MdCreditCard size={18} />
                     )}
@@ -477,6 +508,16 @@ export default function CheckoutModal({
               />
             )}
 
+            {payMethod === "TRANSFERENCIA" && (
+              <input
+                type="text"
+                placeholder="Referencia / Nº de transferencia"
+                value={transactionRef}
+                onChange={(e) => setTransactionRef(e.target.value)}
+                className="bg-muted rounded-lg px-3 py-2.5 text-xl outline-none placeholder:text-slate-700 text-black font-bold"
+              />
+            )}
+
             {payMethod === "MIXTO" && (
               <div className="flex flex-col gap-2">
                 <div className="grid grid-cols-2 gap-2">
@@ -494,17 +535,44 @@ export default function CheckoutModal({
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-xs text-muted-foreground font-medium px-1">
-                      Cargo a terminal
+                      Cargo a {mixedCardType === "TRANSFERENCIA" ? "transferencia" : "terminal"}
                     </label>
-                    <div className="bg-muted/50 border border-muted rounded-lg px-3 py-2.5 text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                      $
-                      {Math.max(0, subtotal - Number(cashPart || 0)).toFixed(2)}
-                    </div>
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      value={cardPart}
+                      onChange={(e) => setCardPart(e.target.value)}
+                      className="bg-muted rounded-lg px-3 py-2.5 text-2xl outline-none placeholder:text-slate-700 text-black font-bold"
+                    />
                   </div>
                 </div>
+                
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setMixedCardType("TARJETA")}
+                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
+                      mixedCardType === "TARJETA"
+                        ? "bg-blue-600 text-white"
+                        : "bg-muted hover:bg-muted/80"
+                    }`}
+                  >
+                    💳 Tarjeta
+                  </button>
+                  <button
+                    onClick={() => setMixedCardType("TRANSFERENCIA")}
+                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
+                      mixedCardType === "TRANSFERENCIA"
+                        ? "bg-blue-600 text-white"
+                        : "bg-muted hover:bg-muted/80"
+                    }`}
+                  >
+                    💸 Transferencia
+                  </button>
+                </div>
+
                 <input
                   type="text"
-                  placeholder="Referencia / Nº de transacción terminal"
+                  placeholder="Referencia / Nº de transacción"
                   value={mixedCardRef}
                   onChange={(e) => setMixedCardRef(e.target.value)}
                   className="bg-muted rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-slate-700 text-foreground font-semibold"
@@ -534,18 +602,6 @@ export default function CheckoutModal({
           </div>
         </div>
       </div>
-      {showDiscountAuth && (
-        <DiscountManagerCodeModal
-          discountDescription={discountLabel}
-          onAuthorized={(employee) => {
-            setDiscountApplied(true);
-            setDiscountAuthBy(employee.name);
-            setShowDiscountAuth(false);
-            setShowDiscountInput(false);
-          }}
-          onClose={() => setShowDiscountAuth(false)}
-        />
-      )}
     </>
   );
 }
@@ -806,6 +862,34 @@ function SaleReceipt({
               >
                 <span>Cambio:</span>
                 <span>{fmt(receipt.change)}</span>
+              </div>
+            </>
+          )}
+          {receipt.payMethod === "TRANSFERENCIA" && (
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span>Total:</span>
+              <span>{fmt(receipt.subtotal)}</span>
+            </div>
+          )}
+          {receipt.payMethod === "TERMINAL" && (
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span>Total:</span>
+              <span>{fmt(receipt.subtotal)}</span>
+            </div>
+          )}
+          {receipt.payMethod === "MIXTO" && (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Efectivo:</span>
+                <span>{fmt(receipt.mixedCashPart ?? 0)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>
+                  {receipt.mixedCardType === "TRANSFERENCIA"
+                    ? "Transferencia:"
+                    : "Tarjeta:"}
+                </span>
+                <span>{fmt(receipt.mixedCardPart ?? 0)}</span>
               </div>
             </>
           )}

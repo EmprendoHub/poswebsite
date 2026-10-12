@@ -33,6 +33,7 @@ interface OrderDocument extends Document {
     amountPaid: number;
     paymentIntent?: string;
   };
+  payMethod?: "EFECTIVO" | "TERMINAL" | "TRANSFERENCIA" | "MIXTO";
   orderStatus?: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -159,6 +160,10 @@ const OrderSchema = new Schema<OrderDocument>({
     paymentIntent: {
       type: String,
     },
+  },
+  payMethod: {
+    type: String,
+    enum: ["EFECTIVO", "TERMINAL", "TRANSFERENCIA", "MIXTO"],
   },
   orderStatus: {
     type: String,

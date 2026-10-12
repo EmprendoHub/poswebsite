@@ -18,6 +18,8 @@ export interface CashRegisterCutDocument extends Document {
     cardSales: number;
     mixedCashSales: number;
     mixedCardSales: number;
+    transfers: number;
+    mixedTransferSales: number;
     inflows: number;
     outflows: number;
     totalSales: number;
@@ -29,6 +31,39 @@ export interface CashRegisterCutDocument extends Document {
       cancelledBy: string | null;
     }[];
   };
+  paymentMethods?: {
+    inStore?: {
+      efectivo?: number;
+      transferencia?: number;
+      tarjeta?: number;
+    };
+    online?: {
+      transferencia?: number;
+      tarjeta?: number;
+    };
+    redesSociales?: {
+      transferencia?: number;
+      tarjeta?: number;
+    };
+  };
+  gastos?: {
+    items: {
+      description: string;
+      amount: number;
+      category: string;
+      createdBy: string;
+      createdAt: Date;
+    }[];
+    total: number;
+  };
+  movements?: {
+    type: "manual_in" | "manual_out";
+    cashAmount: number;
+    notes?: string;
+    createdByName?: string;
+    authorizedByName?: string;
+    createdAt: Date;
+  }[];
   movementsCount: number;
   salesCount: number;
   notes?: string;
@@ -68,6 +103,8 @@ const CashRegisterCutSchema = new Schema<CashRegisterCutDocument>(
       cardSales: { type: Number, default: 0 },
       mixedCashSales: { type: Number, default: 0 },
       mixedCardSales: { type: Number, default: 0 },
+      transfers: { type: Number, default: 0 },
+      mixedTransferSales: { type: Number, default: 0 },
       inflows: { type: Number, default: 0 },
       outflows: { type: Number, default: 0 },
       totalSales: { type: Number, default: 0 },
@@ -81,6 +118,43 @@ const CashRegisterCutSchema = new Schema<CashRegisterCutDocument>(
         },
       ],
     },
+    paymentMethods: {
+      inStore: {
+        efectivo: { type: Number, default: 0 },
+        transferencia: { type: Number, default: 0 },
+        tarjeta: { type: Number, default: 0 },
+      },
+      online: {
+        transferencia: { type: Number, default: 0 },
+        tarjeta: { type: Number, default: 0 },
+      },
+      redesSociales: {
+        transferencia: { type: Number, default: 0 },
+        tarjeta: { type: Number, default: 0 },
+      },
+    },
+    gastos: {
+      items: [
+        {
+          description: { type: String, required: true },
+          amount: { type: Number, required: true },
+          category: { type: String, required: true },
+          createdBy: { type: String, required: true },
+          createdAt: { type: Date, default: Date.now },
+        },
+      ],
+      total: { type: Number, default: 0 },
+    },
+    movements: [
+      {
+        type: { type: String, enum: ["manual_in", "manual_out"], required: true },
+        cashAmount: { type: Number, required: true },
+        notes: { type: String },
+        createdByName: { type: String },
+        authorizedByName: { type: String },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
     movementsCount: { type: Number, default: 0 },
     salesCount: { type: Number, default: 0 },
     notes: { type: String },
