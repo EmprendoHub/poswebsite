@@ -258,7 +258,7 @@ const AdminOrders = ({
             </select>
             <button
               onClick={() => setShowCreateOrderModal(true)}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-[10px] font-semibold transition"
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-[10px] font-semibold transition h-10"
             >
               <FaPlus size={16} /> Nuevo
             </button>

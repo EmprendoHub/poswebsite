@@ -147,27 +147,16 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
   const scanInputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load stores on mount
-  useEffect(() => {
-    if (storeSlug) {
-      // For POS, fetch the current store by slug
-      fetchStoreBySlug();
-    } else {
-      // For admin, fetch all stores
-      fetchStores();
-    }
-  }, [storeSlug]);
-
-  const fetchStores = async () => {
+  const fetchStores = useCallback(async () => {
     setLoading(true);
     const res = await fetch("/api/admin/inventory-check");
     const data = await res.json();
     setStores(data.stores || []);
     setPastSessions(data.sessions || []);
     setLoading(false);
-  };
+  }, []);
 
-  const fetchStoreBySlug = async () => {
+  const fetchStoreBySlug = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/inventory-check");
@@ -198,7 +187,16 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
     } finally {
       setLoading(false);
     }
-  };
+  }, [storeSlug]);
+
+  // Load stores on mount
+  useEffect(() => {
+    if (storeSlug) {
+      fetchStoreBySlug();
+    } else {
+      fetchStores();
+    }
+  }, [storeSlug, fetchStoreBySlug, fetchStores]);
 
   const fetchCategories = async () => {
     const res = await fetch("/api/admin/inventory-check/categories");

@@ -324,8 +324,8 @@ export async function GET(req: Request) {
               },
             },
           },
-          { $sort: { totalRevenue: -1 } },
-          { $limit: 7 },
+          { $sort: { totalQty: -1 } },
+          { $limit: 10 },
         ]);
       } catch (err: any) {
         console.error("❌ topProducts aggregation error:", err.message);

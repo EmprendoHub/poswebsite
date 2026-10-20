@@ -127,18 +127,19 @@ class APIFilters {
           this.query = this.query.find(newFilter);
         }
       } else {
-        // Regular keyword search with word boundary matching
+        // Regular keyword search with flexible matching
         const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const wordBoundaryRegex = `\\b${escapedKeyword}\\b`;
         
         const searchConditions = {
           $or: [
-            { title: { $regex: wordBoundaryRegex, $options: "i" } },
-            { description: { $regex: wordBoundaryRegex, $options: "i" } },
-            { category: { $regex: wordBoundaryRegex, $options: "i" } },
-            { gender: { $regex: wordBoundaryRegex, $options: "i" } },
-            { brand: { $regex: wordBoundaryRegex, $options: "i" } },
-            { ASIN: { $regex: wordBoundaryRegex, $options: "i" } },
+            // For text fields, allow partial matching
+            { title: { $regex: escapedKeyword, $options: "i" } },
+            { description: { $regex: escapedKeyword, $options: "i" } },
+            { category: { $regex: escapedKeyword, $options: "i" } },
+            { gender: { $regex: escapedKeyword, $options: "i" } },
+            { brand: { $regex: escapedKeyword, $options: "i" } },
+            // For ASIN, allow partial matching to support partial ASIN searches
+            { ASIN: { $regex: escapedKeyword, $options: "i" } },
           ],
         };
 

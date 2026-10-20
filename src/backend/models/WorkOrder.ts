@@ -27,6 +27,17 @@ export interface WorkOrderItem {
   // For new_product orders only
   isNewProduct?: boolean;
   newProductData?: Record<string, any>;
+  // Edit history for this item
+  editHistory?: Array<{
+    createdAt?: Date;
+    editedBy?: mongoose.Types.ObjectId;
+    editedByName?: string;
+    originalQuantity?: number;
+    newQuantity?: number;
+    originalUnitCost?: number;
+    newUnitCost?: number;
+    editNote?: string;
+  }>;
 }
 
 export interface WorkOrderDocument extends Document {
@@ -39,6 +50,12 @@ export interface WorkOrderDocument extends Document {
   status: WorkOrderStatus;
   items: WorkOrderItem[];
   notes?: string;
+  editNotes?: Array<{
+    createdAt?: Date;
+    editedBy?: mongoose.Types.ObjectId;
+    editedByName?: string;
+    note: string;
+  }>;
   completedAt?: Date;
   cancelledAt?: Date;
   cancelReason?: string;
@@ -91,9 +108,29 @@ const WorkOrderSchema = new Schema<WorkOrderDocument>(
         },
         isNewProduct: { type: Boolean, default: false },
         newProductData: { type: Schema.Types.Mixed },
+        editHistory: [
+          {
+            createdAt: { type: Date, default: Date.now },
+            editedBy: { type: Schema.Types.ObjectId, ref: "User" },
+            editedByName: { type: String },
+            originalQuantity: { type: Number },
+            newQuantity: { type: Number },
+            originalUnitCost: { type: Number },
+            newUnitCost: { type: Number },
+            editNote: { type: String },
+          },
+        ],
       },
     ],
     notes: { type: String },
+    editNotes: [
+      {
+        createdAt: { type: Date, default: Date.now },
+        editedBy: { type: Schema.Types.ObjectId, ref: "User" },
+        editedByName: { type: String },
+        note: { type: String, required: true },
+      },
+    ],
     completedAt: { type: Date },
     cancelledAt: { type: Date },
     cancelReason: { type: String },

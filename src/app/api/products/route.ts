@@ -28,18 +28,17 @@ export const GET = async (request: any) => {
       request.nextUrl.searchParams.get("sortDir") === "desc" ? -1 : 1;
 
     // Build search filter - only search by title and ASIN
-    // Use word boundaries (\b) to match whole words only
-    // This ensures "Magic" won't match "Magician"
+    // Use partial matching for both to allow flexible searching
     let searchFilter: any = { "availability.online": true };
     if (keyword) {
       // Escape special regex characters in the keyword
       const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      // Use word boundary regex for whole word matching
-      const wordBoundaryRegex = `\\b${escapedKeyword}\\b`;
       
       searchFilter.$or = [
-        { title: { $regex: wordBoundaryRegex, $options: "i" } },
-        { ASIN: { $regex: wordBoundaryRegex, $options: "i" } },
+        // For title, allow partial matching (e.g., "magi" matches "Magic Product")
+        { title: { $regex: escapedKeyword, $options: "i" } },
+        // For ASIN, allow partial matching (e.g., "196214" matches "196214145191")
+        { ASIN: { $regex: escapedKeyword, $options: "i" } },
       ];
     }
 

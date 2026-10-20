@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import Image from "next/image";
 import {
   MdAttachMoney,
   MdShoppingCart,
@@ -13,6 +14,8 @@ import {
   MdEmail,
   MdSend,
   MdCheckCircle,
+  MdClose,
+  MdQrCodeScanner,
 } from "react-icons/md";
 import {
   Chart as ChartJS,
@@ -26,6 +29,7 @@ import {
   Legend,
 } from "chart.js";
 import { Line, Bar } from "react-chartjs-2";
+import BarcodeScannerModal from "@/components/modals/BarcodeScannerModal";
 
 ChartJS.register(
   CategoryScale,
@@ -39,12 +43,13 @@ ChartJS.register(
 );
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Tab = "ventas" | "finanzas" | "inventario" | "enviar";
+type Tab = "ventas" | "finanzas" | "inventario" | "productos" | "enviar";
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: "ventas", label: "Ventas", icon: <MdShoppingCart size={16} /> },
   { id: "finanzas", label: "Finanzas", icon: <MdAttachMoney size={16} /> },
   { id: "inventario", label: "Inventario", icon: <MdInventory size={16} /> },
+  { id: "productos", label: "Productos", icon: <MdInventory size={16} /> },
   { id: "enviar", label: "Enviar Reporte", icon: <MdEmail size={16} /> },
 ];
 
@@ -83,7 +88,10 @@ const fmt = (n: number) =>
   "$" + Number(n ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 2 });
 
 const today = () => new Date().toISOString().split("T")[0];
-const firstYear = () => `${new Date().getFullYear()}-01-01`;
+const firstMonth = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+};
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function ReportesClient() {
@@ -92,7 +100,7 @@ export default function ReportesClient() {
   const [loading, setLoading] = useState(false);
   const [stores, setStores] = useState<any[]>([]);
 
-  const [from, setFrom] = useState(firstYear());
+  const [from, setFrom] = useState(firstMonth());
   const [to, setTo] = useState(today());
   const [storeId, setStoreId] = useState("");
   const [category, setCategory] = useState("");
@@ -107,6 +115,7 @@ export default function ReportesClient() {
   const [mainCategories, setMainCategories] = useState<any[]>([]);
   const [subCategories, setSubCategories] = useState<any[]>([]);
   const [attributes, setAttributes] = useState<any[]>([]);
+  const [topProductsSort, setTopProductsSort] = useState<"qty" | "revenue">("qty");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -422,9 +431,22 @@ export default function ReportesClient() {
         </div>
       ) : !data ? null : (
         <>
-          {tab === "ventas" && <VentasTab data={data.ventas} />}
+          {tab === "ventas" && (
+            <VentasTab
+              data={data.ventas}
+              topProductsSort={topProductsSort}
+              setTopProductsSort={setTopProductsSort}
+            />
+          )}
           {tab === "finanzas" && <FinanzasTab data={data} />}
           {tab === "inventario" && <InventarioTab data={data.inventario} />}
+          {tab === "productos" && (
+            <ProductosTab
+              from={from}
+              to={to}
+              storeId={storeId}
+            />
+          )}
         </>
       )}
     </div>
@@ -440,9 +462,26 @@ function payMethodLabel(ref: string): string {
   return "Terminal";
 }
 
-function VentasTab({ data }: { data: any }) {
+function VentasTab({
+  data,
+  topProductsSort,
+  setTopProductsSort,
+}: {
+  data: any;
+  topProductsSort: "qty" | "revenue";
+  setTopProductsSort: (sort: "qty" | "revenue") => void;
+}) {
   const [showDetail, setShowDetail] = useState(false);
   if (!data) return null;
+
+  // Sort top products based on selected filter
+  const sortedTopProducts = [...(data.topProducts || [])].sort((a, b) => {
+    if (topProductsSort === "qty") {
+      return b.totalQty - a.totalQty;
+    } else {
+      return b.totalRevenue - a.totalRevenue;
+    }
+  });
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -476,15 +515,29 @@ function VentasTab({ data }: { data: any }) {
             ])}
           />
         </Section> */}
-        <Section title="Top 7 Productos">
-          <Table
-            cols={["Producto", "Unidades", "Ingresos"]}
-            rows={data.topProducts.map((p: any) => [
-              p.name,
-              p.totalQty,
-              fmt(p.totalRevenue),
-            ])}
-          />
+        <Section title="Top 10 Productos">
+          <div className="space-y-3">
+            <div className="px-4 pt-4">
+              <select
+                value={topProductsSort}
+                onChange={(e) =>
+                  setTopProductsSort(e.target.value as "qty" | "revenue")
+                }
+                className="px-3 py-2 text-sm border border-muted rounded-lg bg-card text-foreground"
+              >
+                <option value="qty">Ordenar por: Unidades Vendidas</option>
+                <option value="revenue">Ordenar por: Mayor Costo (Ingresos)</option>
+              </select>
+            </div>
+            <Table
+              cols={["Producto", "Unidades", "Ingresos"]}
+              rows={sortedTopProducts.map((p: any) => [
+                p.name,
+                p.totalQty,
+                fmt(p.totalRevenue),
+              ])}
+            />
+          </div>
         </Section>
         <div className="grid md:grid-cols-1 gap-4">
           <Section title="Por Estado">
@@ -1379,6 +1432,374 @@ function Field({
     <div className="flex flex-col gap-1">
       <label className="text-xs text-muted-foreground">{label}</label>
       {children}
+    </div>
+  );
+}
+
+// ── Productos ────────────────────────────────────────────────────────────────────
+function ProductosTab({
+  from,
+  to,
+  storeId,
+}: {
+  from: string;
+  to: string;
+  storeId: string;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [reportData, setReportData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // Search products
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearchLoading(true);
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/reports/search-product?q=${encodeURIComponent(searchQuery)}`,
+        );
+        const data = await res.json();
+        setSearchResults(data.results || []);
+      } catch (e) {
+        console.error("❌ Error searching products:", e);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 500);
+  }, [searchQuery]);
+
+  // Load product report when product is selected
+  useEffect(() => {
+    if (!selectedProduct) {
+      setReportData(null);
+      return;
+    }
+
+    const loadReport = async () => {
+      setLoading(true);
+      setReportError(null);
+      try {
+        const params = new URLSearchParams({
+          productId: selectedProduct._id,
+          from,
+          to,
+        });
+        if (storeId) params.set("storeId", storeId);
+        
+        console.log("🔍 Loading product report with params:", Object.fromEntries(params));
+        
+        const res = await fetch(`/api/reports/product-detail?${params}`);
+        const data = await res.json();
+        
+        if (!res.ok) {
+          setReportError(data.error || "Error loading report");
+          console.error("❌ API Error:", data.error);
+          return;
+        }
+        
+        console.log("✅ Report data loaded:", data);
+        setReportData(data);
+      } catch (e) {
+        const errorMsg = e instanceof Error ? e.message : String(e);
+        setReportError(`Error loading report: ${errorMsg}`);
+        console.error("❌ Error loading product report:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadReport();
+  }, [selectedProduct, from, to, storeId]);
+
+  const handleScan = (value: string) => {
+    setSearchQuery(value);
+    setIsScannerOpen(false);
+  };
+
+  const handleSelectProduct = (product: any) => {
+    setSelectedProduct(product);
+    setSearchResults([]);
+    setSearchQuery("");
+  };
+
+  // If no product selected, show search interface
+  if (!selectedProduct) {
+    return (
+      <div className="space-y-6">
+        {/* Search Section */}
+        <div className="bg-card border border-muted rounded-xl p-6">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-4">
+            Buscar Producto
+          </h3>
+
+          <div className="space-y-4">
+            <div className="relative">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <svg
+                  className="h-5 w-5 text-gray-400"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Buscar por nombre o ASIN (ej: Samsung, 196214)..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="block w-full border-0 py-2.5 pl-10 pr-12 text-foreground ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-sky-600 sm:text-sm sm:leading-6 rounded-lg"
+              />
+              <button
+                type="button"
+                onClick={() => setIsScannerOpen(true)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded"
+                title="Escanear código QR/ASIN"
+              >
+                <MdQrCodeScanner className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Search Results */}
+            {searchResults.length > 0 && (
+              <div className="border border-muted rounded-lg overflow-hidden">
+                {searchResults.map((product) => (
+                  <button
+                    key={product._id}
+                    onClick={() => handleSelectProduct(product)}
+                    className="w-full text-left px-4 py-3 border-b border-muted hover:bg-muted/50 transition-colors last:border-b-0 flex items-center gap-3"
+                  >
+                    {product.image && (
+                      <Image
+                        src={product.image}
+                        alt={product.title}
+                        width={40}
+                        height={40}
+                        className="object-cover rounded"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {product.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {product.ASIN || product.sku}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {searchQuery && searchResults.length === 0 && !searchLoading && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No se encontraron productos
+              </p>
+            )}
+
+            {searchLoading && (
+              <p className="text-sm text-muted-foreground text-center py-4 animate-pulse">
+                Buscando...
+              </p>
+            )}
+          </div>
+        </div>
+
+        {isScannerOpen && (
+          <BarcodeScannerModal
+            onScan={handleScan}
+            onClose={() => setIsScannerOpen(false)}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="py-16 text-center text-muted-foreground animate-pulse">
+        Cargando reporte del producto…
+      </div>
+    );
+  }
+
+  // Error state
+  if (reportError) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+        <p className="text-red-800 font-medium">Error al cargar el reporte:</p>
+        <p className="text-red-700 text-sm mt-2">{reportError}</p>
+      </div>
+    );
+  }
+
+  if (!reportData) {
+    return null;
+  }
+
+  const { product, sales, orders, dailyTrend } = reportData;
+
+  return (
+    <div className="space-y-8">
+      {/* Product Header */}
+      <div className="bg-card border border-muted rounded-xl p-6">
+        <div className="flex items-start gap-6">
+          {product.image && (
+            <Image
+              src={product.image}
+              alt={product.name}
+              width={128}
+              height={128}
+              className="object-cover rounded-lg"
+            />
+          )}
+          <div className="flex-1">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-foreground">
+                  {product.name}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {product.brand && `Marca: ${product.brand}`}
+                </p>
+                <div className="mt-3 space-y-1 text-sm">
+                  {product.sku && (
+                    <p>
+                      <span className="text-muted-foreground">SKU:</span>{" "}
+                      <span className="font-mono">{product.sku}</span>
+                    </p>
+                  )}
+                  {product.asin && (
+                    <p>
+                      <span className="text-muted-foreground">ASIN:</span>{" "}
+                      <span className="font-mono">{product.asin}</span>
+                    </p>
+                  )}
+                  {product.category && (
+                    <p>
+                      <span className="text-muted-foreground">Categoría:</span>{" "}
+                      {product.category}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedProduct(null);
+                  setSearchQuery("");
+                }}
+                className="p-2 hover:bg-muted rounded-lg transition-colors"
+              >
+                <MdClose className="h-6 w-6" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Summary KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <Kpi
+          label="Unidades Vendidas"
+          value={sales?.totalUnits || 0}
+          color="text-purple-600"
+        />
+        <Kpi
+          label="Número de Pedidos"
+          value={sales?.totalOrders || 0}
+          color="text-blue-600"
+        />
+        <Kpi
+          label="Ingresos Totales"
+          value={fmt(sales?.totalRevenue || 0)}
+          color="text-green-600"
+        />
+        <Kpi
+          label="Costo Total"
+          value={fmt(sales?.totalCost || 0)}
+          color="text-orange-600"
+        />
+        <Kpi
+          label="Ganancia Neta"
+          value={fmt(sales?.profit || 0)}
+          color={
+            (sales?.profit || 0) >= 0 ? "text-green-600" : "text-red-600"
+          }
+        />
+      </div>
+
+      {/* Pricing & Margin Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Kpi label="Precio Promedio" value={fmt(sales?.avgPrice || 0)} />
+        <Kpi label="Precio Mínimo" value={fmt(sales?.minPrice || 0)} />
+        <Kpi label="Precio Máximo" value={fmt(sales?.maxPrice || 0)} />
+        <Kpi
+          label="Margen de Ganancia"
+          value={`${(sales?.profitMargin || 0).toFixed(2)}%`}
+          color={
+            (sales?.profitMargin || 0) >= 0
+              ? "text-green-600"
+              : "text-red-600"
+          }
+        />
+      </div>
+
+      {/* Orders Table */}
+      {orders && orders.length > 0 && (
+        <Section title={`Pedidos que incluyen este producto (${orders.length})`}>
+          <Table
+            cols={[
+              "Número de Pedido",
+              "Fecha",
+              "Cantidad",
+              "Precio Unitario",
+              "Total",
+              "Estado",
+              "Método Pago",
+            ]}
+            rows={(orders || []).map((order: any) => {
+              const item = order.orderItems?.[0];
+              return [
+                order.orderNumber || "—",
+                new Date(order.createdAt).toLocaleDateString("es-MX"),
+                item?.quantity || 0,
+                fmt(item?.price || 0),
+                fmt((item?.quantity || 0) * (item?.price || 0)),
+                order.orderStatus || "—",
+                order.paymentMethod || "—",
+              ];
+            })}
+          />
+        </Section>
+      )}
+
+      {orders?.length === 0 && (
+        <div className="bg-muted/20 border border-muted rounded-xl p-8 text-center">
+          <p className="text-muted-foreground">
+            No hay pedidos para este producto en el rango de fechas seleccionado
+          </p>
+        </div>
+      )}
     </div>
   );
 }

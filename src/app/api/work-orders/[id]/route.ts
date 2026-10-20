@@ -44,7 +44,7 @@ export async function GET(
   }
 }
 
-// PATCH /api/work-orders/[id] — update status (approve, cancel, etc.)
+// PATCH /api/work-orders/[id] — update status, edit items, or add item edit notes
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -58,19 +58,113 @@ export async function PATCH(
     }
     await dbConnect();
 
-    const { status, cancelReason, notes } = await req.json();
+    const { status, cancelReason, notes, itemEdit, addItem } = await req.json();
     const userId = (session.user as any)?._id;
+    const userName = (session.user as any)?.name || "Usuario";
 
-    // Use lean() so applyInventoryChanges reads exact MongoDB values.
-    // A normal findById() would apply Mongoose schema defaults to subdocument
-    // fields that are missing in the DB (e.g. adjustmentDirection defaults to
-    // "add" even when the stored value was "remove" on older documents).
     const wo = await WorkOrder.findById(id).lean<any>();
     if (!wo)
       return NextResponse.json(
         { error: "Orden no encontrada" },
         { status: 404 },
       );
+
+    // Handle editing individual items (quantity, unitCost, notes) for approved orders
+    if (itemEdit && wo.status === "approved") {
+      const { itemIndex, newQuantity, newUnitCost, editNote } = itemEdit;
+      const item = wo.items[itemIndex];
+      
+      if (!item) {
+        return NextResponse.json(
+          { error: "Producto no encontrado en la orden" },
+          { status: 400 },
+        );
+      }
+
+      // Build update object for this specific item
+      const updateData: any = {};
+      
+      // Update quantity if provided
+      if (newQuantity !== undefined && newQuantity !== item.quantity) {
+        updateData[`items.${itemIndex}.quantity`] = newQuantity;
+      }
+
+      // Update unitCost if provided
+      if (newUnitCost !== undefined && newUnitCost !== item.unitCost) {
+        updateData[`items.${itemIndex}.unitCost`] = newUnitCost;
+      }
+
+      // Add to edit history
+      const editHistoryEntry = {
+        createdAt: new Date(),
+        editedBy: userId,
+        editedByName: userName,
+        originalQuantity: item.quantity,
+        newQuantity: newQuantity !== undefined ? newQuantity : item.quantity,
+        originalUnitCost: item.unitCost,
+        newUnitCost: newUnitCost !== undefined ? newUnitCost : item.unitCost,
+        editNote: editNote || "",
+      };
+
+      updateData[`items.${itemIndex}.editHistory`] = [
+        ...(item.editHistory || []),
+        editHistoryEntry,
+      ];
+
+      const updated = await WorkOrder.findByIdAndUpdate(id, updateData, {
+        new: true,
+      })
+        .populate({ path: "fromStore", model: Store, select: "name slug" })
+        .populate({ path: "toStore", model: Store, select: "name slug" })
+        .populate({ path: "requestedBy", model: User, select: "name email" })
+        .populate({ path: "approvedBy", model: User, select: "name email" })
+        .populate({
+          path: "items.product",
+          model: Product,
+          select: "title images variations price",
+        });
+      
+      return NextResponse.json(updated, { status: 200 });
+    }
+
+    // Handle adding new items to approved orders
+    if (addItem && wo.status === "approved") {
+      const { productId, productTitle, variationId, variationTitle, quantity, unitCost } = addItem;
+
+      if (!productId || !quantity || quantity <= 0) {
+        return NextResponse.json(
+          { error: "Producto e información inválida" },
+          { status: 400 },
+        );
+      }
+
+      const newItem = {
+        product: new mongoose.Types.ObjectId(productId),
+        productTitle: productTitle || "Nuevo Producto",
+        variationId: variationId ? new mongoose.Types.ObjectId(variationId) : undefined,
+        variationTitle: variationTitle || "Default",
+        quantity,
+        unitCost: unitCost || 0,
+        editHistory: [],
+      };
+
+      const updated = await WorkOrder.findByIdAndUpdate(
+        id,
+        { $push: { items: newItem } },
+        { new: true },
+      )
+        .populate({ path: "fromStore", model: Store, select: "name slug" })
+        .populate({ path: "toStore", model: Store, select: "name slug" })
+        .populate({ path: "requestedBy", model: User, select: "name email" })
+        .populate({ path: "approvedBy", model: User, select: "name email" })
+        .populate({
+          path: "items.product",
+          model: Product,
+          select: "title images variations price",
+        });
+
+      return NextResponse.json(updated, { status: 200 });
+    }
 
     // Status transition guard
     const validTransitions: Record<string, string[]> = {
