@@ -225,7 +225,7 @@ const AdminOrders = ({
           <h1 className="text-3xl w-full maxsm:text-xl my-5 maxsm:my-1 ml-4 maxsm:ml-0 font-bold font-EB_Garamond">
             {`${filteredOrdersCount} Pedidos `}
           </h1>
-          <div className="flex gap-2 mr-5 maxsm:mr-0 maxsm:mb-3">
+          <div className="flex gap-2 mr-5 maxsm:mr-0 maxsm:mb-3 h-10">
             <select
               value={statusFilter}
               onChange={(e) => {
