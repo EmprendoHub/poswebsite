@@ -175,20 +175,21 @@ export async function POST(req: Request) {
       );
 
       // 2. Decrement branch inventory for each line item
-      // Note: Allow overselling even if stock is insufficient
+      // Validate stock is available before allowing the sale
       for (const item of orderItems) {
         const inv = await StoreInventory.findOne({
           store: storeId,
           variationId: item.variation,
         }).session(mongoSession);
 
-        // Skip stock validation - allow negative inventory
-        // if (!inv || inv.quantity < item.quantity) {
-        //   throw new Error(
-        //     `Stock insuficiente para "${item.name ?? item.variation}" en esta sucursal. ` +
-        //       `Disponible: ${inv?.quantity ?? 0}, solicitado: ${item.quantity}.`,
-        //   );
-        // }
+        // Check if stock is insufficient
+        const availableStock = inv?.quantity ?? 0;
+        if (availableStock < item.quantity) {
+          throw new Error(
+            `Stock insuficiente para "${item.name ?? item.variation}" en esta sucursal. ` +
+              `Disponible: ${availableStock}, solicitado: ${item.quantity}.`,
+          );
+        }
 
         await StoreInventory.findOneAndUpdate(
           { store: storeId, variationId: item.variation },

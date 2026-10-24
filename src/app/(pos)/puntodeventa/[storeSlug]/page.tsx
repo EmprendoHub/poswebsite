@@ -12,6 +12,7 @@ import {
   MdCloudDone,
   MdLock,
   MdRefresh,
+  MdWarning,
 } from "react-icons/md";
 import { useParams, useRouter } from "next/navigation";
 import { usePOSSync } from "@/hooks/usePOSSync";
@@ -71,6 +72,7 @@ export default function POSSalesPage() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [showCheckout, setShowCheckout] = useState(false);
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // ── Offline / sync ──────────────────────────────────────────────────
   const { isOnline, isSyncing, pendingCount, lastSyncResult, syncNow } =
@@ -254,9 +256,34 @@ export default function POSSalesPage() {
             <ProductSearch
               storeId={storeId ?? ""}
               onAddToCart={handleAddToCart}
+              onError={(msg) => {
+                setError(msg);
+                setTimeout(() => setError(null), 6000);
+              }}
               isOnline={isOnline}
               pauseFocus={showCheckout}
             />
+
+            {/* Error toast - out of stock */}
+            {error && (
+              <div className="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-xl px-4 py-3 flex items-center gap-3">
+                <MdWarning
+                  size={22}
+                  className="text-red-500 flex-shrink-0"
+                />
+                <div className="flex-1">
+                  <p className="text-sm text-red-700 dark:text-red-400">
+                    {error}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setError(null)}
+                  className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
 
             {/* Success toast */}
             {lastOrderId && (

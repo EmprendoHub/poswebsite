@@ -1,6 +1,6 @@
 "use client";
 import { useState, useCallback, useRef, useEffect } from "react";
-import { MdSearch, MdClose, MdWifiOff, MdQrCodeScanner } from "react-icons/md";
+import { MdSearch, MdClose, MdWifiOff, MdQrCodeScanner, MdWarning } from "react-icons/md";
 import Image from "next/image";
 import { useDebounce } from "use-debounce";
 import { posDB } from "@/lib/posDB";
@@ -30,6 +30,7 @@ interface SearchResult {
 interface ProductSearchProps {
   storeId: string;
   onAddToCart: (item: CartItem) => void;
+  onError?: (message: string) => void;
   isOnline?: boolean;
   pauseFocus?: boolean;
 }
@@ -49,6 +50,7 @@ export interface CartItem {
 export default function ProductSearch({
   storeId,
   onAddToCart,
+  onError,
   isOnline = true,
   pauseFocus = false,
 }: ProductSearchProps) {
@@ -57,6 +59,15 @@ export default function ProductSearch({
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [noStockModal, setNoStockModal] = useState<{
+    isOpen: boolean;
+    product: SearchResult | null;
+    variation: SearchResult["variations"][0] | null;
+  }>({
+    isOpen: false,
+    product: null,
+    variation: null,
+  });
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Auto-focus on mount so barcode/QR scanner input goes here immediately
@@ -138,7 +149,36 @@ export default function ProductSearch({
     product: SearchResult,
     variation: SearchResult["variations"][0],
   ) => {
-    // Allow adding products regardless of stock availability
+    // Check stock availability - prevent adding out-of-stock products
+    if (variation.stock <= 0) {
+      // Show modal instead of just error toast
+      setNoStockModal({
+        isOpen: true,
+        product,
+        variation,
+      });
+      
+      // Send notification email to store manager (in background)
+      try {
+        await fetch("/api/pos/notify-low-stock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            storeId,
+            productTitle: product.title,
+            variationLabel: [variation.color, variation.size, variation.title]
+              .filter(Boolean)
+              .join(" / "),
+            variationId: variation._id,
+            currentStock: variation.stock,
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to send low-stock notification:", err);
+      }
+      return;
+    }
+
     // Use product.currentPrice if available (freshly fetched from search),
     // otherwise fall back to variation price
     const price = product.currentPrice ?? variation.price;
@@ -242,7 +282,7 @@ export default function ProductSearch({
                     onClick={() => handleAdd(product, v)}
                     className={`w-full flex items-center gap-3 pl-1 pr-2 py-2 transition-colors text-left ${
                       isOutOfStock
-                        ? "opacity-60 hover:bg-red-50 dark:hover:bg-red-950/20"
+                        ? "opacity-70 hover:bg-red-50 dark:hover:bg-red-950/20"
                         : "hover:bg-muted"
                     }`}
                   >
@@ -299,6 +339,103 @@ export default function ProductSearch({
           }}
           onClose={() => setIsScannerOpen(false)}
         />
+      )}
+
+      {/* No Stock Modal */}
+      {noStockModal.isOpen && noStockModal.product && noStockModal.variation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-card dark:bg-gradient-to-tr dark:from-slate-700 dark:to-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            {/* Header with warning */}
+            <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-6 flex items-center gap-4">
+              <MdWarning size={32} className="text-white flex-shrink-0" />
+              <div>
+                <h2 className="font-bold text-lg text-white">Sin Stock</h2>
+                <p className="text-red-100 text-sm">Producto no disponible</p>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              {/* Product Image */}
+              {noStockModal.product.images?.[0]?.url && (
+                <div className="mb-6 flex justify-center">
+                  <Image
+                    src={noStockModal.product.images[0].url}
+                    alt={noStockModal.product.title}
+                    width={200}
+                    height={200}
+                    className="rounded-lg object-cover w-48 h-48 grayscale opacity-70"
+                  />
+                </div>
+              )}
+
+              {/* Product Info */}
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-2">
+                    Producto
+                  </p>
+                  <p className="text-base font-semibold text-foreground">
+                    {noStockModal.product.title}
+                  </p>
+                </div>
+
+                {noStockModal.variation.color ||
+                noStockModal.variation.size ||
+                noStockModal.variation.title ? (
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-2">
+                      Variante
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {[
+                        noStockModal.variation.color,
+                        noStockModal.variation.size,
+                        noStockModal.variation.title,
+                      ]
+                        .filter(Boolean)
+                        .join(" / ")}
+                    </p>
+                  </div>
+                ) : null}
+
+                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                  <p className="text-sm font-semibold text-red-700 dark:text-red-400 mb-2">
+                    Estado: Sin existencias
+                  </p>
+                  <p className="text-xs text-red-600 dark:text-red-300 leading-relaxed">
+                    Este producto no tiene stock disponible en esta sucursal. 
+                    El gerente ha sido notificado automáticamente para 
+                    reabastecimiento.
+                  </p>
+                </div>
+
+                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <p className="text-xs text-blue-600 dark:text-blue-300 leading-relaxed">
+                    💡 <strong>Sugerencia:</strong> Prueba buscando un producto 
+                    diferente o espera a que el gerente reabastezca el inventario.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer with close button */}
+            <div className="bg-muted px-6 py-4 flex justify-end gap-3">
+              <button
+                onClick={() =>
+                  setNoStockModal({
+                    isOpen: false,
+                    product: null,
+                    variation: null,
+                  })
+                }
+                className="px-6 py-2 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
