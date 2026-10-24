@@ -165,6 +165,7 @@ export default function ProductSearch({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             storeId,
+            productId: product._id,
             productTitle: product.title,
             variationLabel: [variation.color, variation.size, variation.title]
               .filter(Boolean)

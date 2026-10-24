@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { options } from "@/app/api/auth/[...nextauth]/options";
 import Store from "@/backend/models/Store";
 import User from "@/backend/models/User";
+import Product from "@/backend/models/Product";
 import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
 import nodemailer from "nodemailer";
@@ -35,6 +36,7 @@ export async function POST(req: Request) {
 
   const {
     storeId,
+    productId,
     productTitle,
     variationLabel,
     variationId,
@@ -57,6 +59,23 @@ export async function POST(req: Request) {
         { error: "Sucursal no encontrada." },
         { status: 404 },
       );
+    }
+
+    // Fetch product details if productId is provided
+    let product = null;
+    let productImage = null;
+    let productPrice = null;
+    let productCat = null;
+    
+    if (productId) {
+      product = await Product.findById(productId).select(
+        "images title price category details brand"
+      );
+      if (product) {
+        productImage = product.images?.[0]?.url || null;
+        productPrice = product.price  || 0;
+        productCat = product.category || null;
+      }
     }
 
     // Get manager emails from User table (all users with manager role)
@@ -130,6 +149,17 @@ export async function POST(req: Request) {
         .content {
           padding: 30px;
         }
+        .product-image {
+          text-align: center;
+          margin: 20px 0;
+        }
+        .product-image img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 8px;
+          max-height: 300px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
         .alert-box {
           background: #fef2f2;
           border-left: 4px solid #dc2626;
@@ -161,6 +191,16 @@ export async function POST(req: Request) {
           color: #333;
           text-align: right;
         }
+        .description {
+          background: #f0f9ff;
+          border: 1px solid #bfdbfe;
+          padding: 12px;
+          border-radius: 6px;
+          margin: 15px 0;
+          font-size: 14px;
+          color: #1e40af;
+          line-height: 1.5;
+        }
         .footer {
           background: #f9fafb;
           padding: 20px;
@@ -178,6 +218,16 @@ export async function POST(req: Request) {
           margin: 15px 0;
           font-size: 14px;
         }
+        .price-tag {
+          display: inline-block;
+          background: #dcfce7;
+          color: #166534;
+          padding: 6px 12px;
+          border-radius: 4px;
+          font-weight: bold;
+          font-size: 14px;
+          margin-top: 8px;
+        }
       </style>
     </head>
     <body>
@@ -193,12 +243,34 @@ export async function POST(req: Request) {
             Se ha detectado un intento de venta de un producto sin stock disponible en la sucursal <strong>${store.name}</strong>.
           </p>
 
+          ${
+            productImage
+              ? `<div class="product-image">
+              <img src="${productImage}" alt="${productLabel}" />
+            </div>`
+              : ""
+          }
+
           <div class="alert-box">
             <strong>Producto sin inventario:</strong>
             <p style="margin: 8px 0 0 0; font-size: 16px; color: #dc2626;">
               ${productLabel}
             </p>
+            ${
+              productPrice
+                ? `<div class="price-tag">$${productPrice.toFixed(2)}</div>`
+                : ""
+            }
           </div>
+
+          ${
+            productCat
+              ? `<div class="category">
+            <strong>Categoría:</strong><br>
+            ${productCat}
+          </div>`
+              : ""
+          }
 
           <div class="product-info">
             <div class="info-row">
