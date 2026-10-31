@@ -27,6 +27,14 @@ const typeLabels: Record<string, string> = {
   new_product: "Nuevo Producto",
 };
 
+const movementTypeLabels: Record<string, string> = {
+  transfer_out: "Salida (Transferencia)",
+  transfer_in: "Entrada (Transferencia)",
+  adjustment: "Ajuste de Inventario",
+  receive: "Recepción",
+  new_product: "Alta de Producto",
+};
+
 export default function AdminWorkOrderDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -55,6 +63,24 @@ export default function AdminWorkOrderDetailPage() {
   const [addQty, setAddQty] = useState(1);
   const [addCost, setAddCost] = useState<number | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+
+  const getMovementType = (workOrder: any) => {
+    if (!workOrder) return "";
+    
+    if (workOrder.type === "transfer") {
+      return "transfer_out";
+    }
+    if (workOrder.type === "adjustment") {
+      return "adjustment";
+    }
+    if (workOrder.type === "receive") {
+      return "receive";
+    }
+    if (workOrder.type === "new_product") {
+      return "new_product";
+    }
+    return "";
+  };
 
   const load = useCallback(() => {
     fetch(`/api/work-orders/${id}`)
@@ -248,7 +274,7 @@ export default function AdminWorkOrderDetailPage() {
         <div>
           <h1 className="text-xl font-bold">Orden #{wo.workOrderNumber}</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {typeLabels[wo.type] ?? wo.type} ·{" "}
+            {typeLabels[wo.type] ?? wo.type} · Movimiento: <span className="font-medium">{movementTypeLabels[getMovementType(wo)] ?? "Desconocido"}</span> ·{" "}
             {new Date(wo.createdAt).toLocaleString("es-MX")}
           </p>
           {wo.requestedBy && (

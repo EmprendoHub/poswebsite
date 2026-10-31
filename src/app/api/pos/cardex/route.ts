@@ -136,6 +136,7 @@ export async function GET(req: Request) {
     // Build movement rows with authorizedBy and branches
     const movements: any[] = [];
 
+
     for (const order of orders) {
       const matchingItems = (order.orderItems as any[]).filter(
         (item: any) =>
@@ -145,6 +146,9 @@ export async function GET(req: Request) {
       for (const item of matchingItems) {
         const discount = Number(item.discountPercentage) || 0;
         const discountedPrice = item.price * (1 - discount / 100);
+        const calculatedStockImpact = -Math.abs(Number(item.quantity) || 0);
+        
+       
         movements.push({
           type: "sale",
           date: order.createdAt,
@@ -157,7 +161,7 @@ export async function GET(req: Request) {
           variationId: item.variation,
           variationName: item.name,
           quantity: item.quantity,
-          stockImpact: -Math.abs(Number(item.quantity) || 0),
+          stockImpact: calculatedStockImpact,
           unitPrice: discountedPrice,
           total: discountedPrice * item.quantity,
           details: `Venta POS${discount > 0 ? ` (-${discount}%)` : ""}`,
@@ -166,6 +170,7 @@ export async function GET(req: Request) {
         });
       }
     }
+
 
     for (const wo of workOrders) {
       const matchingItems = (wo.items as any[]).filter(
@@ -176,6 +181,9 @@ export async function GET(req: Request) {
 
       for (const item of matchingItems) {
         const qty = Number(item.quantity) || 0;
+        const adjustmentDirection = (item as any).adjustmentDirection || "add";
+        
+        
         const fromStoreId = wo.fromStore?._id
           ? String(wo.fromStore._id)
           : wo.fromStore
@@ -231,6 +239,15 @@ export async function GET(req: Request) {
         // receive / adjustment / new_product -> incoming stock on destination store
         if (toStoreId === String(toStoreId)) {
           const type = wo.type === "adjustment" ? "adjustment" : "transfer_in";
+          
+          // For adjustments, stockImpact depends on adjustmentDirection
+          let stockImpact = Math.abs(qty);
+          if (wo.type === "adjustment") {
+            // adjustmentDirection can be "add" or "remove"
+            const direction = (item as any).adjustmentDirection || "add";
+            stockImpact = direction === "remove" ? -Math.abs(qty) : Math.abs(qty);
+          }
+          
           movements.push({
             type,
             date: movementDate,
@@ -238,7 +255,7 @@ export async function GET(req: Request) {
             variationId: item.variationId,
             variationName: item.variationTitle || item.productTitle,
             quantity: qty,
-            stockImpact: Math.abs(qty),
+            stockImpact,
             unitPrice: 0,
             total: 0,
             details:
@@ -254,8 +271,11 @@ export async function GET(req: Request) {
       }
     }
 
+
     for (const adj of adjustments) {
       const delta = Number(adj.delta) || 0;
+      
+      
       movements.push({
         type: "adjustment",
         date: adj.createdAt,
@@ -318,6 +338,7 @@ export async function GET(req: Request) {
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
     );
 
+
     return NextResponse.json({
       product,
       inventoryRecords,
@@ -326,6 +347,7 @@ export async function GET(req: Request) {
       storeStockMap,
     });
   } catch (error: any) {
+    console.error("[CARDEX] Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
