@@ -120,6 +120,7 @@ export async function PATCH(
 
     const count = Number(physicalCount);
     const sysCount = Number(systemCount ?? 0);
+    const itemPrice = price ? Number(price) : 0;
     const item: any = {
       variationId,
       productId: productId || "",
@@ -127,7 +128,7 @@ export async function PATCH(
       variationTitle: variationTitle || "",
       sku: sku || "",
       image: image || "",
-      price: price || 0,
+      price: itemPrice,
       physicalCount: count,
       systemCount: sysCount,
       difference: count - sysCount,

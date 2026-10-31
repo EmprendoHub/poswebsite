@@ -113,7 +113,7 @@ export async function GET(req: Request) {
         variationTitle: variation.title,
         sku: variation.productId,
         image: product.images?.[0]?.url || "",
-        price: product.price,
+        price: product.price ? Number(product.price) : 0,
         systemCount: inventoryMap.get(variation._id?.toString() || "") || 0,
       }));
     });

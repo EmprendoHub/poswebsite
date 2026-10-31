@@ -131,6 +131,10 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
   const [notesEditingVariationId, setNotesEditingVariationId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
 
+  // Image modal
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
   // Get the current edited item from activeSession
   const notesEditingItem = notesEditingVariationId
     ? activeSession?.scannedItems.find((i) => i.variationId === notesEditingVariationId) || null
@@ -138,6 +142,7 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
 
   // Finalize confirmation modal
   const [confirmFinalizeOpen, setConfirmFinalizeOpen] = useState(false);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [cleanupModalOpen, setCleanupModalOpen] = useState(false);
   const [storeForCleanup, setStoreForCleanup] = useState<Store | null>(null);
@@ -559,6 +564,43 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
     }
   };
 
+  // Handle cancel session
+  const handleCancelSession = async () => {
+    if (!activeSession) return;
+    setSaving(true);
+    setConfirmCancelOpen(false);
+
+    try {
+      const res = await fetch(
+        `/api/admin/inventory-check/${activeSession._id}`,
+        { method: "DELETE" }
+      );
+      
+      if (res.ok) {
+        const data = await res.json();
+        console.log("Session deleted:", data);
+        setActiveSession(null);
+        if (storeSlug) {
+          // If we came from a store slug URL, reload to refresh the session state
+          window.location.reload();
+        } else {
+          // Otherwise go back to store select and refresh
+          setView("store-select");
+          fetchStores();
+        }
+      } else {
+        const errorData = await res.json();
+        console.error("Failed to delete session:", errorData);
+        alert("Error al cancelar el conteo: " + (errorData.error || "Error desconocido"));
+      }
+    } catch (error) {
+      console.error("Error canceling session:", error);
+      alert("Error al cancelar el conteo");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Export CSV
   const handleExportCSV = () => {
     if (!activeSession) return;
@@ -936,6 +978,25 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                         />
                       )}
                     </div>
+                    {product.image?.trim() && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (product.image) {
+                            setSelectedImage(product.image);
+                            setImageModalOpen(true);
+                          }
+                        }}
+                        className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-border hover:border-primary/50 transition-colors cursor-pointer"
+                        type="button"
+                      >
+                        <img
+                          src={product.image}
+                          alt={product.productTitle}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">
                         {product.productTitle}
@@ -951,7 +1012,7 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                           <span>Stock: {product.systemCount}</span>
                         )}
                         {product.price && (
-                          <span>${product.price.toFixed(2)}</span>
+                          <span>${Number(product.price).toFixed(2)}</span>
                         )}
                       </div>
                     </div>
@@ -1168,6 +1229,38 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
             onClose={() => setIsScannerOpen(false)}
           />
         )}
+
+        {/* Image Modal */}
+        {imageModalOpen && selectedImage && (
+          <div
+            className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50"
+            onClick={() => {
+              setImageModalOpen(false);
+              setSelectedImage(null);
+            }}
+          >
+            <div
+              className="relative max-w-2xl max-h-[80vh] w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setImageModalOpen(false);
+                  setSelectedImage(null);
+                }}
+                className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full transition-colors"
+              >
+                <MdClose size={24} />
+              </button>
+              <img
+                src={selectedImage}
+                alt="Product"
+                className="w-full h-full object-contain rounded-lg"
+              />
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1215,13 +1308,20 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
             <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
               Discrepancias: {discrepancies.length}
             </span>
-              <button
-                onClick={handleFinalize}
-                disabled={finalizing || items.length === 0}
-                className="w-[200px] bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
-              >
-                {finalizing ? "Finalizando…" : "Finalizar conteo"}
-              </button>
+            <button
+              onClick={() => setConfirmCancelOpen(true)}
+              disabled={saving}
+              className="bg-muted text-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-muted/80 transition-colors disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleFinalize}
+              disabled={finalizing || items.length === 0}
+              className="w-[200px] bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
+            >
+              {finalizing ? "Finalizando…" : "Finalizar conteo"}
+            </button>
           </div>
         </div>
 
@@ -1290,13 +1390,24 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                     {selectedLookupProduct && (
                       <>
                         {selectedLookupProduct.image && (
-                          <Image
-                            src={selectedLookupProduct.image}
-                            alt={selectedLookupProduct.productTitle}
-                            width={96}
-                            height={96}
-                            className="w-24 h-24 object-cover rounded-lg border border-muted"
-                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (selectedLookupProduct.image) {
+                                setSelectedImage(selectedLookupProduct.image);
+                                setImageModalOpen(true);
+                              }
+                            }}
+                            className="hover:opacity-80 transition-opacity flex-shrink-0"
+                          >
+                            <Image
+                              src={selectedLookupProduct.image}
+                              alt={selectedLookupProduct.productTitle}
+                              width={96}
+                              height={96}
+                              className="w-24 h-24 object-cover rounded-lg border border-muted cursor-pointer"
+                            />
+                          </button>
                         )}
                         <div className="space-y-1">
                           <p className="font-semibold text-xs line-clamp-2">
@@ -1630,6 +1741,38 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
           </div>
         )}
 
+        {/* Image Modal */}
+        {imageModalOpen && selectedImage && (
+          <div
+            className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50"
+            onClick={() => {
+              setImageModalOpen(false);
+              setSelectedImage(null);
+            }}
+          >
+            <div
+              className="relative max-w-2xl max-h-[80vh] w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setImageModalOpen(false);
+                  setSelectedImage(null);
+                }}
+                className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full transition-colors"
+              >
+                <MdClose size={24} />
+              </button>
+              <img
+                src={selectedImage}
+                alt="Product"
+                className="w-full h-full object-contain rounded-lg"
+              />
+            </div>
+          </div>
+        )}
+
         {/* Finalize Confirmation Modal */}
         {confirmFinalizeOpen && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -1678,6 +1821,48 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                   }`}
                 >
                   {finalizing ? "Procesando…" : activeSession?.scannedItems?.length === 0 ? "Sí, descartar" : "Sí, finalizar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cancel Confirmation Modal */}
+        {confirmCancelOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-card rounded-xl max-w-md w-full p-6 space-y-6 shadow-lg">
+              <div className="flex items-center gap-3">
+                <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30">
+                  <MdWarning size={24} className="text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-lg">¿Cancelar conteo?</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Esta acción no se puede deshacer
+                  </p>
+                </div>
+              </div>
+              
+              <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-lg p-4">
+                <p className="text-sm text-red-900 dark:text-red-200">
+                  Se eliminarán todos los datos registrados en esta sesión ({activeSession?.scannedItems?.length || 0} productos escaneados).
+                </p>
+              </div>
+
+              <div className="flex gap-3 justify-end pt-2">
+                <button
+                  onClick={() => setConfirmCancelOpen(false)}
+                  disabled={saving}
+                  className="px-4 py-2 rounded-lg border border-muted hover:bg-muted transition-colors text-sm font-medium disabled:opacity-50"
+                >
+                  Atrás
+                </button>
+                <button
+                  onClick={handleCancelSession}
+                  disabled={saving}
+                  className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {saving ? "Cancelando…" : "Sí, cancelar"}
                 </button>
               </div>
             </div>
