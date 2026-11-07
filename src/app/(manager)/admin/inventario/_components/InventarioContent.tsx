@@ -863,12 +863,11 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
             disabled={
               saving ||
               filterLoading ||
-              filteredProducts.length === 0 ||
-              (!selectedFilters.mainCategory && !searchQuery)
+              !activeSession?.selectedProducts?.length
             }
             className="px-6 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            Crear sesión ({filteredProducts.length})
+            Crear sesión ({activeSession?.selectedProducts?.length || 0})
           </button>
         </div>
 
@@ -990,11 +989,15 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                         className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-border hover:border-primary/50 transition-colors cursor-pointer"
                         type="button"
                       >
-                        <img
-                          src={product.image}
-                          alt={product.productTitle}
-                          className="w-full h-full object-cover"
-                        />
+                        {product.image && (
+                          <Image
+                            src={product.image}
+                            alt={product.productTitle}
+                            width={56}
+                            height={56}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
                       </button>
                     )}
                     <div className="flex-1 min-w-0">
@@ -1253,11 +1256,14 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
               >
                 <MdClose size={24} />
               </button>
-              <img
-                src={selectedImage}
-                alt="Product"
-                className="w-full h-full object-contain rounded-lg"
-              />
+              {selectedImage && (
+                <Image
+                  src={selectedImage}
+                  alt="Product"
+                  fill
+                  className="w-full h-full object-contain rounded-lg"
+                />
+              )}
             </div>
           </div>
         )}
@@ -1764,11 +1770,14 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
               >
                 <MdClose size={24} />
               </button>
-              <img
-                src={selectedImage}
-                alt="Product"
-                className="w-full h-full object-contain rounded-lg"
-              />
+              {selectedImage && (
+                <Image
+                  src={selectedImage}
+                  alt="Product"
+                  fill
+                  className="w-full h-full object-contain rounded-lg"
+                />
+              )}
             </div>
           </div>
         )}

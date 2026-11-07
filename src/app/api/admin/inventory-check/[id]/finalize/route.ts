@@ -77,6 +77,11 @@ export async function POST(
     }
   }
 
+  // Get current date in Mexico timezone
+  const mexicoDate = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "America/Mexico_City" })
+  );
+
   // Update StoreInventory to match physical counts for all scanned items
   await Promise.all(
     doc.scannedItems.map((item: any) =>
@@ -85,7 +90,7 @@ export async function POST(
         {
           $set: {
             quantity: item.physicalCount,
-            lastUpdated: new Date(),
+            lastUpdated: mexicoDate,
           },
         },
         { new: true },
@@ -94,7 +99,7 @@ export async function POST(
   );
 
   doc.status = "finalized";
-  doc.finalizedAt = new Date();
+  doc.finalizedAt = mexicoDate;
   doc.totalScanned = doc.scannedItems.length;
   doc.totalMatched = totalMatched;
   doc.totalDiscrepancies = totalDiscrepancies;

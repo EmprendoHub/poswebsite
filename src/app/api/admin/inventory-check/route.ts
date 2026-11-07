@@ -65,6 +65,11 @@ export async function POST(req: Request) {
     );
   }
 
+  // Get current date in Mexico timezone
+  const mexicoDate = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "America/Mexico_City" })
+  );
+
   const user = session.user as any;
   const newSession = await InventoryCheckSession.create({
     store: storeId,
@@ -75,7 +80,7 @@ export async function POST(req: Request) {
     filters: filters || {},
     startedBy: user._id || user.id,
     startedByName: user.name || user.email,
-    startedAt: new Date(),
+    startedAt: mexicoDate,
     totalSelected: selectedProducts?.length || 0,
   });
 
