@@ -48,7 +48,9 @@ const AdminProducts = ({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const { data: session } = useSession();
-  const isSuperAdmin = (session?.user as any)?.role === "super_admin";
+  const isSuperAdmin = ["super_admin", "manager"].includes(
+    (session?.user as any)?.role,
+  );
   let pathname: string = "";
   if (getPathname.includes("admin")) {
     pathname = "admin";
@@ -94,9 +96,7 @@ const AdminProducts = ({
   const [attributeOptions, setAttributeOptions] = useState<
     { _id: string; name: string }[]
   >([]);
-  const [stores, setStores] = useState<
-    { _id: string; name: string }[]
-  >([]);
+  const [stores, setStores] = useState<{ _id: string; name: string }[]>([]);
   const [stockPreviewRows, setStockPreviewRows] = useState<
     {
       storeName: string;
@@ -131,7 +131,19 @@ const AdminProducts = ({
   }, [products]);
 
   // Sorting state - initialize from URL params
-  type SortCriterion = { key: "title" | "category" | "gender" | "brand" | "price" | "stock" | "mainCategory" | "subCategory" | "attributes"; dir: "asc" | "desc" };
+  type SortCriterion = {
+    key:
+      | "title"
+      | "category"
+      | "gender"
+      | "brand"
+      | "price"
+      | "stock"
+      | "mainCategory"
+      | "subCategory"
+      | "attributes";
+    dir: "asc" | "desc";
+  };
   const [sorts, setSorts] = useState<SortCriterion[]>(() => {
     if (!sortsParam) return [];
     try {
@@ -146,15 +158,21 @@ const AdminProducts = ({
 
   // Filter state - initialize from URL params
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [filterTitle, setFilterTitle] = useState(() => searchParams.get("filterTitle") || "");
-  const [filterMainCategories, setFilterMainCategories] = useState<string[]>(() => {
-    const param = searchParams.get("filterMainCategories");
-    return param ? param.split(",") : [];
-  });
-  const [filterSubCategories, setFilterSubCategories] = useState<string[]>(() => {
-    const param = searchParams.get("filterSubCategories");
-    return param ? param.split(",") : [];
-  });
+  const [filterTitle, setFilterTitle] = useState(
+    () => searchParams.get("filterTitle") || "",
+  );
+  const [filterMainCategories, setFilterMainCategories] = useState<string[]>(
+    () => {
+      const param = searchParams.get("filterMainCategories");
+      return param ? param.split(",") : [];
+    },
+  );
+  const [filterSubCategories, setFilterSubCategories] = useState<string[]>(
+    () => {
+      const param = searchParams.get("filterSubCategories");
+      return param ? param.split(",") : [];
+    },
+  );
   const [filterAttributes, setFilterAttributes] = useState<string[]>(() => {
     const param = searchParams.get("filterAttributes");
     return param ? param.split(",") : [];
@@ -163,10 +181,18 @@ const AdminProducts = ({
     const param = searchParams.get("filterBrands");
     return param ? param.split(",") : [];
   });
-  const [filterPriceMin, setFilterPriceMin] = useState(() => searchParams.get("filterPriceMin") || "");
-  const [filterPriceMax, setFilterPriceMax] = useState(() => searchParams.get("filterPriceMax") || "");
-  const [filterStockMin, setFilterStockMin] = useState(() => searchParams.get("filterStockMin") || "");
-  const [filterStockMax, setFilterStockMax] = useState(() => searchParams.get("filterStockMax") || "");
+  const [filterPriceMin, setFilterPriceMin] = useState(
+    () => searchParams.get("filterPriceMin") || "",
+  );
+  const [filterPriceMax, setFilterPriceMax] = useState(
+    () => searchParams.get("filterPriceMax") || "",
+  );
+  const [filterStockMin, setFilterStockMin] = useState(
+    () => searchParams.get("filterStockMin") || "",
+  );
+  const [filterStockMax, setFilterStockMax] = useState(
+    () => searchParams.get("filterStockMax") || "",
+  );
   const [filterSucursales, setFilterSucursales] = useState<string[]>(() => {
     const param = searchParams.get("filterSucursales");
     return param ? param.split(",") : [];
@@ -276,7 +302,16 @@ const AdminProducts = ({
   }, []);
 
   const toggleSort = (
-    key: "title" | "category" | "gender" | "brand" | "price" | "stock" | "mainCategory" | "subCategory" | "attributes",
+    key:
+      | "title"
+      | "category"
+      | "gender"
+      | "brand"
+      | "price"
+      | "stock"
+      | "mainCategory"
+      | "subCategory"
+      | "attributes",
   ) => {
     let newSorts: SortCriterion[];
     const existingIndex = sorts.findIndex((s) => s.key === key);
@@ -645,7 +680,8 @@ const AdminProducts = ({
       );
     if (bulkSubCategory)
       parts.push(`subcategoría "${subCategoryById.get(bulkSubCategory)}"`);
-    if (bulkAttributes.length > 0) parts.push(`${bulkAttributes.length} atributo(s)`);
+    if (bulkAttributes.length > 0)
+      parts.push(`${bulkAttributes.length} atributo(s)`);
     if (bulkCategory) parts.push(`categoría (legado) "${bulkCategory}"`);
     if (bulkGender) parts.push(`género (legado) "${bulkGender}"`);
     if (bulkBrand) parts.push(`marca "${bulkBrand}"`);
@@ -887,7 +923,8 @@ const AdminProducts = ({
       const keyword = searchParams.get("keyword") || "";
       const sorts = searchParams.get("sorts") || "";
       const filterTitle = searchParams.get("filterTitle") || "";
-      const filterMainCategories = searchParams.get("filterMainCategories") || "";
+      const filterMainCategories =
+        searchParams.get("filterMainCategories") || "";
       const filterSubCategories = searchParams.get("filterSubCategories") || "";
       const filterAttributes = searchParams.get("filterAttributes") || "";
       const filterBrands = searchParams.get("filterBrands") || "";
@@ -896,7 +933,7 @@ const AdminProducts = ({
       const filterStockMin = searchParams.get("filterStockMin") || "";
       const filterStockMax = searchParams.get("filterStockMax") || "";
       const filterSucursales = searchParams.get("filterSucursales") || "";
-      
+
       Swal.fire({
         title: "Cargando productos...",
         text: "Por favor espera mientras se descargan todos los productos.",
@@ -912,8 +949,10 @@ const AdminProducts = ({
       if (keyword) params.append("keyword", keyword);
       if (sorts) params.append("sorts", sorts);
       if (filterTitle) params.append("filterTitle", filterTitle);
-      if (filterMainCategories) params.append("filterMainCategories", filterMainCategories);
-      if (filterSubCategories) params.append("filterSubCategories", filterSubCategories);
+      if (filterMainCategories)
+        params.append("filterMainCategories", filterMainCategories);
+      if (filterSubCategories)
+        params.append("filterSubCategories", filterSubCategories);
       if (filterAttributes) params.append("filterAttributes", filterAttributes);
       if (filterBrands) params.append("filterBrands", filterBrands);
       if (filterPriceMin) params.append("filterPriceMin", filterPriceMin);
@@ -921,25 +960,28 @@ const AdminProducts = ({
       if (filterStockMin) params.append("filterStockMin", filterStockMin);
       if (filterStockMax) params.append("filterStockMax", filterStockMax);
       if (filterSucursales) params.append("filterSucursales", filterSucursales);
-      
+
       let exportUrl = `/api/products/export`;
       if (params.toString()) {
         exportUrl = `/api/products/export?${params.toString()}`;
       }
-      
+
       const res = await fetch(exportUrl);
       const data = await res.json();
-      
+
       // Extract products from nested structure
       let allProducts: any[] = [];
       if (Array.isArray(data.products)) {
         allProducts = data.products;
-      } else if (data?.products?.products && Array.isArray(data.products.products)) {
+      } else if (
+        data?.products?.products &&
+        Array.isArray(data.products.products)
+      ) {
         allProducts = data.products.products;
       } else if (data?.products && Array.isArray(data.products)) {
         allProducts = data.products;
       }
-      
+
       console.log(`Total products fetched: ${allProducts.length}`);
 
       // Filter out products without _id
@@ -967,8 +1009,11 @@ const AdminProducts = ({
       // Prepare CSV data
       const csvData = allProducts.map((product: any) => {
         const inventoryData = product.storeInventory || [];
-        const totalStock = inventoryData.reduce((sum: number, inv: any) => sum + (inv.quantity || 0), 0);
-        
+        const totalStock = inventoryData.reduce(
+          (sum: number, inv: any) => sum + (inv.quantity || 0),
+          0,
+        );
+
         // Group by store
         const grouped: { [storeName: string]: number } = {};
         inventoryData.forEach((inv: any) => {
@@ -976,13 +1021,15 @@ const AdminProducts = ({
           grouped[storeName] = (grouped[storeName] || 0) + (inv.quantity || 0);
         });
 
-        const variations = Array.isArray(product.variations) ? product.variations : [];
+        const variations = Array.isArray(product.variations)
+          ? product.variations
+          : [];
         const row: any = {
-          "Título": product.title || "—",
-          "ASIN": product.ASIN || "—",
+          Título: product.title || "—",
+          ASIN: product.ASIN || "—",
           "Categoría Principal": product.mainCategory?.name || "—",
-          "Subcategoría": product.subCategory?.name || "—",
-          "Precio": variations.length > 0 ? variations[0]?.price || "—" : "—",
+          Subcategoría: product.subCategory?.name || "—",
+          Precio: variations.length > 0 ? variations[0]?.price || "—" : "—",
           "Stock Total": totalStock,
         };
 
@@ -1003,14 +1050,19 @@ const AdminProducts = ({
       const csvContent = [
         headers.join(","),
         ...csvData.map((row: any) =>
-          headers.map((header) => {
-            const value = row[header];
-            // Escape quotes and wrap in quotes if contains comma
-            if (typeof value === "string" && (value.includes(",") || value.includes('"'))) {
-              return `"${value.replace(/"/g, '""')}"`;
-            }
-            return value;
-          }).join(",")
+          headers
+            .map((header) => {
+              const value = row[header];
+              // Escape quotes and wrap in quotes if contains comma
+              if (
+                typeof value === "string" &&
+                (value.includes(",") || value.includes('"'))
+              ) {
+                return `"${value.replace(/"/g, '""')}"`;
+              }
+              return value;
+            })
+            .join(","),
         ),
       ].join("\n");
 
@@ -1019,13 +1071,20 @@ const AdminProducts = ({
       const link = document.createElement("a");
       const url = URL.createObjectURL(blob);
       link.setAttribute("href", url);
-      link.setAttribute("download", `productos_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.setAttribute(
+        "download",
+        `productos_${new Date().toISOString().slice(0, 10)}.csv`,
+      );
       link.style.visibility = "hidden";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
-      Swal.fire("Éxito", `${allProducts.length} producto(s) exportado(s) a CSV.`, "success");
+      Swal.fire(
+        "Éxito",
+        `${allProducts.length} producto(s) exportado(s) a CSV.`,
+        "success",
+      );
     } catch (error) {
       console.error("Error exporting CSV:", error);
       Swal.fire("Error", "No se pudo exportar los datos a CSV.", "error");
@@ -1040,7 +1099,8 @@ const AdminProducts = ({
       const keyword = searchParams.get("keyword") || "";
       const sorts = searchParams.get("sorts") || "";
       const filterTitle = searchParams.get("filterTitle") || "";
-      const filterMainCategories = searchParams.get("filterMainCategories") || "";
+      const filterMainCategories =
+        searchParams.get("filterMainCategories") || "";
       const filterSubCategories = searchParams.get("filterSubCategories") || "";
       const filterAttributes = searchParams.get("filterAttributes") || "";
       const filterBrands = searchParams.get("filterBrands") || "";
@@ -1049,7 +1109,7 @@ const AdminProducts = ({
       const filterStockMin = searchParams.get("filterStockMin") || "";
       const filterStockMax = searchParams.get("filterStockMax") || "";
       const filterSucursales = searchParams.get("filterSucursales") || "";
-      
+
       Swal.fire({
         title: "Cargando productos...",
         text: "Por favor espera mientras se descargan todos los productos.",
@@ -1065,8 +1125,10 @@ const AdminProducts = ({
       if (keyword) params.append("keyword", keyword);
       if (sorts) params.append("sorts", sorts);
       if (filterTitle) params.append("filterTitle", filterTitle);
-      if (filterMainCategories) params.append("filterMainCategories", filterMainCategories);
-      if (filterSubCategories) params.append("filterSubCategories", filterSubCategories);
+      if (filterMainCategories)
+        params.append("filterMainCategories", filterMainCategories);
+      if (filterSubCategories)
+        params.append("filterSubCategories", filterSubCategories);
       if (filterAttributes) params.append("filterAttributes", filterAttributes);
       if (filterBrands) params.append("filterBrands", filterBrands);
       if (filterPriceMin) params.append("filterPriceMin", filterPriceMin);
@@ -1074,25 +1136,28 @@ const AdminProducts = ({
       if (filterStockMin) params.append("filterStockMin", filterStockMin);
       if (filterStockMax) params.append("filterStockMax", filterStockMax);
       if (filterSucursales) params.append("filterSucursales", filterSucursales);
-      
+
       let exportUrl = `/api/products/export`;
       if (params.toString()) {
         exportUrl = `/api/products/export?${params.toString()}`;
       }
-      
+
       const res = await fetch(exportUrl);
       const data = await res.json();
-      
+
       // Extract products from nested structure
       let allProducts: any[] = [];
       if (Array.isArray(data.products)) {
         allProducts = data.products;
-      } else if (data?.products?.products && Array.isArray(data.products.products)) {
+      } else if (
+        data?.products?.products &&
+        Array.isArray(data.products.products)
+      ) {
         allProducts = data.products.products;
       } else if (data?.products && Array.isArray(data.products)) {
         allProducts = data.products;
       }
-      
+
       console.log(`Total products fetched: ${allProducts.length}`);
 
       // Filter out products without _id
@@ -1120,21 +1185,26 @@ const AdminProducts = ({
       // Prepare Excel data
       const excelData = allProducts.map((product: any) => {
         const inventoryData = product.storeInventory || [];
-        const totalStock = inventoryData.reduce((sum: number, inv: any) => sum + (inv.quantity || 0), 0);
-        
+        const totalStock = inventoryData.reduce(
+          (sum: number, inv: any) => sum + (inv.quantity || 0),
+          0,
+        );
+
         const grouped: { [storeName: string]: number } = {};
         inventoryData.forEach((inv: any) => {
           const storeName = inv.store?.name ?? "Sin sucursal";
           grouped[storeName] = (grouped[storeName] || 0) + (inv.quantity || 0);
         });
 
-        const variations = Array.isArray(product.variations) ? product.variations : [];
+        const variations = Array.isArray(product.variations)
+          ? product.variations
+          : [];
         const row: any = {
-          "Título": product.title || "—",
-          "ASIN": product.ASIN || "—",
+          Título: product.title || "—",
+          ASIN: product.ASIN || "—",
           "Categoría Principal": product.mainCategory?.name || "—",
-          "Subcategoría": product.subCategory?.name || "—",
-          "Precio": variations.length > 0 ? variations[0]?.price || "—" : "—",
+          Subcategoría: product.subCategory?.name || "—",
+          Precio: variations.length > 0 ? variations[0]?.price || "—" : "—",
           "Stock Total": totalStock,
         };
 
@@ -1163,9 +1233,16 @@ const AdminProducts = ({
       worksheet["!cols"] = colWidths;
 
       // Write file
-      XLSX.writeFile(workbook, `productos_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      XLSX.writeFile(
+        workbook,
+        `productos_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      );
 
-      Swal.fire("Éxito", `${allProducts.length} producto(s) exportado(s) a Excel.`, "success");
+      Swal.fire(
+        "Éxito",
+        `${allProducts.length} producto(s) exportado(s) a Excel.`,
+        "success",
+      );
     } catch (error) {
       console.error("Error exporting Excel:", error);
       Swal.fire("Error", "No se pudo exportar los datos a Excel.", "error");
@@ -1203,7 +1280,7 @@ const AdminProducts = ({
         </div>
         <div className="flex flex-col maxsm:flex-col-reverse gap-2 maxsm:gap-1 items-center justify-between mb-4">
           <div className="flex gap-2 items-center w-full">
-           {/* Camara Scanner  */}
+            {/* Camara Scanner  */}
             <button
               type="button"
               onClick={() => setShowScanner(true)}
@@ -1470,7 +1547,8 @@ const AdminProducts = ({
                     className="flex items-center gap-1 bg-blue-600 text-white px-3 py-1.5 rounded-full text-sm font-medium"
                   >
                     <span>
-                      {index + 1}. {displayTitle} ({sort.dir === "asc" ? "▲" : "▼"})
+                      {index + 1}. {displayTitle} (
+                      {sort.dir === "asc" ? "▲" : "▼"})
                     </span>
                     <button
                       type="button"
@@ -1520,11 +1598,13 @@ const AdminProducts = ({
                   *Titulo
                   {(() => {
                     const sortIndex = sorts.findIndex((s) => s.key === "title");
-                    return sortIndex !== -1 && (
-                      <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
-                        {sortIndex + 1}{" "}
-                        {sorts[sortIndex].dir === "asc" ? "▲" : "▼"}
-                      </span>
+                    return (
+                      sortIndex !== -1 && (
+                        <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
+                          {sortIndex + 1}{" "}
+                          {sorts[sortIndex].dir === "asc" ? "▲" : "▼"}
+                        </span>
+                      )
                     );
                   })()}
                 </button>
@@ -1537,12 +1617,16 @@ const AdminProducts = ({
                 >
                   Cat. Ppal / Sub
                   {(() => {
-                    const sortIndex = sorts.findIndex((s) => s.key === "mainCategory");
-                    return sortIndex !== -1 && (
-                      <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
-                        {sortIndex + 1}{" "}
-                        {sorts[sortIndex].dir === "asc" ? "▲" : "▼"}
-                      </span>
+                    const sortIndex = sorts.findIndex(
+                      (s) => s.key === "mainCategory",
+                    );
+                    return (
+                      sortIndex !== -1 && (
+                        <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
+                          {sortIndex + 1}{" "}
+                          {sorts[sortIndex].dir === "asc" ? "▲" : "▼"}
+                        </span>
+                      )
                     );
                   })()}
                 </button>
@@ -1555,12 +1639,16 @@ const AdminProducts = ({
                 >
                   Atributos
                   {(() => {
-                    const sortIndex = sorts.findIndex((s) => s.key === "attributes");
-                    return sortIndex !== -1 && (
-                      <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
-                        {sortIndex + 1}{" "}
-                        {sorts[sortIndex].dir === "asc" ? "▲" : "▼"}
-                      </span>
+                    const sortIndex = sorts.findIndex(
+                      (s) => s.key === "attributes",
+                    );
+                    return (
+                      sortIndex !== -1 && (
+                        <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
+                          {sortIndex + 1}{" "}
+                          {sorts[sortIndex].dir === "asc" ? "▲" : "▼"}
+                        </span>
+                      )
                     );
                   })()}
                 </button>
@@ -1597,11 +1685,13 @@ const AdminProducts = ({
                   *Cert.
                   {(() => {
                     const sortIndex = sorts.findIndex((s) => s.key === "brand");
-                    return sortIndex !== -1 && (
-                      <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
-                        {sortIndex + 1}{" "}
-                        {sorts[sortIndex].dir === "asc" ? "▲" : "▼"}
-                      </span>
+                    return (
+                      sortIndex !== -1 && (
+                        <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
+                          {sortIndex + 1}{" "}
+                          {sorts[sortIndex].dir === "asc" ? "▲" : "▼"}
+                        </span>
+                      )
                     );
                   })()}
                 </button>
@@ -1621,11 +1711,13 @@ const AdminProducts = ({
                   *Precio
                   {(() => {
                     const sortIndex = sorts.findIndex((s) => s.key === "price");
-                    return sortIndex !== -1 && (
-                      <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
-                        {sortIndex + 1}{" "}
-                        {sorts[sortIndex].dir === "asc" ? "▲" : "▼"}
-                      </span>
+                    return (
+                      sortIndex !== -1 && (
+                        <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
+                          {sortIndex + 1}{" "}
+                          {sorts[sortIndex].dir === "asc" ? "▲" : "▼"}
+                        </span>
+                      )
                     );
                   })()}
                 </button>
@@ -1639,11 +1731,13 @@ const AdminProducts = ({
                   *Exst.
                   {(() => {
                     const sortIndex = sorts.findIndex((s) => s.key === "stock");
-                    return sortIndex !== -1 && (
-                      <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
-                        {sortIndex + 1}{" "}
-                        {sorts[sortIndex].dir === "asc" ? "▲" : "▼"}
-                      </span>
+                    return (
+                      sortIndex !== -1 && (
+                        <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded">
+                          {sortIndex + 1}{" "}
+                          {sorts[sortIndex].dir === "asc" ? "▲" : "▼"}
+                        </span>
+                      )
                     );
                   })()}
                 </button>
@@ -1682,9 +1776,7 @@ const AdminProducts = ({
                 >
                   {product?.title?.substring(0, 30)}
                 </td>
-                <td
-                  className={`w-full py-0 px-2 maxsm:hidden text-[12px]`}
-                >
+                <td className={`w-full py-0 px-2 maxsm:hidden text-[12px]`}>
                   <div className="font-bold">
                     {mainCategoryById.get(product?.mainCategory) || "—"}
                   </div>
@@ -1692,9 +1784,7 @@ const AdminProducts = ({
                     {subCategoryById.get(product?.subCategory) || "—"}
                   </div>
                 </td>
-                <td
-                  className={`w-full py-0 px-2 maxsm:hidden text-[12px]`}
-                >
+                <td className={`w-full py-0 px-2 maxsm:hidden text-[12px]`}>
                   <div className="text-muted-foreground text-xs">
                     {product?.attributes && product.attributes.length > 0
                       ? product.attributes
@@ -2009,7 +2099,9 @@ const AdminProducts = ({
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
               {/* Title Filter */}
               <div>
-                <label className="block text-sm font-semibold mb-2">Título (contiene)</label>
+                <label className="block text-sm font-semibold mb-2">
+                  Título (contiene)
+                </label>
                 <input
                   type="text"
                   value={filterTitle}
@@ -2021,19 +2113,29 @@ const AdminProducts = ({
 
               {/* Main Category Filter */}
               <div>
-                <label className="block text-sm font-semibold mb-2">Categoría Principal</label>
+                <label className="block text-sm font-semibold mb-2">
+                  Categoría Principal
+                </label>
                 <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
                   {mainCategories.map((cat) => (
-                    <label key={cat._id} className="flex items-center gap-2 cursor-pointer">
+                    <label
+                      key={cat._id}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
                       <input
                         type="checkbox"
                         checked={filterMainCategories.includes(cat._id)}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setFilterMainCategories([...filterMainCategories, cat._id]);
+                            setFilterMainCategories([
+                              ...filterMainCategories,
+                              cat._id,
+                            ]);
                           } else {
                             setFilterMainCategories(
-                              filterMainCategories.filter((id) => id !== cat._id),
+                              filterMainCategories.filter(
+                                (id) => id !== cat._id,
+                              ),
                             );
                           }
                         }}
@@ -2047,19 +2149,29 @@ const AdminProducts = ({
 
               {/* Sub Category Filter */}
               <div>
-                <label className="block text-sm font-semibold mb-2">Subcategoría</label>
+                <label className="block text-sm font-semibold mb-2">
+                  Subcategoría
+                </label>
                 <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
                   {subCategories.map((cat) => (
-                    <label key={cat._id} className="flex items-center gap-2 cursor-pointer">
+                    <label
+                      key={cat._id}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
                       <input
                         type="checkbox"
                         checked={filterSubCategories.includes(cat._id)}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setFilterSubCategories([...filterSubCategories, cat._id]);
+                            setFilterSubCategories([
+                              ...filterSubCategories,
+                              cat._id,
+                            ]);
                           } else {
                             setFilterSubCategories(
-                              filterSubCategories.filter((id) => id !== cat._id),
+                              filterSubCategories.filter(
+                                (id) => id !== cat._id,
+                              ),
                             );
                           }
                         }}
@@ -2073,16 +2185,24 @@ const AdminProducts = ({
 
               {/* Attributes Filter */}
               <div>
-                <label className="block text-sm font-semibold mb-2">Atributos</label>
+                <label className="block text-sm font-semibold mb-2">
+                  Atributos
+                </label>
                 <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
                   {attributeOptions.map((attr) => (
-                    <label key={attr._id} className="flex items-center gap-2 cursor-pointer">
+                    <label
+                      key={attr._id}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
                       <input
                         type="checkbox"
                         checked={filterAttributes.includes(attr._id)}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setFilterAttributes([...filterAttributes, attr._id]);
+                            setFilterAttributes([
+                              ...filterAttributes,
+                              attr._id,
+                            ]);
                           } else {
                             setFilterAttributes(
                               filterAttributes.filter((id) => id !== attr._id),
@@ -2099,10 +2219,15 @@ const AdminProducts = ({
 
               {/* Brand Filter */}
               <div>
-                <label className="block text-sm font-semibold mb-2">Marca (Cert.)</label>
+                <label className="block text-sm font-semibold mb-2">
+                  Marca (Cert.)
+                </label>
                 <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
                   {brandOptions.map((brand) => (
-                    <label key={brand._id} className="flex items-center gap-2 cursor-pointer">
+                    <label
+                      key={brand._id}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
                       <input
                         type="checkbox"
                         checked={filterBrands.includes(brand.catTitle)}
@@ -2110,7 +2235,9 @@ const AdminProducts = ({
                           if (e.target.checked) {
                             setFilterBrands([...filterBrands, brand.catTitle]);
                           } else {
-                            setFilterBrands(filterBrands.filter((b) => b !== brand.catTitle));
+                            setFilterBrands(
+                              filterBrands.filter((b) => b !== brand.catTitle),
+                            );
                           }
                         }}
                         className="w-4 h-4 cursor-pointer"
@@ -2123,10 +2250,14 @@ const AdminProducts = ({
 
               {/* Price Range Filter */}
               <div>
-                <label className="block text-sm font-semibold mb-3">Rango de Precio</label>
+                <label className="block text-sm font-semibold mb-3">
+                  Rango de Precio
+                </label>
                 <div className="flex gap-3 items-end">
                   <div className="flex-1">
-                    <label className="text-xs text-muted-foreground">Mínimo</label>
+                    <label className="text-xs text-muted-foreground">
+                      Mínimo
+                    </label>
                     <input
                       type="number"
                       value={filterPriceMin}
@@ -2136,7 +2267,9 @@ const AdminProducts = ({
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="text-xs text-muted-foreground">Máximo</label>
+                    <label className="text-xs text-muted-foreground">
+                      Máximo
+                    </label>
                     <input
                       type="number"
                       value={filterPriceMax}
@@ -2150,10 +2283,14 @@ const AdminProducts = ({
 
               {/* Stock Range Filter */}
               <div>
-                <label className="block text-sm font-semibold mb-3">Rango de Existencias</label>
+                <label className="block text-sm font-semibold mb-3">
+                  Rango de Existencias
+                </label>
                 <div className="flex gap-3 items-end">
                   <div className="flex-1">
-                    <label className="text-xs text-muted-foreground">Mínimo</label>
+                    <label className="text-xs text-muted-foreground">
+                      Mínimo
+                    </label>
                     <input
                       type="number"
                       value={filterStockMin}
@@ -2163,7 +2300,9 @@ const AdminProducts = ({
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="text-xs text-muted-foreground">Máximo</label>
+                    <label className="text-xs text-muted-foreground">
+                      Máximo
+                    </label>
                     <input
                       type="number"
                       value={filterStockMax}
@@ -2177,22 +2316,34 @@ const AdminProducts = ({
 
               {/* Sucursal Filter */}
               <div>
-                <label className="block text-sm font-semibold mb-2">Sucursal</label>
+                <label className="block text-sm font-semibold mb-2">
+                  Sucursal
+                </label>
                 <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
                   {stores.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No hay sucursales disponibles</p>
+                    <p className="text-xs text-muted-foreground">
+                      No hay sucursales disponibles
+                    </p>
                   ) : (
                     stores.map((store) => (
-                      <label key={store._id} className="flex items-center gap-2 cursor-pointer">
+                      <label
+                        key={store._id}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
                         <input
                           type="checkbox"
                           checked={filterSucursales.includes(store._id)}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setFilterSucursales([...filterSucursales, store._id]);
+                              setFilterSucursales([
+                                ...filterSucursales,
+                                store._id,
+                              ]);
                             } else {
                               setFilterSucursales(
-                                filterSucursales.filter((id) => id !== store._id),
+                                filterSucursales.filter(
+                                  (id) => id !== store._id,
+                                ),
                               );
                             }
                           }}
