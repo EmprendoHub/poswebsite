@@ -6,7 +6,7 @@ import Store from "@/backend/models/Store";
 import StoreInventory from "@/backend/models/StoreInventory";
 import InventoryCheckSession from "@/backend/models/InventoryCheckSession";
 import dbConnect from "@/lib/db";
-import { sendAuditReportEmail } from "@/lib/emailTemplates";
+import { sendAuditReportEmail } from "@/lib/emailServer";
 
 /**
  * GET /api/cron/inventory-audit-monthly-report
