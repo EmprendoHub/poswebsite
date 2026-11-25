@@ -53,7 +53,6 @@
     "nodemailer": "^9.0.6",
     "openai": "^4.67.1",
     "papaparse": "^5.5.3",
-    "pdfkit": "^0.21.0",
     "qrcode": "^1.5.4",
     "react": "^18",
     "react-chartjs-2": "^5.2.0",
