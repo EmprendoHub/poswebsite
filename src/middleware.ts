@@ -30,6 +30,10 @@ export async function middleware(request: NextRequest) {
       signInUrl = new URL("/admin/evento", request.url);
       return NextResponse.redirect(signInUrl);
     }
+    if (token?.user?.role === "organizador" && !pathname.includes("admin")) {
+      signInUrl = new URL("/admin/torneos", request.url);
+      return NextResponse.redirect(signInUrl);
+    }
     // POS / sucursal roles → redirect to POS module on login
     if (
       (token?.user?.role === "sucursal" || token?.user?.role === "pos") &&
@@ -97,6 +101,11 @@ export async function middleware(request: NextRequest) {
     if (token?.user?.role === "organizer") {
       if (!pathname.startsWith("/admin/evento")) {
         signInUrl = new URL("/admin/evento", request.url);
+        return NextResponse.redirect(signInUrl);
+      }
+    } else if (token?.user?.role === "organizador") {
+      if (!pathname.startsWith("/admin/torneos")) {
+        signInUrl = new URL("/admin/torneos", request.url);
         return NextResponse.redirect(signInUrl);
       }
     } else if (

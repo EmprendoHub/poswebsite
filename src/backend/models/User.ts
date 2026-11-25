@@ -85,6 +85,7 @@ const UserSchema = new mongoose.Schema(
     },
     role: {
       type: String,
+      enum: ["cliente", "organizador"],
       default: "cliente",
     },
     assignedStore: {
@@ -94,6 +95,32 @@ const UserSchema = new mongoose.Schema(
     },
     managerCode: {
       type: String,
+    },
+    tournamentHistory: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Tournament",
+      },
+    ],
+    earnedBadges: [
+      {
+        badgeId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "TournamentBadge",
+        },
+        tournamentId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Tournament",
+        },
+        earnedAt: {
+          type: Date,
+          default: () => new Date(),
+        },
+      },
+    ],
+    totalPointsEarned: {
+      type: Number,
+      default: 0,
     },
   },
   { timestamps: true },

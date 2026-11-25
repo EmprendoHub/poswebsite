@@ -11,13 +11,20 @@ import {
 } from "react-icons/md";
 import EmployeeFormModal from "./_components/EmployeeFormModal";
 
-const POS_ROLES = ["pos", "organizer", "empleado", "supervisor"] as const;
+const POS_ROLES = [
+  "pos",
+  "organizer",
+  "organizador",
+  "empleado",
+  "supervisor",
+] as const;
 type PosRole = (typeof POS_ROLES)[number];
 type AnyRole = PosRole | "manager";
 
 const roleLabels: Record<AnyRole, string> = {
   pos: "Caja",
-  organizer: "Organizador",
+  organizer: "Organizador de Eventos",
+  organizador: "Organizador de Torneos",
   empleado: "Empleado",
   supervisor: "Supervisor",
   manager: "Manager",
@@ -27,6 +34,8 @@ const roleBadgeColors: Record<AnyRole, string> = {
   pos: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
   organizer:
     "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
+  organizador:
+    "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300",
   empleado:
     "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
   supervisor:

@@ -60,6 +60,7 @@ const NewVariationOptimized = ({
   const [asin, setAsin] = useState("");
   const [showScanner, setShowScanner] = useState(false);
   const [featured, setFeatured] = useState(false);
+  const [productType, setProductType] = useState("variation");
   const [updatePrice, setUpdatePrice] = useState(false);
   const [removeBackground, setRemoveBackground] = useState(true);
   const [discountPercentage, setDiscountPercentage] = useState(0);
@@ -1085,6 +1086,7 @@ const NewVariationOptimized = ({
     formData.append("title", title);
     formData.append("description", description);
     formData.append("category", category);
+    formData.append("productType", productType);
     formData.append("featured", featured.toString());
     formData.append("active", active.toString());
     formData.append("onlineAvailability", onlineAvailability.toString());
@@ -1362,6 +1364,25 @@ const NewVariationOptimized = ({
 
                 <div className="mb-1">
                   <label className="block mb-1 font-EB_Garamond">
+                    Tipo de Producto
+                  </label>
+                  <select
+                    className="appearance-none border bg-background rounded-xl py-2 px-3 border-gray-300 focus:outline-none focus:border-gray-400 w-full"
+                    value={productType}
+                    onChange={(e) => setProductType(e.target.value)}
+                  >
+                    <option value="variation">Físico</option>
+                    <option value="digital">Digital</option>
+                  </select>
+                  {validationError?.productType && (
+                    <p className="text-sm text-red-400">
+                      {validationError.productType._errors.join(", ")}
+                    </p>
+                  )}
+                </div>
+
+                <div className="mb-1">
+                  <label className="block mb-1 font-EB_Garamond">
                     Descripción Corta
                   </label>
                   <textarea
@@ -1589,7 +1610,9 @@ const NewVariationOptimized = ({
                         setSubCategoryId("");
                       }}
                     >
-                      <option value="">Seleccionar categoría principal...</option>
+                      <option value="">
+                        Seleccionar categoría principal...
+                      </option>
                       {mainCategories.map((m) => (
                         <option key={m._id} value={m._id}>
                           {m.name}

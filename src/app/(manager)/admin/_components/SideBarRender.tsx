@@ -41,6 +41,20 @@ const SideBarRender = () => {
     );
   }
 
+  // If user is organizador, only show torneos menu
+  if (userRole === "organizador") {
+    return (
+      <AdminSidebar>
+        <SideBarItem
+          icon={<MdEvent size={20} />}
+          text={"Torneos"}
+          active={pathname === "/admin/torneos" ? "true" : "false"}
+          url={"/admin/torneos"}
+        />
+      </AdminSidebar>
+    );
+  }
+
   // For manager/director/super_admin role, show menu items
   // (super_admin-only items are conditionally rendered below)
   return (
@@ -190,7 +204,7 @@ const SideBarRender = () => {
         }
         url={"/admin/inventario"}
       />
-        <SideBarItem
+      <SideBarItem
         icon={<MdEditAttributes size={20} />}
         text={"Inventario - Discrepancias"}
         active={

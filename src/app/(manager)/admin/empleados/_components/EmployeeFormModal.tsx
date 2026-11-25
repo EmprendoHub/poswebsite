@@ -2,13 +2,20 @@
 import { useEffect, useState } from "react";
 import { MdClose } from "react-icons/md";
 
-const POS_ROLES = ["pos", "organizer", "empleado", "supervisor"] as const;
+const POS_ROLES = [
+  "pos",
+  "organizer",
+  "organizador",
+  "empleado",
+  "supervisor",
+] as const;
 type PosRole = (typeof POS_ROLES)[number];
 type AnyRole = PosRole | "manager";
 
 const roleLabels: Record<AnyRole, string> = {
   pos: "Caja",
-  organizer: "Organizador",
+  organizer: "Organizador de Eventos",
+  organizador: "Organizador de Torneos",
   empleado: "Empleado",
   supervisor: "Supervisor",
   manager: "Manager",

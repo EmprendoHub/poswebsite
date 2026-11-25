@@ -41,6 +41,7 @@ export async function POST(request: any, res: any) {
       initialCost,
       initialStock,
       asin,
+      productType,
     } = Object.fromEntries(payload);
 
     // Check if ASIN already exists
@@ -139,7 +140,7 @@ export async function POST(request: any, res: any) {
       : { length: 15, width: 15, height: 10 };
 
     const newProduct = new Product({
-      type: "variation",
+      type: productType || "variation",
       title,
       slug,
       description,
@@ -254,6 +255,7 @@ export async function PUT(request: any, res: any) {
       weight,
       dimensions,
       asin,
+      productType,
     } = Object.fromEntries(payload);
 
     let slug = generateUrlSafeTitle(title);
@@ -346,7 +348,7 @@ export async function PUT(request: any, res: any) {
     // Update a Product in the database
     // Also update product-level price and currentPrice to match variation price
     const updateFields: any = {
-      type: "variation",
+      type: productType || "variation",
       title,
       slug,
       description,

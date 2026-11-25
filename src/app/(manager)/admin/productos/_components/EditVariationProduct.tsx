@@ -81,6 +81,7 @@ const EditVariationProduct = ({
   const [asin, setAsin] = useState(product?.ASIN || "");
   const [showScanner, setShowScanner] = useState(false);
   const [featured, setFeatured] = useState(product?.featured);
+  const [productType, setProductType] = useState(product?.type || "physical");
   const [removeBackground, setRemoveBackground] = useState(true);
   const [updatePrice, setUpdatePrice] = useState(product?.updatePrice ?? false);
   const [generatingLink, setGeneratingLink] = useState(false);
@@ -195,6 +196,7 @@ const EditVariationProduct = ({
       setGender(product?.gender);
       setAsin(product?.ASIN || "");
       setFeatured(product?.featured);
+      setProductType(product?.type || "physical");
       setUpdatePrice(product?.updatePrice ?? false);
       setDiscountPercentage(product?.discountPercentage || 0);
       setActive(product?.active ?? true);
@@ -1148,6 +1150,7 @@ const EditVariationProduct = ({
       formData.append("title", title.trim());
       formData.append("description", description.trim());
       formData.append("category", category || "");
+      formData.append("productType", productType || "physical");
       formData.append("featured", featured?.toString() || "false");
       formData.append("active", active?.toString() || "true");
       formData.append(
@@ -1823,6 +1826,25 @@ const EditVariationProduct = ({
                     {validationError?.description && (
                       <p className="text-xs text-destructive mt-1">
                         {validationError.description._errors.join(", ")}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="mb-1">
+                    <label className="block mb-2 font-semibold text-foreground">
+                      Tipo de Producto
+                    </label>
+                    <select
+                      className="w-full px-4 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                      value={productType || "physical"}
+                      onChange={(e) => setProductType(e.target.value)}
+                    >
+                      <option value="physical">Físico</option>
+                      <option value="digital">Digital</option>
+                    </select>
+                    {validationError?.productType && (
+                      <p className="text-xs text-destructive mt-1">
+                        {validationError.productType._errors.join(", ")}
                       </p>
                     )}
                   </div>

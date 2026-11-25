@@ -779,14 +779,18 @@ const AdminOneOrder = ({
                     {item.name}
                   </td>
                   <td className="px-2 maxsm:px-0 py-2 min-w-10 text-center">
-                    <Image
-                      alt="producto"
-                      src={item.image}
-                      width={100}
-                      height={100}
-                      className="cursor-zoom-in hover:opacity-80 transition-opacity"
-                      onClick={() => setSelectedImage(item.image as string)}
-                    />
+                    {item.image ? (
+                      <Image
+                        alt="producto"
+                        src={item.image}
+                        width={100}
+                        height={100}
+                        className="cursor-zoom-in hover:opacity-80 transition-opacity"
+                        onClick={() => setSelectedImage(item.image as string)}
+                      />
+                    ) : (
+                      ""
+                    )}
                   </td>
                   <td className="px-2 maxsm:px-0 py-2 min-w-10 text-center">
                     {item.quantity}
@@ -843,157 +847,158 @@ const AdminOneOrder = ({
                 {isManager &&
                   order?.orderStatus !== "Cancelado" &&
                   editingIndex === index && (
-                  <tr className="bg-background">
-                    <td colSpan={5} className="px-2 py-3">
-                      <div className="border border-dashed border-blue-400 rounded-lg p-3 flex flex-col gap-3">
-                        <p className="text-xs text-muted font-semibold uppercase tracking-wide">
-                          Reemplazar:{" "}
-                          <em className="normal-case text-foreground">
-                            {item.name}
-                          </em>
-                        </p>
+                    <tr className="bg-background">
+                      <td colSpan={5} className="px-2 py-3">
+                        <div className="border border-dashed border-blue-400 rounded-lg p-3 flex flex-col gap-3">
+                          <p className="text-xs text-muted font-semibold uppercase tracking-wide">
+                            Reemplazar:{" "}
+                            <em className="normal-case text-foreground">
+                              {item.name}
+                            </em>
+                          </p>
 
-                        {/* Search */}
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            placeholder="Buscar producto de reemplazo..."
-                            value={searchQuery}
-                            onChange={(e) => {
-                              setSearchQuery(e.target.value);
-                              searchProducts(e.target.value);
-                            }}
-                            className="flex-1 border rounded px-2 py-1 text-sm bg-background"
-                          />
-                          {searching && (
-                            <span className="text-xs text-muted self-center">
-                              Buscando...
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Search results */}
-                        {searchResults.length > 0 && !selectedProduct && (
-                          <div className="max-h-48 overflow-y-auto flex flex-col gap-1 border rounded p-1">
-                            {searchResults.map((p: any) => (
-                              <button
-                                key={p._id}
-                                onClick={() => {
-                                  setSelectedProduct(p);
-                                  setSearchResults([]);
-                                }}
-                                className="text-left text-sm px-2 py-1 hover:bg-blue-50 dark:hover:bg-blue-900 rounded flex items-center gap-2"
-                              >
-                                {p.images?.[0]?.url && (
-                                  <Image
-                                    src={p.images[0].url}
-                                    alt={p.title}
-                                    width={32}
-                                    height={32}
-                                    className="rounded object-cover"
-                                  />
-                                )}
-                                <span>{p.title}</span>
-                                <span className="ml-auto text-green-700 font-medium">
-                                  ${p.price} MXN
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Selected product → pick variation */}
-                        {selectedProduct && (
-                          <div className="flex flex-col gap-2">
-                            <div className="flex items-center gap-2">
-                              {selectedProduct.images?.[0]?.url && (
-                                <Image
-                                  src={selectedProduct.images[0].url}
-                                  alt={selectedProduct.title}
-                                  width={40}
-                                  height={40}
-                                  className="rounded object-cover"
-                                />
-                              )}
-                              <span className="font-medium text-sm">
-                                {selectedProduct.title}
+                          {/* Search */}
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="Buscar producto de reemplazo..."
+                              value={searchQuery}
+                              onChange={(e) => {
+                                setSearchQuery(e.target.value);
+                                searchProducts(e.target.value);
+                              }}
+                              className="flex-1 border rounded px-2 py-1 text-sm bg-background"
+                            />
+                            {searching && (
+                              <span className="text-xs text-muted self-center">
+                                Buscando...
                               </span>
-                              <button
-                                onClick={() => {
-                                  setSelectedProduct(null);
-                                  setSelectedVariation(null);
-                                }}
-                                className="ml-auto text-xs text-gray-400 hover:text-gray-600"
-                              >
-                                ✕ Cambiar
-                              </button>
-                            </div>
+                            )}
+                          </div>
 
-                            <p className="text-xs text-muted">
-                              Selecciona una variación:
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {selectedProduct.variations?.map((v: any) => (
+                          {/* Search results */}
+                          {searchResults.length > 0 && !selectedProduct && (
+                            <div className="max-h-48 overflow-y-auto flex flex-col gap-1 border rounded p-1">
+                              {searchResults.map((p: any) => (
                                 <button
-                                  key={v._id}
-                                  onClick={() => setSelectedVariation(v)}
-                                  className={`text-xs border rounded px-2 py-1 transition-colors ${
-                                    selectedVariation?._id === v._id
-                                      ? "border-blue-500 bg-blue-500 text-white"
-                                      : "border-gray-300 hover:border-blue-400"
-                                  } ${v.stock <= 0 ? "opacity-40 cursor-not-allowed" : ""}`}
-                                  disabled={v.stock <= 0}
+                                  key={p._id}
+                                  onClick={() => {
+                                    setSelectedProduct(p);
+                                    setSearchResults([]);
+                                  }}
+                                  className="text-left text-sm px-2 py-1 hover:bg-blue-50 dark:hover:bg-blue-900 rounded flex items-center gap-2"
                                 >
-                                  {v.title ||
-                                    `${v.color ?? ""} ${v.size ?? ""}`.trim() ||
-                                    "Default"}
-                                  {" — "}${v.price} MXN
-                                  {v.stock <= 0 && " (sin stock)"}
+                                  {p.images?.[0]?.url && (
+                                    <Image
+                                      src={p.images[0].url}
+                                      alt={p.title}
+                                      width={32}
+                                      height={32}
+                                      className="rounded object-cover"
+                                    />
+                                  )}
+                                  <span>{p.title}</span>
+                                  <span className="ml-auto text-green-700 font-medium">
+                                    ${p.price} MXN
+                                  </span>
                                 </button>
                               ))}
                             </div>
+                          )}
 
-                            {selectedVariation && (
-                              <div className="flex items-center gap-3 mt-1">
-                                <span className="text-sm">
-                                  Precio original:{" "}
-                                  <strong>
-                                    ${(item.price * item.quantity).toFixed(2)}
-                                  </strong>
-                                  {" → "}
-                                  Nuevo:{" "}
-                                  <strong
-                                    className={
-                                      selectedVariation.price * item.quantity <
-                                      item.price * item.quantity
-                                        ? "text-amber-600"
-                                        : "text-green-600"
-                                    }
-                                  >
-                                    $
-                                    {(
-                                      selectedVariation.price * item.quantity
-                                    ).toFixed(2)}{" "}
-                                    MXN
-                                  </strong>
+                          {/* Selected product → pick variation */}
+                          {selectedProduct && (
+                            <div className="flex flex-col gap-2">
+                              <div className="flex items-center gap-2">
+                                {selectedProduct.images?.[0]?.url && (
+                                  <Image
+                                    src={selectedProduct.images[0].url}
+                                    alt={selectedProduct.title}
+                                    width={40}
+                                    height={40}
+                                    className="rounded object-cover"
+                                  />
+                                )}
+                                <span className="font-medium text-sm">
+                                  {selectedProduct.title}
                                 </span>
                                 <button
-                                  onClick={confirmReplacement}
-                                  disabled={savingReplacement}
-                                  className="ml-auto flex items-center gap-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm rounded px-3 py-1 transition-colors"
+                                  onClick={() => {
+                                    setSelectedProduct(null);
+                                    setSelectedVariation(null);
+                                  }}
+                                  className="ml-auto text-xs text-gray-400 hover:text-gray-600"
                                 >
-                                  {savingReplacement
-                                    ? "Guardando..."
-                                    : "Confirmar reemplazo"}
+                                  ✕ Cambiar
                                 </button>
                               </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                )}
+
+                              <p className="text-xs text-muted">
+                                Selecciona una variación:
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {selectedProduct.variations?.map((v: any) => (
+                                  <button
+                                    key={v._id}
+                                    onClick={() => setSelectedVariation(v)}
+                                    className={`text-xs border rounded px-2 py-1 transition-colors ${
+                                      selectedVariation?._id === v._id
+                                        ? "border-blue-500 bg-blue-500 text-white"
+                                        : "border-gray-300 hover:border-blue-400"
+                                    } ${v.stock <= 0 ? "opacity-40 cursor-not-allowed" : ""}`}
+                                    disabled={v.stock <= 0}
+                                  >
+                                    {v.title ||
+                                      `${v.color ?? ""} ${v.size ?? ""}`.trim() ||
+                                      "Default"}
+                                    {" — "}${v.price} MXN
+                                    {v.stock <= 0 && " (sin stock)"}
+                                  </button>
+                                ))}
+                              </div>
+
+                              {selectedVariation && (
+                                <div className="flex items-center gap-3 mt-1">
+                                  <span className="text-sm">
+                                    Precio original:{" "}
+                                    <strong>
+                                      ${(item.price * item.quantity).toFixed(2)}
+                                    </strong>
+                                    {" → "}
+                                    Nuevo:{" "}
+                                    <strong
+                                      className={
+                                        selectedVariation.price *
+                                          item.quantity <
+                                        item.price * item.quantity
+                                          ? "text-amber-600"
+                                          : "text-green-600"
+                                      }
+                                    >
+                                      $
+                                      {(
+                                        selectedVariation.price * item.quantity
+                                      ).toFixed(2)}{" "}
+                                      MXN
+                                    </strong>
+                                  </span>
+                                  <button
+                                    onClick={confirmReplacement}
+                                    disabled={savingReplacement}
+                                    className="ml-auto flex items-center gap-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm rounded px-3 py-1 transition-colors"
+                                  >
+                                    {savingReplacement
+                                      ? "Guardando..."
+                                      : "Confirmar reemplazo"}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
               </React.Fragment>
             ))}
           </tbody>
