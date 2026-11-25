@@ -200,13 +200,16 @@ function generateAuditHtmlReport(params: AuditReportParams): string {
     <div class="footer">
       <p>
         <strong>SuperCollectibles - Sistema de Auditoría de Inventario</strong><br>
-        Reporte generado automáticamente el ${new Date().toLocaleDateString("es-MX", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        })}<br>
+        Reporte generado automáticamente el ${new Date().toLocaleDateString(
+          "es-MX",
+          {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          },
+        )}<br>
         Este es un mensaje automático. Por favor no responda a este correo.
       </p>
     </div>
