@@ -639,8 +639,8 @@ export interface AuditReportParams {
     categoriesBreakdown: Array<{ category: string; notAuditedCount: number }>;
   };
   notAuditedProducts: Array<{
-    sku: string;
-    name: string;
+    ASIN: string;
+    title: string;
     currentQuantity: number;
     category: string;
     lastAudited: Date | null;
@@ -651,32 +651,13 @@ export interface AuditReportParams {
 }
 
 export function buildAuditReportHtml(params: AuditReportParams): string {
-  const { storeName, stats, notAuditedProducts } = params;
+  const { storeName, stats } = params;
 
   // Format dates
   const monthYear = new Date(stats.monthYear).toLocaleString("es-MX", {
     month: "long",
     year: "numeric",
   });
-
-  // Build products table rows
-  const productsTableRows = notAuditedProducts
-    .map(
-      (p) => `
-    <tr>
-      <td style="padding:12px 8px;border-bottom:1px solid #eee;font-size:13px;font-weight:500;">${p.sku}</td>
-      <td style="padding:12px 8px;border-bottom:1px solid #eee;font-size:13px;">${p.name}</td>
-      <td style="padding:12px 8px;border-bottom:1px solid #eee;font-size:13px;text-align:center;font-weight:500;">${p.currentQuantity}</td>
-      <td style="padding:12px 8px;border-bottom:1px solid #eee;font-size:13px;">${p.category}</td>
-      <td style="padding:12px 8px;border-bottom:1px solid #eee;font-size:13px;">${
-        p.lastAudited
-          ? new Date(p.lastAudited).toLocaleDateString("es-MX")
-          : "Nunca"
-      }</td>
-    </tr>
-  `,
-    )
-    .join("");
 
   // Build categories breakdown rows
   const categoriesRows = stats.categoriesBreakdown
@@ -815,24 +796,25 @@ export function buildAuditReportHtml(params: AuditReportParams): string {
       <!-- Products Not Audited -->
       <div class="section">
         <h2 class="section-title">📋 Productos Pendientes de Auditar</h2>
-        <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
-          Total: <strong>${stats.notAuditedProducts}</strong> productos requieren auditoría
-        </p>
-        <div style="overflow-x: auto;">
-          <table class="table">
-            <thead>
-              <tr>
-                <th style="width: 15%;">SKU</th>
-                <th style="width: 35%;">Nombre del Producto</th>
-                <th style="width: 15%; text-align: center;">Stock Actual</th>
-                <th style="width: 20%;">Categoría</th>
-                <th style="width: 15%;">Última Auditoría</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${productsTableRows}
-            </tbody>
-          </table>
+        <div style="background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 24px;">
+          <p style="margin: 0 0 8px; font-weight: bold; color: #0369a1; font-size: 13px; text-transform: uppercase; letter-spacing: .5px;">
+            📎 Documento Adjunto
+          </p>
+          <p style="margin: 0; color: #0369a1; font-size: 14px; line-height: 1.6;">
+            Se incluye en este correo un archivo PDF con la lista completa de <strong>${stats.notAuditedProducts} productos</strong> 
+            pendientes de auditar, <strong>organizados por categoría</strong> para facilitar su revisión. 
+            Consulte el adjunto "audit-report-${stats.monthYear.replace(/\s+/g, "-")}.pdf" para más detalles.
+          </p>
+        </div>
+
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 6px; border-left: 4px solid #667eea;">
+          <p style="margin: 0 0 10px; font-weight: 600; color: #333; font-size: 13px;">Información Rápida:</p>
+          <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #555; line-height: 1.6;">
+            <li><strong>Total de productos sin auditar:</strong> ${stats.notAuditedProducts}</li>
+            <li><strong>Sesiones finalizadas este mes:</strong> ${stats.finalizedSessionsCount}</li>
+            <li><strong>Categorías identificadas:</strong> ${stats.categoriesBreakdown.length}</li>
+            <li><strong>Archivo adjunto:</strong> PDF con desglose por categoría</li>
+          </ul>
         </div>
       </div>
 
@@ -840,7 +822,8 @@ export function buildAuditReportHtml(params: AuditReportParams): string {
       <div class="section">
         <h2 class="section-title">✅ Próximos Pasos</h2>
         <ol style="color: #555; font-size: 13px; line-height: 1.8;">
-          <li>Revise los productos listados en la tabla anterior</li>
+          <li>Descargue y revise el archivo PDF adjunto</li>
+          <li>Use el desglose por categoría para organizar las auditorías</li>
           <li>Programe sesiones de auditoría para los productos pendientes</li>
           <li>Asegúrese de que todos los productos sean contados antes de fin de mes</li>
           <li>Finalice las sesiones de auditoría en el sistema</li>
