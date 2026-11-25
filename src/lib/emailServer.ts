@@ -1,10 +1,10 @@
-'use server';
+"use server";
 
 import nodemailer from "nodemailer";
 import { buildAuditReportHtml, AuditReportParams } from "./emailTemplates";
 
 export async function sendAuditReportEmail(
-  params: AuditReportParams
+  params: AuditReportParams,
 ): Promise<boolean> {
   try {
     // Create transporter using Gmail credentials from env
@@ -31,7 +31,10 @@ export async function sendAuditReportEmail(
     };
 
     const result = await transporter.sendMail(mailOptions);
-    console.log(`[EMAIL] Audit report sent to ${params.recipientEmail}:`, result.messageId);
+    console.log(
+      `[EMAIL] Audit report sent to ${params.recipientEmail}:`,
+      result.messageId,
+    );
     return true;
   } catch (error) {
     console.error("[EMAIL] Error sending audit report:", error);

@@ -651,11 +651,7 @@ export interface AuditReportParams {
 }
 
 export function buildAuditReportHtml(params: AuditReportParams): string {
-  const {
-    storeName,
-    stats,
-    notAuditedProducts,
-  } = params;
+  const { storeName, stats, notAuditedProducts } = params;
 
   // Format dates
   const monthYear = new Date(stats.monthYear).toLocaleString("es-MX", {
@@ -678,7 +674,7 @@ export function buildAuditReportHtml(params: AuditReportParams): string {
           : "Nunca"
       }</td>
     </tr>
-  `
+  `,
     )
     .join("");
 
@@ -690,13 +686,18 @@ export function buildAuditReportHtml(params: AuditReportParams): string {
       <td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;">${c.category}</td>
       <td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;text-align:center;font-weight:500;color:#d9534f;">${c.notAuditedCount}</td>
     </tr>
-  `
+  `,
     )
     .join("");
 
   // Calculate progress bar width
   const progressPercentage = stats.auditPercentage;
-  const progressColor = progressPercentage >= 80 ? "#5cb85c" : progressPercentage >= 50 ? "#f0ad4e" : "#d9534f";
+  const progressColor =
+    progressPercentage >= 80
+      ? "#5cb85c"
+      : progressPercentage >= 50
+        ? "#f0ad4e"
+        : "#d9534f";
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -852,13 +853,16 @@ export function buildAuditReportHtml(params: AuditReportParams): string {
     <div class="footer">
       <p style="margin: 0;">
         <strong>SuperCollectibles - Sistema de Auditoría de Inventario</strong><br>
-        Reporte generado automáticamente el ${new Date().toLocaleDateString("es-MX", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        })}<br>
+        Reporte generado automáticamente el ${new Date().toLocaleDateString(
+          "es-MX",
+          {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          },
+        )}<br>
         Este es un mensaje automático. Por favor no responda a este correo.
       </p>
     </div>
@@ -866,5 +870,3 @@ export function buildAuditReportHtml(params: AuditReportParams): string {
 </body>
 </html>`;
 }
-
-
