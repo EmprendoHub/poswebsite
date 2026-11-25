@@ -24,10 +24,7 @@ export async function GET(req: Request) {
 
   // Verify CRON_SECRET
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
@@ -37,10 +34,7 @@ export async function GET(req: Request) {
     const store = (await Store.findOne({ slug: "centro-magno" }).lean()) as any;
     if (!store) {
       console.error("[AUDIT] Store 'centro-magno' not found");
-      return NextResponse.json(
-        { error: "Store not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Store not found" }, { status: 404 });
     }
 
     // 2. Get current date and month boundaries (Mexico City timezone)
@@ -52,7 +46,9 @@ export async function GET(req: Request) {
     const monthStart = new Date(Date.UTC(year, month, 1, 0, 0, 0));
     const monthEnd = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59));
 
-    console.log(`[AUDIT] Report period: ${monthStart.toDateString()} to ${monthEnd.toDateString()}`);
+    console.log(
+      `[AUDIT] Report period: ${monthStart.toDateString()} to ${monthEnd.toDateString()}`,
+    );
 
     // 3. Get all finalized inventory check sessions for this store in current month
     const finalizedSessions = (await InventoryCheckSession.find({
@@ -74,7 +70,9 @@ export async function GET(req: Request) {
     });
 
     console.log(`[AUDIT] Found ${finalizedSessions.length} finalized sessions`);
-    console.log(`[AUDIT] Total audited variation IDs: ${auditedVariationIds.size}`);
+    console.log(
+      `[AUDIT] Total audited variation IDs: ${auditedVariationIds.size}`,
+    );
 
     // 4. Get all products in inventory for this store
     const storeInventories = (await StoreInventory.find({
@@ -118,7 +116,9 @@ export async function GET(req: Request) {
       }
     }
 
-    console.log(`[AUDIT] Found ${notAuditedProducts.length} products not audited`);
+    console.log(
+      `[AUDIT] Found ${notAuditedProducts.length} products not audited`,
+    );
 
     // 6. Try to find last audit date for each product
     const allPastSessions = (await InventoryCheckSession.find({
@@ -133,7 +133,7 @@ export async function GET(req: Request) {
       for (const session of allPastSessions) {
         if (session.scannedItems && Array.isArray(session.scannedItems)) {
           const found = session.scannedItems.find(
-            (item: any) => item.variationId === product.variationId
+            (item: any) => item.variationId === product.variationId,
           );
           if (found) {
             product.lastAudited = session.finalizedAt;
@@ -156,13 +156,15 @@ export async function GET(req: Request) {
       auditedProducts: auditedVariationIds.size,
       notAuditedProducts: notAuditedProducts.length,
       auditPercentage: Math.round(
-        ((auditedVariationIds.size / storeInventories.length) * 100) || 0
+        (auditedVariationIds.size / storeInventories.length) * 100 || 0,
       ),
       finalizedSessionsCount: finalizedSessions.length,
-      categoriesBreakdown: Array.from(categoryMap.entries()).map(([cat, count]) => ({
-        category: cat,
-        notAuditedCount: count,
-      })),
+      categoriesBreakdown: Array.from(categoryMap.entries()).map(
+        ([cat, count]) => ({
+          category: cat,
+          notAuditedCount: count,
+        }),
+      ),
     };
 
     console.log(`[AUDIT] Statistics:`, stats);
@@ -175,7 +177,8 @@ export async function GET(req: Request) {
       notAuditedProducts,
       monthStart,
       monthEnd,
-      recipientEmail: process.env.INVENTORY_AUDIT_EMAIL || "mxsupercollectibles@gmail.com",
+      recipientEmail:
+        process.env.INVENTORY_AUDIT_EMAIL || "mxsupercollectibles@gmail.com",
     });
 
     console.log(`[AUDIT] Email sent successfully`);
@@ -194,7 +197,7 @@ export async function GET(req: Request) {
         error: "Failed to generate audit report",
         message: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
