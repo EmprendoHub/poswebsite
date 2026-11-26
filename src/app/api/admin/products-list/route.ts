@@ -6,7 +6,7 @@ import dbConnect from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
-import { APIFilters } from "@/lib/APIFilters";
+import APIFilters from "@/lib/APIFilters";
 
 const ALLOWED_ROLES = [
   "manager",
@@ -102,7 +102,7 @@ export async function GET(req: Request) {
       .searchAllFields()
       .filter();
 
-    let productsData = await apiProductFilters.query.exec();
+    let productsData = await apiProductFilters.getQuery().exec();
     let filteredProductsCount = productsData.length;
 
     // Get stock data for all products

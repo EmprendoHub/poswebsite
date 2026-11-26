@@ -192,6 +192,10 @@ class APIFilters {
     this.query = this.query.limit(resPerPage).skip(skip);
     return this;
   }
+
+  getQuery(): Query<any, any> {
+    return this.query;
+  }
 }
 
 export default APIFilters;
