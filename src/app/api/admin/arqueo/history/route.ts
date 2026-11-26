@@ -6,7 +6,7 @@ import { options } from "@/app/api/auth/[...nextauth]/options";
 import dbConnect from "@/lib/db";
 import Arqueo from "@/backend/models/Arqueo";
 
-const ALLOWED_ROLES = ["admin", "owner", "manager"];
+const ALLOWED_ROLES = ["admin", "owner", "manager", "director", "super_admin"];
 
 export async function GET(req: Request) {
   const session = await getServerSession(options);

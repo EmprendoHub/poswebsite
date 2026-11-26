@@ -37,6 +37,24 @@ export async function GET(req: Request) {
       .populate("store", "name slug type")
       .sort({ lastUpdated: -1 });
 
+    // Debug logging
+    if (productId) {
+      console.log(
+        `[GET /api/store-inventory] productId=${productId}, found ${inventory.length} records`,
+      );
+      if (inventory.length > 0) {
+        inventory.slice(0, 2).forEach((inv: any) => {
+          console.log(
+            `  - Store: ${inv.store?.name}, Quantity: ${inv.quantity}, VariationId: ${inv.variationId}`,
+          );
+        });
+      } else {
+        console.log(
+          `  WARNING: No inventory records found for product ${productId}`,
+        );
+      }
+    }
+
     return NextResponse.json(inventory, { status: 200 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

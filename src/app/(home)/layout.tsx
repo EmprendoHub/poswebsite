@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import "../globals.css";
 import HeaderComponent from "@/components/headers/HeaderComponent";
 import { ThemeProvider } from "next-themes";
@@ -28,15 +29,28 @@ export default function RootLayout({
       <head>
         {/* Google Analytics 4 */}
         <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID || ""} />
+        <Script id="theme-script" strategy="beforeInteractive">
+          {`
+            (function() {
+              const theme = localStorage.getItem('theme') || 'dark';
+              const isDark = theme === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+              if (isDark) {
+                document.documentElement.classList.add('dark');
+              } else {
+                document.documentElement.classList.remove('dark');
+              }
+            })();
+          `}
+        </Script>
       </head>
       <body className="max-w-full body-class overscroll-x-none overflow-x-hidden">
-        <CustomSessionProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem
-            disableTransitionOnChange
-          >
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <CustomSessionProvider>
             <ConditionalHeaderWrapper>
               <HeaderComponent />
             </ConditionalHeaderWrapper>
@@ -44,8 +58,8 @@ export default function RootLayout({
             <FooterComponent />
             <CookieConsentComponent />
             <Toaster />
-          </ThemeProvider>
-        </CustomSessionProvider>
+          </CustomSessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

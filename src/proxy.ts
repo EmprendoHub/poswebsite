@@ -9,7 +9,7 @@ const protectedPaths = [
   "/carrito/envio",
 ];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const token: any = await getToken({ req: request });
   const pathname = request.nextUrl.pathname;
   let signInUrl;

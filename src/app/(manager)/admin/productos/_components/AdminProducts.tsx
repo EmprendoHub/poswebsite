@@ -472,29 +472,26 @@ const AdminProducts = ({
     setStockPreviewLoading(true);
     setStockPreviewRows([]);
     try {
-      // Use pre-fetched storeInventory from product if available
+      // Always fetch fresh inventory data from API to ensure latest stock levels
+      // Don't rely on pre-fetched storeInventory which may be stale
+      const res = await fetch(
+        `/api/store-inventory?productId=${product._id || product.productId}`,
+      );
+      const data = await res.json();
+
+      // Handle array response (individual), object with productId key (batch), or data property
       let inventoryData: any[] = [];
-
-      if (product.storeInventory && Array.isArray(product.storeInventory)) {
-        inventoryData = product.storeInventory;
-      } else {
-        // Fallback to API call if storeInventory is not pre-fetched
-        const res = await fetch(
-          `/api/store-inventory?productId=${product._id}`,
-        );
-        const data = await res.json();
-
-        // Handle array response (individual), object with productId key (batch), or data property
-        if (Array.isArray(data)) {
-          inventoryData = data;
-        } else if (typeof data === "object" && data[product._id]) {
-          inventoryData = data[product._id];
-        } else if (Array.isArray(data?.data)) {
-          inventoryData = data.data;
-        }
+      if (Array.isArray(data)) {
+        inventoryData = data;
+      } else if (typeof data === "object" && data[product._id]) {
+        inventoryData = data[product._id];
+      } else if (Array.isArray(data?.data)) {
+        inventoryData = data.data;
       }
 
-      if (!Array.isArray(inventoryData) || inventoryData.length === 0) return;
+      if (!Array.isArray(inventoryData)) {
+        inventoryData = [];
+      }
 
       const grouped = inventoryData.reduce((acc: any, rec: any) => {
         const storeName = rec.store?.name ?? "—";
@@ -511,10 +508,14 @@ const AdminProducts = ({
           acc[storeName] = { total: 0, details: [] as any[] };
         }
         acc[storeName].total += Number(rec.quantity ?? 0);
-        acc[storeName].details.push({
-          label,
-          quantity: Number(rec.quantity ?? 0),
-        });
+
+        // Only add detail if there's actual quantity > 0 or variationId exists
+        if (Number(rec.quantity ?? 0) > 0 || rec.variationId) {
+          acc[storeName].details.push({
+            label,
+            quantity: Number(rec.quantity ?? 0),
+          });
+        }
         return acc;
       }, {});
 
@@ -537,7 +538,8 @@ const AdminProducts = ({
         ...prev,
         [product._id]: totalStockForProduct,
       }));
-    } catch {
+    } catch (error) {
+      console.error("Error loading stock preview:", error);
       setStockPreviewRows([]);
     } finally {
       setStockPreviewLoading(false);

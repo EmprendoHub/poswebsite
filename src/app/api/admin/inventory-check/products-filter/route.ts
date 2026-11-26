@@ -41,10 +41,7 @@ export async function GET(req: Request) {
   const brand = url.searchParams.get("brand")?.trim();
 
   if (!storeId) {
-    return NextResponse.json(
-      { error: "Se requiere storeId" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Se requiere storeId" }, { status: 400 });
   }
 
   // Build filter
@@ -94,28 +91,32 @@ export async function GET(req: Request) {
     // Get products with their variations (no limit - return all)
     const products = await Product.find(filter)
       .select(
-        "_id title images price cost variations mainCategory subCategory attributes ASIN"
+        "_id title images price cost variations mainCategory subCategory attributes ASIN",
       )
       .lean();
 
-    // Get store inventory for all variations
-    const inventoryMap = await getStoreInventoryMap(
-      storeId,
-      products
-    );
+    // Get store inventory for all variations and filter by quantity > 0
+    const inventoryMap = await getStoreInventoryMap(storeId, products);
 
-    // Format response with inventory data
+    // Format response with inventory data - ONLY include products with inventory > 0
     const productsWithInventory = products.flatMap((product: any) => {
-      return (product.variations || []).map((variation: any) => ({
-        productId: variation.productId || `${product._id}_${variation._id}`,
-        productTitle: product.title,
-        variationId: variation._id?.toString() || "",
-        variationTitle: variation.title,
-        sku: variation.productId,
-        image: product.images?.[0]?.url || "",
-        price: product.price ? Number(product.price) : 0,
-        systemCount: inventoryMap.get(variation._id?.toString() || "") || 0,
-      }));
+      return (product.variations || [])
+        .filter((variation: any) => {
+          // Only include variations that have inventory > 0 in this store
+          const quantity =
+            inventoryMap.get(variation._id?.toString() || "") || 0;
+          return quantity > 0;
+        })
+        .map((variation: any) => ({
+          productId: product._id?.toString() || "",
+          productTitle: product.title,
+          variationId: variation._id?.toString() || "",
+          variationTitle: variation.title,
+          sku: variation.productId,
+          image: product.images?.[0]?.url || "",
+          price: product.price ? Number(product.price) : 0,
+          systemCount: inventoryMap.get(variation._id?.toString() || "") || 0,
+        }));
     });
 
     return NextResponse.json({
@@ -126,14 +127,14 @@ export async function GET(req: Request) {
     console.error("Error filtering products:", error);
     return NextResponse.json(
       { error: "Error al filtrar productos" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 async function getStoreInventoryMap(
   storeId: string,
-  products: any[]
+  products: any[],
 ): Promise<Map<string, number>> {
   const inventoryMap = new Map<string, number>();
 

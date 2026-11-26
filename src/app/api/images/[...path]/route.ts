@@ -58,7 +58,7 @@ export async function GET(
     }
 
     // Read the file
-    const fileBuffer = fs.readFileSync(filePath);
+    const fileBuffer = fs.readFileSync(/*turbopackIgnore: true*/ filePath);
 
     if (!fileBuffer || fileBuffer.length === 0) {
       console.log(`❌ File is empty or couldn't be read: ${filePath}`);

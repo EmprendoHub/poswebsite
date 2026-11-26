@@ -8,7 +8,7 @@ import CashRegisterCut from "@/backend/models/CashRegisterCut";
 import Order from "@/backend/models/Order";
 import Store from "@/backend/models/Store";
 
-const ALLOWED_ROLES = ["admin", "owner", "manager"];
+const ALLOWED_ROLES = ["admin", "owner", "manager", "director", "super_admin"];
 
 export async function GET(req: Request) {
   const session = await getServerSession(options);
@@ -45,9 +45,15 @@ export async function GET(req: Request) {
 
     // Calculate in-store payment totals
     const inStoreTotals = {
-      efectivo: cashCuts.reduce((sum, cut) => sum + (cut.totals.cashSales || 0), 0),
+      efectivo: cashCuts.reduce(
+        (sum, cut) => sum + (cut.totals.cashSales || 0),
+        0,
+      ),
       transferencia: 0, // Placeholder - would need to be tracked in CashRegisterCut if available
-      tarjeta: cashCuts.reduce((sum, cut) => sum + (cut.totals.cardSales || 0), 0),
+      tarjeta: cashCuts.reduce(
+        (sum, cut) => sum + (cut.totals.cardSales || 0),
+        0,
+      ),
     };
 
     // Fetch online orders for the date range

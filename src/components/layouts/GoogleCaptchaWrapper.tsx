@@ -3,10 +3,18 @@ import { GoogleReCaptchaProvider } from "react-google-recaptcha-v3";
 import React from "react";
 
 export default function GoogleCaptchaWrapper({ children }: { children: any }) {
-  const recaptchaKey = process?.env?.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+  // Access the environment variable directly as a string in client components
+  const recaptchaKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+
+  if (!recaptchaKey) {
+    console.error(
+      "reCAPTCHA site key is not configured. Please set NEXT_PUBLIC_RECAPTCHA_SITE_KEY in your environment variables.",
+    );
+  }
+
   return (
     <GoogleReCaptchaProvider
-      reCaptchaKey={recaptchaKey ?? "NOT DEFINED"}
+      reCaptchaKey={recaptchaKey || ""}
       scriptProps={{
         async: false,
         defer: false,

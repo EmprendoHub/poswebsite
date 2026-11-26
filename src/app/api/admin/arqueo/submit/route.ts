@@ -6,7 +6,7 @@ import { options } from "@/app/api/auth/[...nextauth]/options";
 import dbConnect from "@/lib/db";
 import Arqueo from "@/backend/models/Arqueo";
 
-const ALLOWED_ROLES = ["admin", "owner", "manager"];
+const ALLOWED_ROLES = ["admin", "owner", "manager", "director", "super_admin"];
 
 export async function POST(req: Request) {
   const session = await getServerSession(options);
@@ -99,9 +99,6 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("Error saving arqueo:", error);
-    return NextResponse.json(
-      { error: "Error saving arqueo" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Error saving arqueo" }, { status: 500 });
   }
 }

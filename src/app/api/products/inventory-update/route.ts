@@ -342,7 +342,7 @@ export async function POST(req: Request) {
           updatedCount++;
 
           // Revalidate this product's detail page
-          if (prod?.slug) revalidatePath(`/producto/${prod.slug}`);
+          if (prod?.slug) revalidatePath(`/producto/${prod.slug}`, "page");
         } catch (e) {
           console.error(`Error updating product ${r.matchedId}:`, e);
         }
@@ -439,7 +439,7 @@ export async function POST(req: Request) {
           createdCount++;
 
           // Revalidate this product's detail page
-          revalidatePath(`/producto/${slug}`);
+          revalidatePath(`/producto/${slug}`, "page");
         } catch (e: any) {
           console.error(
             `Error creating product for row ${r.rowIndex}:`,
@@ -451,8 +451,8 @@ export async function POST(req: Request) {
     }
 
     // Flush Next.js page cache so newly created / updated products are visible
-    revalidateTag("tienda-products");
-    revalidatePath("/admin/productos");
+    revalidateTag("tienda-products", "max");
+    revalidatePath("/admin/productos", "page");
     revalidatePath("/producto/[slug]", "page");
 
     return NextResponse.json(

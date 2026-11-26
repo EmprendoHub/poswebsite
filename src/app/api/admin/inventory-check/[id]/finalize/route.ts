@@ -79,24 +79,50 @@ export async function POST(
 
   // Get current date in Mexico timezone
   const mexicoDate = new Date(
-    new Date().toLocaleString("en-US", { timeZone: "America/Mexico_City" })
+    new Date().toLocaleString("en-US", { timeZone: "America/Mexico_City" }),
   );
 
   // Update StoreInventory to match physical counts for all scanned items
-  await Promise.all(
-    doc.scannedItems.map((item: any) =>
-      StoreInventory.findOneAndUpdate(
+  // If quantity is 0, delete the record. Otherwise, update or create it.
+  const updatePromises = doc.scannedItems.map((item: any) => {
+    if (item.physicalCount === 0) {
+      // Delete the record if quantity is 0 (no inventory for this product in this store)
+      return StoreInventory.deleteOne({
+        store: doc.store,
+        variationId: item.variationId,
+      });
+    } else {
+      // Update or create the record if quantity > 0
+      return StoreInventory.updateOne(
         { store: doc.store, variationId: item.variationId },
         {
           $set: {
             quantity: item.physicalCount,
             lastUpdated: mexicoDate,
+            product: item.productId, // Always update product ID to ensure it's current
+          },
+          $setOnInsert: {
+            store: doc.store,
+            variationId: item.variationId,
+            createdAt: mexicoDate,
           },
         },
-        { new: true },
-      ),
-    ),
+        { upsert: true },
+      );
+    }
+  });
+
+  await Promise.all(updatePromises);
+
+  // Log inventory updates for debugging
+  console.log(
+    `[Finalize ${id}] Updated ${doc.scannedItems.length} inventory records for store ${doc.store}`,
   );
+  for (const item of doc.scannedItems.slice(0, 3)) {
+    console.log(
+      `  - Variation ${item.variationId}: ${item.physicalCount} units`,
+    );
+  }
 
   doc.status = "finalized";
   doc.finalizedAt = mexicoDate;
@@ -105,5 +131,6 @@ export async function POST(
   doc.totalDiscrepancies = totalDiscrepancies;
 
   await doc.save();
+
   return NextResponse.json({ session: doc });
 }

@@ -28,18 +28,18 @@ const SideBarRender = () => {
   const userRole = (session?.user as any)?.role;
 
   // If user is organizer, only show evento menu
-  if (userRole === "organizer") {
-    return (
-      <AdminSidebar>
-        <SideBarItem
-          icon={<MdEvent size={20} />}
-          text={"Eventos"}
-          active={pathname === "/admin/evento" ? "true" : "false"}
-          url={"/admin/evento"}
-        />
-      </AdminSidebar>
-    );
-  }
+  // if (userRole === "organizer") {
+  //   return (
+  //     <AdminSidebar>
+  //       <SideBarItem
+  //         icon={<MdEvent size={20} />}
+  //         text={"Eventos"}
+  //         active={pathname === "/admin/evento" ? "true" : "false"}
+  //         url={"/admin/evento"}
+  //       />
+  //     </AdminSidebar>
+  //   );
+  // }
 
   // If user is organizador, only show torneos menu
   if (userRole === "organizador") {
@@ -144,14 +144,14 @@ const SideBarRender = () => {
         active={pathname === "/admin/clientes" ? "true" : "false"}
         url={"/admin/clientes"}
       />
-      {userRole === "super_admin" && (
+      {/* {userRole === "super_admin" && (
         <SideBarItem
           icon={<MdEvent size={20} />}
           text={"Eventos"}
           active={pathname === "/admin/evento" ? "true" : "false"}
           url={"/admin/evento"}
         />
-      )}
+      )} */}
       <SideBarItem
         icon={<TbReport size={20} />}
         text={"Reportes"}

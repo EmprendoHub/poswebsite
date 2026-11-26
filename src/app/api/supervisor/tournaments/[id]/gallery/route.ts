@@ -6,6 +6,8 @@ import dbConnect from "@/lib/db";
 import TournamentGallery from "@/backend/models/TournamentGallery";
 import Tournament from "@/backend/models/Tournament";
 import User from "@/backend/models/User";
+import { mc } from "@/lib/minio";
+import sharp from "sharp";
 
 /**
  * POST /api/supervisor/tournaments/:id/upload-gallery
@@ -32,16 +34,6 @@ export async function POST(
       );
     }
 
-    const body = await req.json();
-    const { imageUrl, caption, featured } = body;
-
-    if (!imageUrl) {
-      return NextResponse.json(
-        { error: "URL de imagen requerida" },
-        { status: 400 },
-      );
-    }
-
     const { id: tournamentId } = await context.params;
 
     // Verify tournament exists
@@ -53,11 +45,55 @@ export async function POST(
       );
     }
 
+    // Parse FormData instead of JSON
+    const formData = await req.formData();
+    const file = formData.get("file") as File;
+    const caption = (formData.get("caption") as string) || "";
+    const featured = (formData.get("featured") as string) === "true" || false;
+
+    if (!file) {
+      return NextResponse.json(
+        { error: "Archivo de imagen requerido" },
+        { status: 400 },
+      );
+    }
+
+    // Convert file to buffer
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    // Optimize image with sharp
+    const optimizedBuffer = await sharp(buffer)
+      .resize(1200, 800, {
+        fit: "cover",
+        position: "center",
+      })
+      .webp({ quality: 80 })
+      .toBuffer();
+
+    // Generate unique filename
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(2, 8);
+    const filename = `tournaments/${tournamentId}/gallery-${timestamp}-${randomStr}.webp`;
+
+    // Upload to MinIO
+    await mc.putObject(
+      "emprendomex",
+      filename,
+      optimizedBuffer,
+      optimizedBuffer.length,
+      {
+        "Content-Type": "image/webp",
+      },
+    );
+
+    // Generate public URL
+    const imageUrl = `https://minio.salvawebpro.com:9000/emprendomex/${filename}`;
+
     // Create gallery image entry
     const galleryImage = new TournamentGallery({
       tournamentId,
       imageUrl,
-      caption: caption || "",
+      caption,
       uploadedBy: session.user._id,
       uploadedAt: new Date(),
       featured: featured || false,
@@ -133,10 +169,16 @@ export async function GET(
       .sort({ featured: -1, uploadedAt: -1 })
       .lean();
 
+    // Transform imageUrl to url for client compatibility
+    const transformedGallery = gallery.map((img: any) => ({
+      ...img,
+      url: img.imageUrl,
+    }));
+
     return NextResponse.json({
       success: true,
-      data: gallery,
-      count: gallery.length,
+      images: transformedGallery,
+      count: transformedGallery.length,
     });
   } catch (error) {
     console.error("Error fetching gallery:", error);
@@ -172,8 +214,9 @@ export async function DELETE(
       );
     }
 
-    const body = await req.json();
-    const { imageId } = body;
+    // Extract imageId from query parameters
+    const url = new URL(req.url);
+    const imageId = url.searchParams.get("imageId");
 
     if (!imageId) {
       return NextResponse.json(
@@ -182,13 +225,25 @@ export async function DELETE(
       );
     }
 
-    const deleted = await TournamentGallery.findByIdAndDelete(imageId);
+    // Find and delete the gallery image
+    const deletedImage = await TournamentGallery.findByIdAndDelete(imageId);
 
-    if (!deleted) {
+    if (!deletedImage) {
       return NextResponse.json(
         { error: "Imagen no encontrada" },
         { status: 404 },
       );
+    }
+
+    // Delete from MinIO if it was stored there
+    if (deletedImage.imageUrl?.includes("minio")) {
+      try {
+        const urlObj = new URL(deletedImage.imageUrl);
+        const objectName = urlObj.pathname.substring(1); // Remove leading slash
+        await mc.removeObject("emprendomex", objectName);
+      } catch (minioError) {
+        console.warn("Warning: Could not delete file from MinIO:", minioError);
+      }
     }
 
     return NextResponse.json({

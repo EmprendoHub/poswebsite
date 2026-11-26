@@ -6,7 +6,8 @@ export async function generateMetadata(
   parent: any,
 ) {
   // fetch data
-  const data = await getOneProduct(params.slug, false);
+  const { slug } = await params;
+  const data = await getOneProduct(slug, false);
   const product = JSON.parse(data.product);
 
   // optionally access and extend (rather than replace) parent metadata
@@ -21,7 +22,8 @@ export async function generateMetadata(
 }
 
 const AdminViewProduct = async ({ params }: { params: any }) => {
-  const data: any = await getOneProductAdmin(params.slug);
+  const { slug } = await params;
+  const data: any = await getOneProductAdmin(slug);
   const product = JSON.parse(data.product);
   return (
     <>

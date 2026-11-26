@@ -87,10 +87,21 @@ interface LookupResult {
   price: number;
 }
 
-type View = "store-select" | "filter-select" | "scanning" | "report" | "past-reports" | "discrepancies";
+type View =
+  | "store-select"
+  | "filter-select"
+  | "scanning"
+  | "report"
+  | "past-reports"
+  | "discrepancies"
+  | "pending-inventory";
 
 // ─── Main Component ────────────────────────────────────────────────────────────
-export default function InventarioContent({ storeSlug }: { storeSlug?: string }) {
+export default function InventarioContent({
+  storeSlug,
+}: {
+  storeSlug?: string;
+}) {
   const initialView: View = storeSlug ? "filter-select" : "store-select";
   const [view, setView] = useState<View>(initialView);
   const [stores, setStores] = useState<Store[]>([]);
@@ -105,7 +116,9 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
   const [categories, setCategories] = useState<any[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
   const [allAttributes, setAllAttributes] = useState<any[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<SelectedProduct[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<SelectedProduct[]>(
+    [],
+  );
   const [selectedFilters, setSelectedFilters] = useState({
     mainCategory: "",
     subCategory: "",
@@ -121,14 +134,17 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
   // Scanning state
   const [scanQuery, setScanQuery] = useState("");
   const [lookupResults, setLookupResults] = useState<LookupResult[]>([]);
-  const [selectedLookupProduct, setSelectedLookupProduct] = useState<LookupResult | null>(null);
+  const [selectedLookupProduct, setSelectedLookupProduct] =
+    useState<LookupResult | null>(null);
   const [lookupError, setLookupError] = useState("");
   const [lookupLoading, setLookupLoading] = useState(false);
   const [pendingCount, setPendingCount] = useState<number | "">(1);
 
   // Notes modal
   const [notesModalOpen, setNotesModalOpen] = useState(false);
-  const [notesEditingVariationId, setNotesEditingVariationId] = useState<string | null>(null);
+  const [notesEditingVariationId, setNotesEditingVariationId] = useState<
+    string | null
+  >(null);
   const [noteText, setNoteText] = useState("");
 
   // Image modal
@@ -137,7 +153,9 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
 
   // Get the current edited item from activeSession
   const notesEditingItem = notesEditingVariationId
-    ? activeSession?.scannedItems.find((i) => i.variationId === notesEditingVariationId) || null
+    ? activeSession?.scannedItems.find(
+        (i) => i.variationId === notesEditingVariationId,
+      ) || null
     : null;
 
   // Finalize confirmation modal
@@ -148,6 +166,21 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
   const [storeForCleanup, setStoreForCleanup] = useState<Store | null>(null);
   const [emptySessionsCount, setEmptySessionsCount] = useState(0);
   const [cleanupInProgress, setCleanupInProgress] = useState(false);
+
+  // Pending inventory state
+  const [pendingProducts, setPendingProducts] = useState<any[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [pendingFilters, setPendingFilters] = useState({
+    mainCategory: "",
+    subCategory: "",
+    brand: "",
+    attributes: [] as string[],
+  });
+  const [pendingSearchQuery, setPendingSearchQuery] = useState("");
+  const [showPendingFilterModal, setShowPendingFilterModal] = useState(false);
+  const pendingFilterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   const scanInputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -211,13 +244,42 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
     setAllAttributes(data.attributes || []);
   };
 
+  const fetchPendingProducts = useCallback(
+    async (
+      mainCat?: string,
+      subCat?: string,
+      attrs?: string[],
+      search?: string,
+      brand?: string,
+    ) => {
+      if (!selectedStore) return;
+      setPendingLoading(true);
+      const params = new URLSearchParams({
+        storeId: selectedStore._id,
+      });
+      if (mainCat) params.append("mainCategory", mainCat);
+      if (subCat) params.append("subCategory", subCat);
+      if (attrs?.length) params.append("attributes", attrs.join(","));
+      if (search) params.append("search", search);
+      if (brand) params.append("brand", brand);
+
+      const res = await fetch(
+        `/api/admin/inventory-check/pending-inventory?${params}`,
+      );
+      const data = await res.json();
+      setPendingProducts(data.products || []);
+      setPendingLoading(false);
+    },
+    [selectedStore],
+  );
+
   const fetchFilteredProducts = useCallback(
     async (
       mainCat?: string,
       subCat?: string,
       attrs?: string[],
       search?: string,
-      brand?: string
+      brand?: string,
     ) => {
       setFilterLoading(true);
       const params = new URLSearchParams({
@@ -230,20 +292,20 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
       if (brand) params.append("brand", brand);
 
       const res = await fetch(
-        `/api/admin/inventory-check/products-filter?${params}`
+        `/api/admin/inventory-check/products-filter?${params}`,
       );
       const data = await res.json();
       setFilteredProducts(data.products || []);
       setFilterLoading(false);
     },
-    [selectedStore]
+    [selectedStore],
   );
 
   // Start new session with filters
   const handleStartWithFilters = async (store: Store) => {
     // First, check for empty sessions to clean up
     const emptySessionsForStore = pastSessions.filter(
-      (s) => s.storeName === store.name && s.scannedItems.length === 0
+      (s) => s.storeName === store.name && s.scannedItems.length === 0,
     );
 
     if (emptySessionsForStore.length > 0) {
@@ -282,7 +344,8 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
 
     // Delete all empty sessions for this store
     const emptySessionsForStore = pastSessions.filter(
-      (s) => s.storeName === storeForCleanup.name && s.scannedItems.length === 0
+      (s) =>
+        s.storeName === storeForCleanup.name && s.scannedItems.length === 0,
     );
 
     for (const session of emptySessionsForStore) {
@@ -353,6 +416,61 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
     setView("report");
   };
 
+  // View pending inventory
+  const handleViewPendingInventory = async (store: Store) => {
+    setSelectedStore(store);
+    setPendingProducts([]);
+    setPendingSearchQuery("");
+    setPendingFilters({
+      mainCategory: "",
+      subCategory: "",
+      brand: "",
+      attributes: [],
+    });
+    if (!categories.length) await fetchCategories();
+    setView("pending-inventory");
+    // Call fetchPendingProducts immediately with the new store
+    setTimeout(() => {
+      fetchPendingProducts("", "", [], "", "");
+    }, 0);
+  };
+
+  // Export pending inventory to PDF
+  const handleExportPendingPDF = () => {
+    if (pendingProducts.length === 0) return;
+
+    // Create CSV data
+    const rows: any[] = [
+      ["Producto", "Categoría", "Variaciones Pendientes", "Stock Disponible"],
+    ];
+
+    for (const product of pendingProducts) {
+      const cat = product.mainCategory?.name || "Sin categoría";
+      rows.push([
+        `"${product.title}"`,
+        `"${cat}"`,
+        product.pendingVariations || 0,
+        product.stock || 0,
+      ]);
+    }
+
+    const csv = rows.map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `por-inventariar-${selectedStore?.name}-${new Date()
+        .toISOString()
+        .slice(0, 10)}.csv`,
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Lookup by scan/SKU
   const handleLookup = useCallback(
     async (query: string) => {
@@ -363,8 +481,8 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
       setSelectedLookupProduct(null);
       const res = await fetch(
         `/api/admin/inventory-check/lookup?storeId=${selectedStore._id}&query=${encodeURIComponent(
-          query.trim()
-        )}`
+          query.trim(),
+        )}`,
       );
       const data = await res.json();
       setLookupLoading(false);
@@ -372,16 +490,21 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
         setLookupError(data.error || "Producto no encontrado");
       } else {
         // Handle both single result and array of results
-        const results = Array.isArray(data) ? data : data.results ? data.results : [data];
-        
+        const results = Array.isArray(data)
+          ? data
+          : data.results
+            ? data.results
+            : [data];
+
         // Check for exact match (ASIN or title exact match)
         const queryLower = query.trim().toLowerCase();
         const exactMatch = results.find(
           (product: LookupResult) =>
             (product.sku && product.sku.toLowerCase() === queryLower) ||
-            (product.productTitle && product.productTitle.toLowerCase() === queryLower)
+            (product.productTitle &&
+              product.productTitle.toLowerCase() === queryLower),
         );
-        
+
         if (exactMatch) {
           // If exact match found, show only that one
           setLookupResults([exactMatch]);
@@ -396,7 +519,7 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
         setPendingCount(1);
       }
     },
-    [selectedStore]
+    [selectedStore],
   );
 
   useEffect(() => {
@@ -418,7 +541,7 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
   // Debounce search query for product filter
   useEffect(() => {
     if (filterDebounceRef.current) clearTimeout(filterDebounceRef.current);
-    
+
     filterDebounceRef.current = setTimeout(() => {
       if (selectedStore) {
         // Always fetch products with current filters (category/subcategory/brand/attributes are optional)
@@ -427,7 +550,7 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
           selectedFilters.subCategory,
           selectedFilters.attributes,
           searchQuery,
-          selectedFilters.brand
+          selectedFilters.brand,
         );
       }
     }, 300);
@@ -436,6 +559,35 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
       if (filterDebounceRef.current) clearTimeout(filterDebounceRef.current);
     };
   }, [searchQuery, selectedFilters, selectedStore, fetchFilteredProducts]);
+
+  // Debounce search for pending inventory
+  useEffect(() => {
+    if (pendingFilterDebounceRef.current)
+      clearTimeout(pendingFilterDebounceRef.current);
+
+    pendingFilterDebounceRef.current = setTimeout(() => {
+      if (selectedStore && view === "pending-inventory") {
+        fetchPendingProducts(
+          pendingFilters.mainCategory,
+          pendingFilters.subCategory,
+          pendingFilters.attributes,
+          pendingSearchQuery,
+          pendingFilters.brand,
+        );
+      }
+    }, 300);
+
+    return () => {
+      if (pendingFilterDebounceRef.current)
+        clearTimeout(pendingFilterDebounceRef.current);
+    };
+  }, [
+    pendingSearchQuery,
+    pendingFilters,
+    selectedStore,
+    view,
+    fetchPendingProducts,
+  ]);
 
   const handleScanKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -517,7 +669,7 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
     if (!activeSession) return;
     const res = await fetch(
       `/api/admin/inventory-check/${activeSession._id}?variationId=${variationId}`,
-      { method: "DELETE" }
+      { method: "DELETE" },
     );
     const data = await res.json();
     if (res.ok) setActiveSession(data.session);
@@ -536,10 +688,13 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
     setConfirmFinalizeOpen(false);
 
     // Check if session has no scanned items - if so, delete it
-    if (!activeSession.scannedItems || activeSession.scannedItems.length === 0) {
+    if (
+      !activeSession.scannedItems ||
+      activeSession.scannedItems.length === 0
+    ) {
       const res = await fetch(
         `/api/admin/inventory-check/${activeSession._id}`,
-        { method: "DELETE" }
+        { method: "DELETE" },
       );
       setFinalizing(false);
       if (res.ok) {
@@ -554,7 +709,7 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
     // Otherwise, finalize normally
     const res = await fetch(
       `/api/admin/inventory-check/${activeSession._id}/finalize`,
-      { method: "POST" }
+      { method: "POST" },
     );
     const data = await res.json();
     setFinalizing(false);
@@ -573,9 +728,9 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
     try {
       const res = await fetch(
         `/api/admin/inventory-check/${activeSession._id}`,
-        { method: "DELETE" }
+        { method: "DELETE" },
       );
-      
+
       if (res.ok) {
         const data = await res.json();
         console.log("Session deleted:", data);
@@ -591,7 +746,10 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
       } else {
         const errorData = await res.json();
         console.error("Failed to delete session:", errorData);
-        alert("Error al cancelar el conteo: " + (errorData.error || "Error desconocido"));
+        alert(
+          "Error al cancelar el conteo: " +
+            (errorData.error || "Error desconocido"),
+        );
       }
     } catch (error) {
       console.error("Error canceling session:", error);
@@ -663,13 +821,13 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
             {stores.map((store) => {
               const storeSessions = pastSessions.filter(
                 (s) =>
-                  (s as any).store === store._id || s.storeName === store.name
+                  (s as any).store === store._id || s.storeName === store.name,
               );
               const inProgress = storeSessions.find(
-                (s) => s.status === "in_progress"
+                (s) => s.status === "in_progress",
               );
               const finalized = storeSessions.filter(
-                (s) => s.status === "finalized"
+                (s) => s.status === "finalized",
               );
 
               return (
@@ -718,6 +876,14 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                         <MdBarChart size={16} /> Reportes ({finalized.length})
                       </button>
                     )}
+
+                    <button
+                      onClick={() => handleViewPendingInventory(store)}
+                      disabled={saving}
+                      className="text-sm bg-orange-500 text-white px-4 py-2 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1"
+                    >
+                      <MdInventory size={16} /> Por inventariar
+                    </button>
                   </div>
                 </div>
               );
@@ -741,10 +907,15 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
             <div className="bg-card rounded-xl max-w-md w-full p-6 space-y-6 shadow-lg">
               <div className="flex items-center gap-3">
                 <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900/30">
-                  <MdDelete size={24} className="text-blue-600 dark:text-blue-400" />
+                  <MdDelete
+                    size={24}
+                    className="text-blue-600 dark:text-blue-400"
+                  />
                 </div>
                 <div>
-                  <h2 className="font-semibold text-lg">Limpiar reportes vacíos</h2>
+                  <h2 className="font-semibold text-lg">
+                    Limpiar reportes vacíos
+                  </h2>
                   <p className="text-sm text-muted-foreground mt-1">
                     Antes de comenzar
                   </p>
@@ -753,7 +924,10 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
 
               <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 rounded-lg p-4">
                 <p className="text-sm text-blue-900 dark:text-blue-200">
-                  Se encontraron <strong>{emptySessionsCount}</strong> {emptySessionsCount === 1 ? "reporte" : "reportes"} vacío{emptySessionsCount === 1 ? "" : "s"} (sin productos escaneados) para {storeForCleanup?.name}.
+                  Se encontraron <strong>{emptySessionsCount}</strong>{" "}
+                  {emptySessionsCount === 1 ? "reporte" : "reportes"} vacío
+                  {emptySessionsCount === 1 ? "" : "s"} (sin productos
+                  escaneados) para {storeForCleanup?.name}.
                 </p>
                 <p className="text-sm text-blue-900 dark:text-blue-200 mt-2">
                   Estos serán eliminados para mantener limpio el historial.
@@ -788,8 +962,11 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
 
   // Filter selection view
   if (view === "filter-select") {
-    const hasActiveFilters = selectedFilters.mainCategory || selectedFilters.subCategory || searchQuery;
-    
+    const hasActiveFilters =
+      selectedFilters.mainCategory ||
+      selectedFilters.subCategory ||
+      searchQuery;
+
     return (
       <div className="max-w-7xl mx-auto py-6 px-4">
         {/* Header */}
@@ -805,7 +982,9 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
               ← Atrás
             </button>
           )}
-          <h1 className="font-bold text-lg">{selectedStore?.name} - Filtrar productos</h1>
+          <h1 className="font-bold text-lg">
+            {selectedStore?.name} - Filtrar productos
+          </h1>
         </div>
 
         {/* Search and filters bar */}
@@ -876,7 +1055,8 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
           <div className="px-5 py-3 border-b border-muted bg-muted/30">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-sm">
-                Productos {filteredProducts.length > 0 && `(${filteredProducts.length})`}
+                Productos{" "}
+                {filteredProducts.length > 0 && `(${filteredProducts.length})`}
               </h2>
               {filteredProducts.length > 0 && (
                 <button
@@ -901,13 +1081,21 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                   }}
                   className="flex items-center gap-2 text-xs px-3 py-1.5 rounded hover:bg-muted/50 transition-colors"
                 >
-                  {(selectAllChecked || activeSession?.selectedProducts?.length === filteredProducts.length) && filteredProducts.length > 0 ? (
+                  {(selectAllChecked ||
+                    activeSession?.selectedProducts?.length ===
+                      filteredProducts.length) &&
+                  filteredProducts.length > 0 ? (
                     <MdCheckBox size={16} className="text-primary" />
                   ) : (
-                    <MdCheckBoxOutlineBlank size={16} className="text-muted-foreground" />
+                    <MdCheckBoxOutlineBlank
+                      size={16}
+                      className="text-muted-foreground"
+                    />
                   )}
                   <span className="font-medium text-muted-foreground">
-                    {selectAllChecked || activeSession?.selectedProducts?.length === filteredProducts.length
+                    {selectAllChecked ||
+                    activeSession?.selectedProducts?.length ===
+                      filteredProducts.length
                       ? "Deseleccionar todos"
                       : "Seleccionar todos"}
                   </span>
@@ -950,11 +1138,11 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                   onClick={() => {
                     if (activeSession) {
                       const isSelected = activeSession.selectedProducts.some(
-                        (p) => p.variationId === product.variationId
+                        (p) => p.variationId === product.variationId,
                       );
                       const updated = isSelected
                         ? activeSession.selectedProducts.filter(
-                            (p) => p.variationId !== product.variationId
+                            (p) => p.variationId !== product.variationId,
                           )
                         : [...(activeSession.selectedProducts || []), product];
                       setActiveSession({
@@ -967,7 +1155,7 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 flex-shrink-0">
                       {activeSession?.selectedProducts?.some(
-                        (p) => p.variationId === product.variationId
+                        (p) => p.variationId === product.variationId,
                       ) ? (
                         <MdCheckBox size={18} className="text-primary" />
                       ) : (
@@ -1010,7 +1198,9 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                         </p>
                       )}
                       <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                        {product.sku && <span className="font-mono">{product.sku}</span>}
+                        {product.sku && (
+                          <span className="font-mono">{product.sku}</span>
+                        )}
                         {product.systemCount > -1 && (
                           <span>Stock: {product.systemCount}</span>
                         )}
@@ -1108,7 +1298,7 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                           <option key={sub._id} value={sub._id}>
                             {sub.name}
                           </option>
-                        ))
+                        )),
                       )}
                 </select>
               </div>
@@ -1137,7 +1327,10 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                 >
                   <option value="">Todas las marcas</option>
                   {brands.map((brand) => (
-                    <option key={brand._id || brand.name} value={brand._id || brand.name}>
+                    <option
+                      key={brand._id || brand.name}
+                      value={brand._id || brand.name}
+                    >
                       {brand.name}
                     </option>
                   ))}
@@ -1152,17 +1345,24 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                   </label>
                   <div className="space-y-2">
                     {allAttributes.map((attr) => (
-                      <label key={attr._id || attr.name} className="flex items-center gap-2 cursor-pointer">
+                      <label
+                        key={attr._id || attr.name}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
                         <input
                           type="checkbox"
-                          checked={selectedFilters.attributes.includes(attr._id || attr.name)}
+                          checked={selectedFilters.attributes.includes(
+                            attr._id || attr.name,
+                          )}
                           onChange={(e) => {
                             const value = attr._id || attr.name;
                             setSelectedFilters({
                               ...selectedFilters,
                               attributes: e.target.checked
                                 ? [...selectedFilters.attributes, value]
-                                : selectedFilters.attributes.filter((a) => a !== value),
+                                : selectedFilters.attributes.filter(
+                                    (a) => a !== value,
+                                  ),
                             });
                             if (activeSession) {
                               setActiveSession({
@@ -1211,7 +1411,7 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                       selectedFilters.subCategory,
                       selectedFilters.attributes,
                       searchQuery,
-                      selectedFilters.brand
+                      selectedFilters.brand,
                     );
                     setShowFilterModal(false);
                   }}
@@ -1275,14 +1475,14 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
   if (view === "scanning") {
     const items = activeSession?.scannedItems ?? [];
     const discrepancies = items.filter(
-      (i) => i.isDiscrepancy || i.difference !== 0
+      (i) => i.isDiscrepancy || i.difference !== 0,
     );
-    
+
     // Get products that were selected but not scanned
     const selectedProducts = activeSession?.selectedProducts ?? [];
     const scannedVariationIds = new Set(items.map((i) => i.variationId));
     const unscannedProducts = selectedProducts.filter(
-      (p) => !scannedVariationIds.has(p.variationId)
+      (p) => !scannedVariationIds.has(p.variationId),
     );
 
     return (
@@ -1332,13 +1532,12 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
         </div>
 
         <div className="grid grid-cols-1  gap-6">
-          
           {/* Scanner panel */}
           <div className="lg:col-span-1">
-            <div className="flex items-center justify-between gap-4 border border-muted rounded-xl p-5 bg-card sticky top-4 space-y-4">
-              <div className="flex items-center flex-col w-full gap-2 w-full">
+            <div className="flex items-center justify-between gap-4 border border-muted rounded-xl p-2 bg-card sticky top-4 space-y-4">
+              <div className="flex items-center flex-col w-full gap-2">
                 {/* Scanner input field with button to open scanner */}
-                <div className="flex items-center w-full gap-2 mb-3">
+                <div className="flex items-center w-full gap-2 mb-1">
                   <button
                     type="button"
                     onClick={() => setIsScannerOpen(true)}
@@ -1360,62 +1559,74 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                     />
                   </div>
                 </div>
-               
+
                 {lookupError && (
                   <p className="mt-2 text-xs text-red-500 flex items-center gap-1">
                     <MdWarning size={14} /> {lookupError}
                   </p>
                 )}
                 {lookupResults.length > 0 && (
-                  <div className="border w-full border-primary/30 rounded-lg p-3 bg-primary/5 space-y-3">
+                  <div className="border w-full border-primary/30 rounded-lg p-1 bg-primary/5 space-y-3">
                     {/* Multiple results list */}
                     {lookupResults.length > 1 && (
                       <div className="space-y-2 max-h-40 overflow-y-auto">
-                        <p className="text-xs font-medium text-muted-foreground">Selecciona un producto:</p>
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Selecciona un producto:
+                        </p>
                         {lookupResults.map((result, idx) => (
                           <button
                             key={idx}
                             onClick={() => setSelectedLookupProduct(result)}
                             className={`w-full text-left p-2 rounded-lg border transition-all ${
-                              selectedLookupProduct?.variationId === result.variationId
+                              selectedLookupProduct?.variationId ===
+                              result.variationId
                                 ? "border-primary bg-primary/10"
                                 : "border-muted hover:bg-muted/50"
                             }`}
                           >
-                            <p className="text-xs font-medium truncate">{result.productTitle}</p>
+                            <p className="text-xs font-medium truncate">
+                              {result.productTitle}
+                            </p>
                             {result.variationTitle && (
-                              <p className="text-xs text-muted-foreground truncate">{result.variationTitle}</p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {result.variationTitle}
+                              </p>
                             )}
-                            {result.sku && <p className="text-xs text-muted-foreground">SKU: {result.sku}</p>}
+                            {result.sku && (
+                              <p className="text-xs text-muted-foreground">
+                                SKU: {result.sku}
+                              </p>
+                            )}
                           </button>
                         ))}
                       </div>
                     )}
-                    
+
                     {/* Selected product details */}
                     {selectedLookupProduct && (
-                      <>
-                        {selectedLookupProduct.image && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (selectedLookupProduct.image) {
-                                setSelectedImage(selectedLookupProduct.image);
-                                setImageModalOpen(true);
-                              }
-                            }}
-                            className="hover:opacity-80 transition-opacity flex-shrink-0"
-                          >
-                            <Image
-                              src={selectedLookupProduct.image}
-                              alt={selectedLookupProduct.productTitle}
-                              width={96}
-                              height={96}
-                              className="w-24 h-24 object-cover rounded-lg border border-muted cursor-pointer"
-                            />
-                          </button>
-                        )}
-                        <div className="space-y-1">
+                      <div className="flex ">
+                        <div className="w-full">
+                          {selectedLookupProduct.image && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (selectedLookupProduct.image) {
+                                  setSelectedImage(selectedLookupProduct.image);
+                                  setImageModalOpen(true);
+                                }
+                              }}
+                              className="hover:opacity-80 transition-opacity flex-shrink-0"
+                            >
+                              <Image
+                                src={selectedLookupProduct.image}
+                                alt={selectedLookupProduct.productTitle}
+                                width={96}
+                                height={96}
+                                className="w-24 h-24 object-cover rounded-lg border border-muted cursor-pointer"
+                              />
+                            </button>
+                          )}
+                          <div className="space-y-1"></div>
                           <p className="font-semibold text-xs line-clamp-2">
                             {selectedLookupProduct.productTitle}
                           </p>
@@ -1425,56 +1636,60 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                             </p>
                           )}
                           <p className="text-xs">
-                            <span className="text-muted-foreground">Stock:</span>{" "}
+                            <span className="text-muted-foreground">
+                              Stock:
+                            </span>{" "}
                             <strong>{selectedLookupProduct.systemCount}</strong>
                           </p>
                         </div>
-                        <div className="space-y-2">
-                          <label className="text-xs text-muted-foreground">
-                            Conteo físico
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            value={pendingCount}
-                            onChange={(e) =>
-                              setPendingCount(
-                                e.target.value === "" ? "" : Number(e.target.value)
-                              )
-                            }
-                            onKeyDown={(e) => e.key === "Enter" && handleAddCount()}
-                            className="w-full bg-background border border-muted rounded-lg px-3 py-2 text-sm text-center outline-none focus:ring-2 focus:ring-primary"
-                          />
+                        <div className="w-full">
+                          <div className="space-y-2 mb-2">
+                            <label className="text-xs text-muted-foreground">
+                              Conteo físico
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={pendingCount}
+                              onChange={(e) =>
+                                setPendingCount(
+                                  e.target.value === ""
+                                    ? ""
+                                    : Number(e.target.value),
+                                )
+                              }
+                              onKeyDown={(e) =>
+                                e.key === "Enter" && handleAddCount()
+                              }
+                              className="w-full bg-background border border-muted rounded-lg px-3 py-2 text-sm text-center outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={handleAddCount}
+                              disabled={saving || pendingCount === ""}
+                              className="flex-1 bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
+                            >
+                              {saving ? "…" : "Agregar"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setLookupResults([]);
+                                setSelectedLookupProduct(null);
+                                setScanQuery("");
+                                scanInputRef.current?.focus();
+                              }}
+                              className="px-3 py-2 rounded-lg border border-muted hover:bg-muted transition-colors"
+                            >
+                              <MdClose size={16} />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={handleAddCount}
-                            disabled={saving || pendingCount === ""}
-                            className="flex-1 bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
-                          >
-                            {saving ? "…" : "Agregar"}
-                          </button>
-                          <button
-                            onClick={() => {
-                              setLookupResults([]);
-                              setSelectedLookupProduct(null);
-                              setScanQuery("");
-                              scanInputRef.current?.focus();
-                            }}
-                            className="px-3 py-2 rounded-lg border border-muted hover:bg-muted transition-colors"
-                          >
-                            <MdClose size={16} />
-                          </button>
-                        </div>
-                      </>
+                      </div>
                     )}
                   </div>
                 )}
               </div>
-
-            
-
-            
             </div>
           </div>
 
@@ -1482,8 +1697,13 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
           <div className="lg:col-span-2">
             {items.length === 0 ? (
               <div className="border border-dashed border-muted rounded-xl p-8 text-center bg-muted/20">
-                <MdInventory size={32} className="text-muted-foreground mx-auto mb-2 opacity-50" />
-                <p className="text-muted-foreground">Comienza escaneando productos</p>
+                <MdInventory
+                  size={32}
+                  className="text-muted-foreground mx-auto mb-2 opacity-50"
+                />
+                <p className="text-muted-foreground">
+                  Comienza escaneando productos
+                </p>
               </div>
             ) : (
               <div className="border border-muted rounded-xl bg-card overflow-hidden">
@@ -1502,13 +1722,13 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                 <div className="divide-y divide-muted max-h-96 overflow-y-auto">
                   {unscannedProducts.length > 0 && (
                     <>
-                      <div className="px-5 py-2 bg-amber-50 dark:bg-amber-950/20 sticky top-0 z-10 font-semibold text-xs text-amber-800 dark:text-amber-200">
+                      <div className="px-5 py-2 bg-amber-50 dark:bg-amber-950 sticky top-0 z-10 font-semibold text-xs text-amber-800 dark:text-amber-200">
                         ⚠ PRODUCTOS NO ESCANEADOS
                       </div>
                       {unscannedProducts.map((product) => (
                         <div
                           key={product.variationId}
-                          className="px-5 py-3 space-y-2 bg-amber-50 dark:bg-amber-950/20 border-l-4 border-amber-400"
+                          className="px-2 py-1 space-y-2 bg-amber-50 dark:bg-amber-950/20 border-l-4 border-amber-400"
                         >
                           <div className="flex items-start gap-3">
                             <div className="flex-1 min-w-0">
@@ -1527,7 +1747,8 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                           </div>
                           {product.sku && (
                             <div className="text-xs text-amber-600 dark:text-amber-400">
-                              SKU: <span className="font-mono">{product.sku}</span>
+                              SKU:{" "}
+                              <span className="font-mono">{product.sku}</span>
                             </div>
                           )}
                         </div>
@@ -1545,8 +1766,10 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                     return (
                       <div
                         key={item.variationId}
-                        className={`px-5 py-3 space-y-2 ${
-                          item.isDiscrepancy ? "bg-red-50 dark:bg-red-950/20" : ""
+                        className={`px-4 py-1 space-y-1.5 ${
+                          item.isDiscrepancy
+                            ? "bg-red-50 dark:bg-red-950/20"
+                            : ""
                         }`}
                       >
                         <div className="flex items-start gap-3">
@@ -1570,12 +1793,18 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
 
                         <div className="grid grid-cols-3 gap-2 text-xs">
                           <div className="bg-muted/50 rounded px-2 py-1">
-                            <span className="text-muted-foreground">Sistema</span>
+                            <span className="text-muted-foreground">
+                              Sistema
+                            </span>
                             <p className="font-semibold">{item.systemCount}</p>
                           </div>
                           <div className="bg-muted/50 rounded px-2 py-1">
-                            <span className="text-muted-foreground">Conteo</span>
-                            <p className="font-semibold">{item.physicalCount}</p>
+                            <span className="text-muted-foreground">
+                              Conteo
+                            </span>
+                            <p className="font-semibold">
+                              {item.physicalCount}
+                            </p>
                           </div>
                           <div
                             className={`rounded px-2 py-1 ${
@@ -1594,7 +1823,7 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                           </div>
                         </div>
 
-                        {(item.difference !== 0) && (
+                        {item.difference !== 0 && (
                           <div className="flex gap-2">
                             <button
                               onClick={() => {
@@ -1604,7 +1833,10 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                               }}
                               className="text-xs flex items-center gap-1 px-2 py-1 rounded border border-muted hover:bg-muted transition-colors"
                             >
-                              <MdEdit size={14} /> Nota {item.note && <span className="text-emerald-600">✓</span>}
+                              <MdEdit size={14} /> Nota{" "}
+                              {item.note && (
+                                <span className="text-emerald-600">✓</span>
+                              )}
                             </button>
                             <button
                               onClick={() => handleToggleDiscrepancy(item)}
@@ -1622,8 +1854,12 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
 
                         {item.note && (
                           <div className="text-xs bg-emerald-50 dark:bg-emerald-950/20 rounded px-2 py-1 italic border border-emerald-200 dark:border-emerald-900/30">
-                            <span className="text-emerald-700 dark:text-emerald-400 font-medium">Nota: </span>
-                            <span className="text-emerald-900 dark:text-emerald-300">&quot;{item.note}&quot;</span>
+                            <span className="text-emerald-700 dark:text-emerald-400 font-medium">
+                              Nota:{" "}
+                            </span>
+                            <span className="text-emerald-900 dark:text-emerald-300">
+                              &quot;{item.note}&quot;
+                            </span>
                           </div>
                         )}
                       </div>
@@ -1636,7 +1872,8 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
 
           {/* Selected products list */}
           <div className="lg:col-span-1">
-            {!activeSession?.selectedProducts || activeSession.selectedProducts.length === 0 ? (
+            {!activeSession?.selectedProducts ||
+            activeSession.selectedProducts.length === 0 ? (
               <div className="border border-dashed border-muted rounded-xl p-4 text-center bg-muted/20 text-muted-foreground text-sm">
                 <p>No hay productos pre-seleccionados</p>
               </div>
@@ -1650,7 +1887,7 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                 <div className="divide-y divide-muted max-h-[calc(100vh-200px)] overflow-y-auto">
                   {activeSession.selectedProducts.map((product) => {
                     const isScanned = items.some(
-                      (i) => i.variationId === product.variationId
+                      (i) => i.variationId === product.variationId,
                     );
                     return (
                       <div
@@ -1664,7 +1901,10 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                         <div className="flex items-start gap-2">
                           <div className="mt-0.5">
                             {isScanned ? (
-                              <MdCheckBox size={14} className="text-emerald-600" />
+                              <MdCheckBox
+                                size={14}
+                                className="text-emerald-600"
+                              />
                             ) : (
                               <MdCheckBoxOutlineBlank
                                 size={14}
@@ -1757,7 +1997,7 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
             }}
           >
             <div
-              className="relative max-w-2xl max-h-[80vh] w-full"
+              className=" max-w-2xl max-h-[80vh] w-full"
               onClick={(e) => e.stopPropagation()}
             >
               <button
@@ -1766,9 +2006,9 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                   setImageModalOpen(false);
                   setSelectedImage(null);
                 }}
-                className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full transition-colors"
+                className="absolute z-20 top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full transition-colors"
               >
-                <MdClose size={24} />
+                <MdClose size={48} />
               </button>
               {selectedImage && (
                 <Image
@@ -1788,7 +2028,10 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
             <div className="bg-card rounded-xl max-w-md w-full p-6 space-y-6 shadow-lg">
               <div className="flex items-center gap-3">
                 <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-amber-100 dark:bg-amber-900/30">
-                  <MdWarning size={24} className="text-amber-600 dark:text-amber-400" />
+                  <MdWarning
+                    size={24}
+                    className="text-amber-600 dark:text-amber-400"
+                  />
                 </div>
                 <div>
                   <h2 className="font-semibold text-lg">
@@ -1803,7 +2046,7 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                   </p>
                 </div>
               </div>
-              
+
               <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-lg p-4">
                 <p className="text-sm text-amber-900 dark:text-amber-200">
                   {activeSession?.scannedItems?.length === 0
@@ -1829,7 +2072,11 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                       : "bg-amber-600 hover:bg-amber-700"
                   }`}
                 >
-                  {finalizing ? "Procesando…" : activeSession?.scannedItems?.length === 0 ? "Sí, descartar" : "Sí, finalizar"}
+                  {finalizing
+                    ? "Procesando…"
+                    : activeSession?.scannedItems?.length === 0
+                      ? "Sí, descartar"
+                      : "Sí, finalizar"}
                 </button>
               </div>
             </div>
@@ -1842,7 +2089,10 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
             <div className="bg-card rounded-xl max-w-md w-full p-6 space-y-6 shadow-lg">
               <div className="flex items-center gap-3">
                 <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30">
-                  <MdWarning size={24} className="text-red-600 dark:text-red-400" />
+                  <MdWarning
+                    size={24}
+                    className="text-red-600 dark:text-red-400"
+                  />
                 </div>
                 <div>
                   <h2 className="font-semibold text-lg">¿Cancelar conteo?</h2>
@@ -1851,10 +2101,12 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                   </p>
                 </div>
               </div>
-              
+
               <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-lg p-4">
                 <p className="text-sm text-red-900 dark:text-red-200">
-                  Se eliminarán todos los datos registrados en esta sesión ({activeSession?.scannedItems?.length || 0} productos escaneados).
+                  Se eliminarán todos los datos registrados en esta sesión (
+                  {activeSession?.scannedItems?.length || 0} productos
+                  escaneados).
                 </p>
               </div>
 
@@ -1894,7 +2146,7 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
   // Discrepancies view
   if (view === "discrepancies") {
     const discrepancies = (activeSession?.scannedItems || []).filter(
-      (i) => i.isDiscrepancy || i.difference !== 0
+      (i) => i.isDiscrepancy || i.difference !== 0,
     );
 
     return (
@@ -1945,7 +2197,9 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                         <p className="font-semibold">{item.physicalCount}</p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Diferencia:</span>
+                        <span className="text-muted-foreground">
+                          Diferencia:
+                        </span>
                         <p className="font-semibold text-red-600">
                           {item.difference > 0 ? "+" : ""}
                           {item.difference}
@@ -1967,7 +2221,8 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                       }}
                       className="px-3 py-2 rounded-lg border border-muted hover:bg-muted transition-colors text-sm font-medium flex items-center gap-1 flex-shrink-0"
                     >
-                      <MdEdit size={14} /> Nota {item.note && <span className="text-emerald-600">✓</span>}
+                      <MdEdit size={14} /> Nota{" "}
+                      {item.note && <span className="text-emerald-600">✓</span>}
                     </button>
                     <button
                       onClick={() => handleToggleDiscrepancy(item)}
@@ -1977,7 +2232,8 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                           : "border-2 border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:hover:bg-red-950/30"
                       }`}
                     >
-                      <MdWarning size={14} /> {item.isDiscrepancy ? "✓ Marcada" : "Marcar"}
+                      <MdWarning size={14} />{" "}
+                      {item.isDiscrepancy ? "✓ Marcada" : "Marcar"}
                     </button>
                   </div>
                 </div>
@@ -2040,7 +2296,9 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
   // Report view
   if (view === "report") {
     const items = activeSession?.scannedItems ?? [];
-    const discrepancies = items.filter((i) => i.isDiscrepancy || i.difference !== 0);
+    const discrepancies = items.filter(
+      (i) => i.isDiscrepancy || i.difference !== 0,
+    );
 
     return (
       <div className="max-w-4xl mx-auto py-8 px-4">
@@ -2089,7 +2347,7 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
             <p className="text-2xl font-bold">
               {items.length > 0
                 ? Math.round(
-                    ((activeSession?.totalMatched ?? 0) / items.length) * 100
+                    ((activeSession?.totalMatched ?? 0) / items.length) * 100,
                   )
                 : 0}
               %
@@ -2115,7 +2373,9 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                   <th className="px-5 py-3 text-left font-medium">Producto</th>
                   <th className="px-5 py-3 text-center font-medium">Sistema</th>
                   <th className="px-5 py-3 text-center font-medium">Conteo</th>
-                  <th className="px-5 py-3 text-center font-medium">Diferencia</th>
+                  <th className="px-5 py-3 text-center font-medium">
+                    Diferencia
+                  </th>
                   <th className="px-5 py-3 text-left font-medium">Nota</th>
                 </tr>
               </thead>
@@ -2139,7 +2399,9 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
                         </p>
                       )}
                     </td>
-                    <td className="px-5 py-3 text-center">{item.systemCount}</td>
+                    <td className="px-5 py-3 text-center">
+                      {item.systemCount}
+                    </td>
                     <td className="px-5 py-3 text-center font-semibold">
                       {item.physicalCount}
                     </td>
@@ -2194,7 +2456,9 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
           </button>
         )}
 
-        <h1 className="text-2xl font-bold mb-6">Reportes finalizados - {selectedStore?.name}</h1>
+        <h1 className="text-2xl font-bold mb-6">
+          Reportes finalizados - {selectedStore?.name}
+        </h1>
 
         {pastSessions.length === 0 ? (
           <p className="text-muted-foreground">No hay reportes</p>
@@ -2252,6 +2516,383 @@ export default function InventarioContent({ storeSlug }: { storeSlug?: string })
             }}
             onClose={() => setIsScannerOpen(false)}
           />
+        )}
+      </div>
+    );
+  }
+
+  // Pending inventory view
+  if (view === "pending-inventory") {
+    return (
+      <div className="max-w-7xl mx-auto py-6 px-4">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-6 flex-wrap">
+          <button
+            onClick={() => {
+              setView("store-select");
+              fetchStores();
+            }}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Atrás
+          </button>
+          <h1 className="font-bold text-lg">
+            {selectedStore?.name} - Productos por Inventariar
+          </h1>
+          <div className="ml-auto flex gap-2">
+            <button
+              onClick={handleExportPendingPDF}
+              disabled={pendingLoading || pendingProducts.length === 0}
+              className="text-sm bg-green-600 text-white px-4 py-2 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1"
+            >
+              <MdDownload size={16} /> Descargar CSV
+            </button>
+          </div>
+        </div>
+
+        {/* Search and filters bar */}
+        <div className="flex gap-3 mb-6 flex-wrap items-center">
+          <div className="flex-1 min-w-72 relative">
+            <input
+              type="text"
+              value={pendingSearchQuery}
+              onChange={(e) => setPendingSearchQuery(e.target.value)}
+              placeholder="Buscar por nombre, SKU, ASIN..."
+              className="w-full bg-background border border-muted rounded-lg px-4 py-2.5 pr-12 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary"
+            />
+          </div>
+
+          <button
+            onClick={() => {
+              if (!categories.length) {
+                fetchCategories();
+              }
+              setShowPendingFilterModal(true);
+            }}
+            className={`px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${
+              pendingFilters.mainCategory ||
+              pendingFilters.subCategory ||
+              pendingSearchQuery
+                ? "bg-primary text-primary-foreground hover:opacity-90"
+                : "border border-muted hover:bg-muted"
+            }`}
+          >
+            <MdFilterList size={16} /> Filtros
+            {(pendingFilters.mainCategory ||
+              pendingFilters.subCategory ||
+              pendingSearchQuery) && (
+              <span className="bg-primary-foreground/20 px-2 py-0.5 rounded text-xs font-semibold">
+                Activos
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Products list */}
+        <div className="border border-muted rounded-xl bg-card overflow-hidden">
+          <div className="px-5 py-3 border-b border-muted bg-muted/30">
+            <h2 className="font-semibold text-sm">
+              Productos{" "}
+              {pendingProducts.length > 0 && `(${pendingProducts.length})`}
+            </h2>
+          </div>
+
+          {pendingLoading ? (
+            <div className="p-8 text-center text-muted-foreground">
+              Cargando productos...
+            </div>
+          ) : pendingProducts.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              <p className="mb-2">
+                {pendingSearchQuery || pendingFilters.mainCategory
+                  ? "No se encontraron productos por inventariar"
+                  : "Todas las variaciones de esta sucursal han sido inventariadas"}
+              </p>
+            </div>
+          ) : (
+            <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
+              {Object.entries(
+                pendingProducts.reduce((acc: any, product: any) => {
+                  const category =
+                    product.mainCategory?.name || "Sin categoría";
+                  if (!acc[category]) {
+                    acc[category] = [];
+                  }
+                  acc[category].push(product);
+                  return acc;
+                }, {}),
+              ).map(([category, products]: [string, any]) => (
+                <div
+                  key={category}
+                  className="border-b border-muted last:border-b-0"
+                >
+                  {/* Category header */}
+                  <div className="px-5 py-2 bg-muted/50 font-semibold text-sm sticky top-0 z-10 bg-red-500">
+                    {category}
+                  </div>
+
+                  {/* Product rows */}
+                  {products.map((product: any) => (
+                    <div
+                      key={product._id}
+                      className="px-5 py-3 hover:bg-muted/20 transition-colors border-b border-muted/50 last:border-b-0"
+                    >
+                      <div className="flex items-start gap-3">
+                        {product.images?.[0]?.url && (
+                          <button
+                            onClick={() => {
+                              setSelectedImage(product.images[0].url);
+                              setImageModalOpen(true);
+                            }}
+                            className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-border hover:border-primary/50 transition-colors cursor-pointer"
+                            type="button"
+                          >
+                            <Image
+                              src={product.images[0].url}
+                              alt={product.title}
+                              width={56}
+                              height={56}
+                              className="w-full h-full object-cover"
+                            />
+                          </button>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {product.title}
+                          </p>
+                          <div className="mt-1 flex flex-col gap-2">
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              {product.subCategory?.name && (
+                                <span>{product.subCategory.name}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 text-xs">
+                              <span className="text-orange-600 dark:text-orange-400 font-medium">
+                                sin inventariar
+                              </span>
+                              {product.stock > 0 && (
+                                <span className="text-green-600 dark:text-green-400 font-medium">
+                                  Stock disponible: {product.stock}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Filter Modal */}
+        {showPendingFilterModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-card rounded-xl max-w-md w-full max-h-96 overflow-y-auto p-6 space-y-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Filtrar productos</h2>
+                <button
+                  onClick={() => setShowPendingFilterModal(false)}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <MdClose size={20} />
+                </button>
+              </div>
+
+              {/* Main category */}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground block mb-2">
+                  Categoría Principal
+                </label>
+                <select
+                  value={pendingFilters.mainCategory}
+                  onChange={(e) => {
+                    setPendingFilters({
+                      ...pendingFilters,
+                      mainCategory: e.target.value,
+                      subCategory: "",
+                    });
+                  }}
+                  className="w-full bg-muted border border-muted rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">Todas las categorías</option>
+                  {categories.map((cat) => (
+                    <option key={cat._id} value={cat._id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Sub category */}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground block mb-2">
+                  Subcategoría
+                </label>
+                <select
+                  value={pendingFilters.subCategory}
+                  onChange={(e) => {
+                    setPendingFilters({
+                      ...pendingFilters,
+                      subCategory: e.target.value,
+                    });
+                  }}
+                  className="w-full bg-muted border border-muted rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">Todas</option>
+                  {pendingFilters.mainCategory
+                    ? categories
+                        .find((c) => c._id === pendingFilters.mainCategory)
+                        ?.subcategories?.map((sub: any) => (
+                          <option key={sub._id} value={sub._id}>
+                            {sub.name}
+                          </option>
+                        ))
+                    : categories.flatMap((cat: any) =>
+                        (cat.subcategories || []).map((sub: any) => (
+                          <option key={sub._id} value={sub._id}>
+                            {sub.name}
+                          </option>
+                        )),
+                      )}
+                </select>
+              </div>
+
+              {/* Brand */}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground block mb-2">
+                  Marca (Cert.)
+                </label>
+                <select
+                  value={pendingFilters.brand}
+                  onChange={(e) => {
+                    setPendingFilters({
+                      ...pendingFilters,
+                      brand: e.target.value,
+                    });
+                  }}
+                  className="w-full bg-muted border border-muted rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">Todas las marcas</option>
+                  {brands.map((brand) => (
+                    <option
+                      key={brand._id || brand.name}
+                      value={brand._id || brand.name}
+                    >
+                      {brand.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Attributes */}
+              {allAttributes.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground block mb-2">
+                    Atributos
+                  </label>
+                  <div className="space-y-2">
+                    {allAttributes.map((attr) => (
+                      <label
+                        key={attr._id || attr.name}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={pendingFilters.attributes.includes(
+                            attr._id || attr.name,
+                          )}
+                          onChange={(e) => {
+                            const value = attr._id || attr.name;
+                            setPendingFilters({
+                              ...pendingFilters,
+                              attributes: e.target.checked
+                                ? [...pendingFilters.attributes, value]
+                                : pendingFilters.attributes.filter(
+                                    (a) => a !== value,
+                                  ),
+                            });
+                          }}
+                          className="w-4 h-4 rounded border-muted bg-muted cursor-pointer"
+                        />
+                        <span className="text-sm">{attr.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex gap-2 pt-4 border-t border-muted">
+                <button
+                  onClick={() => {
+                    setPendingFilters({
+                      mainCategory: "",
+                      subCategory: "",
+                      brand: "",
+                      attributes: [],
+                    });
+                    setPendingSearchQuery("");
+                  }}
+                  className="flex-1 px-4 py-2 rounded-lg border border-muted hover:bg-muted transition-colors text-sm font-medium"
+                >
+                  Limpiar
+                </button>
+                <button
+                  onClick={() => {
+                    fetchPendingProducts(
+                      pendingFilters.mainCategory,
+                      pendingFilters.subCategory,
+                      pendingFilters.attributes,
+                      pendingSearchQuery,
+                      pendingFilters.brand,
+                    );
+                    setShowPendingFilterModal(false);
+                  }}
+                  className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium"
+                >
+                  Aplicar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Image Modal */}
+        {imageModalOpen && selectedImage && (
+          <div
+            className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50"
+            onClick={() => {
+              setImageModalOpen(false);
+              setSelectedImage(null);
+            }}
+          >
+            <div
+              className=" max-w-2xl max-h-[80vh] w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setImageModalOpen(false);
+                  setSelectedImage(null);
+                }}
+                className="absolute z-20 top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full transition-colors"
+              >
+                <MdClose size={48} />
+              </button>
+              {selectedImage && (
+                <Image
+                  src={selectedImage}
+                  alt="Product"
+                  fill
+                  className="w-full h-full object-contain rounded-lg"
+                />
+              )}
+            </div>
+          </div>
         )}
       </div>
     );

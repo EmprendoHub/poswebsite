@@ -23,7 +23,11 @@ const ProductDetailsComponent = ({
 }: {
   product: any;
   trendingProducts: any;
-  taxonomyLookup?: { mainCategories: any[]; subCategories: any[]; attributes: any[] };
+  taxonomyLookup?: {
+    mainCategories: any[];
+    subCategories: any[];
+    attributes: any[];
+  };
 }) => {
   const [storeInventoryData, setStoreInventoryData] = useState<
     Record<string, Array<{ variationId: string; quantity: number }>>
@@ -41,7 +45,7 @@ const ProductDetailsComponent = ({
   const { productsData } = useSelector((state: any) => state?.compras);
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   // Create lookup maps for taxonomy names
   const mainCategoryById = useMemo(
     () => new Map(taxonomyLookup.mainCategories.map((m) => [m._id, m.name])),
@@ -343,19 +347,33 @@ const ProductDetailsComponent = ({
                       initial={{ scale: 0.8 }}
                       animate={{ scale: 1 }}
                       exit={{ scale: 0.8 }}
-                      className="relative w-[90vw] h-[90vh] flex items-center justify-center"
+                      className="relative p-4 flex items-center justify-center"
+                      style={{
+                        width: "90vw",
+                        height: "90vh",
+                        maxWidth: "1400px",
+                        maxHeight: "90vh",
+                      }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <Image
-                        src={mainImage}
-                        alt="product fullscreen"
-                        fill
-                        priority
-                        className="object-contain"
-                      />
+                      <div
+                        style={{
+                          position: "relative",
+                          width: "100%",
+                          height: "100%",
+                        }}
+                      >
+                        <Image
+                          src={mainImage}
+                          alt="product fullscreen"
+                          fill
+                          priority
+                          className="object-contain"
+                        />
+                      </div>
                       <button
                         onClick={() => setShowFullscreenImage(false)}
-                        className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm"
+                        className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm z-10"
                       >
                         <MdClose size={24} className="text-white" />
                       </button>
@@ -591,7 +609,9 @@ const ProductDetailsComponent = ({
                 <div className="w-full border-t border-gray-800 pt-4 space-y-2 text-sm">
                   {product?.mainCategory && (
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Categoría Principal:</span>
+                      <span className="text-gray-400">
+                        Categoría Principal:
+                      </span>
                       <span className="text-white font-medium">
                         {mainCategoryById.get(product.mainCategory) || "—"}
                       </span>

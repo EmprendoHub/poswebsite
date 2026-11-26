@@ -48,9 +48,12 @@ function resolveLocalPath(imgUrl: string): string {
       }
     }
     // Return first candidate even if not found (let caller handle the 404)
-    return path.join(dirs[0] ?? IMAGES_ROOT, relative);
+    return path.join(
+      /*turbopackIgnore: true*/ dirs[0] ?? IMAGES_ROOT,
+      relative,
+    );
   }
-  return path.join(process.cwd(), imgUrl);
+  return path.join(/*turbopackIgnore: true*/ process.cwd(), imgUrl);
 }
 
 // Generate a unique slug from title and ASIN

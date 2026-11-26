@@ -2179,10 +2179,7 @@ export async function getAllOrder(searchQuery: any) {
     const totalOrderCount = await Order.countDocuments();
 
     // Apply search Filters including order_id and orderStatus
-    const apiOrderFilters: any = new APIOrderFilters(
-      orderQuery,
-      searchParams,
-    )
+    const apiOrderFilters: any = new APIOrderFilters(orderQuery, searchParams)
       .searchAllFields()
       .filter();
 
@@ -3230,7 +3227,10 @@ export async function getAllProduct(searchQuery: any) {
       );
     };
 
-    const apiProductFilters: any = new APIFilters(productQuery, filterSearchParams)
+    const apiProductFilters: any = new APIFilters(
+      productQuery,
+      filterSearchParams,
+    )
       .searchAllFields()
       .filter();
 
@@ -3238,8 +3238,10 @@ export async function getAllProduct(searchQuery: any) {
 
     // Apply custom filters
     const filterTitle = searchParams.get("filterTitle") || "";
-    const filterMainCategoriesStr = searchParams.get("filterMainCategories") || "";
-    const filterSubCategoriesStr = searchParams.get("filterSubCategories") || "";
+    const filterMainCategoriesStr =
+      searchParams.get("filterMainCategories") || "";
+    const filterSubCategoriesStr =
+      searchParams.get("filterSubCategories") || "";
     const filterAttributesStr = searchParams.get("filterAttributes") || "";
     const filterBrandsStr = searchParams.get("filterBrands") || "";
     const filterPriceMin = Number(searchParams.get("filterPriceMin")) || null;
@@ -3257,13 +3259,18 @@ export async function getAllProduct(searchQuery: any) {
     const filterAttributes = filterAttributesStr
       ? filterAttributesStr.split(",").map((id) => id.trim())
       : [];
-    const filterBrands = filterBrandsStr ? filterBrandsStr.split(",").map((b) => b.trim()) : [];
+    const filterBrands = filterBrandsStr
+      ? filterBrandsStr.split(",").map((b) => b.trim())
+      : [];
 
     // Apply all filters (AND logic - must match all criteria)
     if (hasFilterParams(searchParams)) {
       productsData = productsData.filter((product: any) => {
         // Title filter
-        if (filterTitle && !product.title?.toLowerCase().includes(filterTitle.toLowerCase())) {
+        if (
+          filterTitle &&
+          !product.title?.toLowerCase().includes(filterTitle.toLowerCase())
+        ) {
           return false;
         }
 
@@ -3285,8 +3292,12 @@ export async function getAllProduct(searchQuery: any) {
 
         // Attributes filter - product must have at least one of the selected attributes
         if (filterAttributes.length > 0) {
-          const productAttrs = (product.attributes || []).map((a: any) => a.toString());
-          const hasAttr = filterAttributes.some((attr) => productAttrs.includes(attr));
+          const productAttrs = (product.attributes || []).map((a: any) =>
+            a.toString(),
+          );
+          const hasAttr = filterAttributes.some((attr) =>
+            productAttrs.includes(attr),
+          );
           if (!hasAttr) {
             return false;
           }
@@ -3301,7 +3312,11 @@ export async function getAllProduct(searchQuery: any) {
         }
 
         // Price filter
-        if ((filterPriceMin || filterPriceMax) && product.variations && product.variations.length > 0) {
+        if (
+          (filterPriceMin || filterPriceMax) &&
+          product.variations &&
+          product.variations.length > 0
+        ) {
           const productPrice = product.variations[0]?.price || 0;
           if (filterPriceMin && productPrice < filterPriceMin) {
             return false;
@@ -3321,7 +3336,10 @@ export async function getAllProduct(searchQuery: any) {
     const hasStockSort = sorts.some((s) => s.key === "stock");
     const hasStockFilter = filterStockMin || filterStockMax;
     const hasSucursalFilter = filterSucursalesStr.length > 0;
-    if ((hasStockSort || hasStockFilter || hasSucursalFilter) && productsData.length > 0) {
+    if (
+      (hasStockSort || hasStockFilter || hasSucursalFilter) &&
+      productsData.length > 0
+    ) {
       const allProductIds = productsData.map((p: any) => p._id);
 
       // Get inventory data for products with selected stores filter
@@ -3473,6 +3491,19 @@ export async function getAllProduct(searchQuery: any) {
   }
 }
 
+// Server Action to revalidate product inventory cache
+export async function revalidateProductCache() {
+  try {
+    revalidatePath("/admin/productos", "page");
+    revalidatePath("/(manager)/admin/productos", "layout");
+    revalidatePath("/tienda", "page");
+    revalidatePath("/(home)/tienda", "layout");
+    console.log("[revalidateProductCache] Product cache invalidated");
+  } catch (error) {
+    console.error("[revalidateProductCache] Error:", error);
+  }
+}
+
 export async function getAllUserOrder(searchQuery: any, id: any) {
   try {
     await dbConnect();
@@ -3569,7 +3600,7 @@ export async function getAllClient(searchQuery: any) {
   try {
     await dbConnect();
     const session = await getServerSession(options);
-    let clientQuery: any;
+    let clientQuery: any = Customer.find({});
 
     if (session) {
       if (

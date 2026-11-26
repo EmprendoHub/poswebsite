@@ -796,24 +796,12 @@ export function buildAuditReportHtml(params: AuditReportParams): string {
       <!-- Products Not Audited -->
       <div class="section">
         <h2 class="section-title">📋 Productos Pendientes de Auditar</h2>
-        <div style="background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 24px;">
-          <p style="margin: 0 0 8px; font-weight: bold; color: #0369a1; font-size: 13px; text-transform: uppercase; letter-spacing: .5px;">
-            📎 Documento Adjunto
-          </p>
-          <p style="margin: 0; color: #0369a1; font-size: 14px; line-height: 1.6;">
-            Se incluye en este correo un archivo PDF con la lista completa de <strong>${stats.notAuditedProducts} productos</strong> 
-            pendientes de auditar, <strong>organizados por categoría</strong> para facilitar su revisión. 
-            Consulte el adjunto "audit-report-${stats.monthYear.replace(/\s+/g, "-")}.pdf" para más detalles.
-          </p>
-        </div>
-
         <div style="background-color: #f9f9f9; padding: 15px; border-radius: 6px; border-left: 4px solid #667eea;">
           <p style="margin: 0 0 10px; font-weight: 600; color: #333; font-size: 13px;">Información Rápida:</p>
           <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #555; line-height: 1.6;">
             <li><strong>Total de productos sin auditar:</strong> ${stats.notAuditedProducts}</li>
             <li><strong>Sesiones finalizadas este mes:</strong> ${stats.finalizedSessionsCount}</li>
             <li><strong>Categorías identificadas:</strong> ${stats.categoriesBreakdown.length}</li>
-            <li><strong>Archivo adjunto:</strong> PDF con desglose por categoría</li>
           </ul>
         </div>
       </div>
