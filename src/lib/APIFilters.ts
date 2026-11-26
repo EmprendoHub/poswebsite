@@ -129,7 +129,7 @@ class APIFilters {
       } else {
         // Regular keyword search with flexible matching
         const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        
+
         const searchConditions = {
           $or: [
             // For text fields, allow partial matching
