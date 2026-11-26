@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
-  experimental: {
-    turbopack: false,
+  webpack: (config, { isServer }) => {
+    return config;
   },
   images: {
     unoptimized: true,
