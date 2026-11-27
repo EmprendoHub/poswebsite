@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
+  swcMinify: false,
+  experimental: {
+    disableSwcMinifyFallback: true,
+  },
   images: {
     unoptimized: true,
     remotePatterns: [

@@ -33,11 +33,17 @@ export const options = {
       async authorize(credentials: any, request) {
         const { email, password, recaptcha, honeypot, cookie } = credentials;
 
+        console.log("[AUTH] authorize called with email:", email);
+        console.log("[AUTH] honeypot:", honeypot);
+        console.log("[AUTH] cookie:", !!cookie);
+
         if (honeypot) {
+          console.log("[AUTH] FAIL: honeypot detected");
           throw new Error("no bots thank you");
         }
         if (!cookie) {
           // Not Signed in
+          console.log("[AUTH] FAIL: no cookie");
           throw new Error("You are not authorized no no no");
         }
         const secretKey = process?.env?.RECAPTCHA_SECRET_KEY;
@@ -53,48 +59,65 @@ export const options = {
               },
             },
           );
+          console.log(
+            "[AUTH] reCAPTCHA response:",
+            response.data?.success,
+            "score:",
+            response.data?.score,
+          );
         } catch (error) {
-          console.log("recaptcha error:", error);
+          console.log("[AUTH] recaptcha error:", error);
         }
         if (response && response.data?.success && response.data?.score > 0.5) {
           await dbConnect();
           const user = await User?.findOne({ email }).select("+password");
 
+          console.log("[AUTH] User found:", !!user);
+
           if (!user) {
-            console.log("no user error");
+            console.log("[AUTH] FAIL: no user found for email:", email);
             throw new Error("hubo un error al iniciar session");
           }
 
           const comparePass = await bcrypt.compare(password, user.password);
+          console.log("[AUTH] Password match:", comparePass);
 
           if (!comparePass) {
             if (user) {
               user.loginAttempts += 1;
               await user.save();
               if (user.loginAttempts >= 3) {
+                console.log("[AUTH] FAIL: too many login attempts");
                 throw new Error("excediste el limite de intentos");
               }
             }
+            console.log("[AUTH] FAIL: password mismatch");
             throw new Error("hubo un error al iniciar session");
           } else {
             if (user.active === false) {
+              console.log("[AUTH] FAIL: user not active");
               throw new Error("verify your email");
             }
+            console.log("[AUTH] SUCCESS: user logged in, role:", user.role);
             user.loginAttempts = 0;
             await user.save();
-            const { password, ...currentUser } = user._doc;
+            const { password, ...currentUser } = user.toObject();
             const accessToken = signJwtToken(currentUser, { expiresIn: "6d" });
+            console.log("[AUTH] accessToken generated");
             return {
               ...currentUser,
               accessToken,
             };
           }
         } else {
-          console.log("fail: res.data?.score:", response.data?.score);
+          console.log(
+            "[AUTH] FAIL: reCAPTCHA failed. score:",
+            response?.data?.score,
+          );
           return NextResponse.json({
             success: false,
             email,
-            score: response.data?.score,
+            score: response?.data?.score,
           });
         }
       },
@@ -156,6 +179,12 @@ export const options = {
       user: any;
       account: any;
     }) {
+      console.log(
+        "[JWT] jwt callback called with user:",
+        !!user,
+        "account:",
+        account?.provider,
+      );
       if (account?.provider == "google") {
         if (user) {
           const existinguser = await User?.findOne({
@@ -178,22 +207,40 @@ export const options = {
           token.accessToken = account.access_token;
           token._id = currentUser._id;
           token.user = currentUser;
+          console.log("[JWT] Google login token created for:", user.email);
         }
       } else {
         if (user) {
+          console.log(
+            "[JWT] Credentials login token created for:",
+            user.email,
+            "role:",
+            user.role,
+          );
           token.accessToken = user.accessToken;
           token._id = user._id;
           token.user = user;
           const updatedUser = await User.findById(token._id).select(
             "+password",
           );
-          token.user = updatedUser;
+          // Convert to plain object to avoid Mongoose validation issues
+          token.user = updatedUser ? updatedUser.toObject() : user;
+          console.log(
+            "[JWT] Token user object created, role:",
+            token.user.role,
+          );
         }
       }
 
       return token;
     },
     async session({ session, token }: { session: any; token: any }) {
+      // console.log(
+      //   "[SESSION] session callback called with token._id:",
+      //   token._id,
+      //   "role:",
+      //   token.user.role,
+      // );
       if (token) {
         session.user._id = token._id;
         session.user.accessToken = token.accessToken;

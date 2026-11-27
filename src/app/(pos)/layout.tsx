@@ -17,18 +17,22 @@ export default function POSRootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className="max-w-full body-class overscroll-x-none overflow-x-hidden">
-        <CustomSessionProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem
-            disableTransitionOnChange
-          >
+      <head suppressHydrationWarning></head>
+      <body
+        className="max-w-full body-class overscroll-x-none overflow-x-hidden"
+        suppressHydrationWarning
+      >
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <CustomSessionProvider>
             {children}
             <Toaster />
-          </ThemeProvider>
-        </CustomSessionProvider>
+          </CustomSessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -8,11 +8,18 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 
-const ALLOWED_ROLES = ["manager", "super_admin", "director", "organizer"];
+const ALLOWED_ROLES = [
+  "manager",
+  "super_admin",
+  "director",
+  "organizer",
+  "pos",
+];
 
 /**
- * GET /api/admin/inventory-check/pending-inventory?storeId=xxx&mainCategory=xxx&subCategory=xxx&brand=xxx&attributes=xxx
- * Returns products that have StoreInventory in this store but have NOT been inventoried (not in finalized sessions)
+ * GET /api/admin/inventory-check/pending-inventory?storeId=xxx&month=YYYY-MM&mainCategory=xxx&subCategory=xxx&brand=xxx&attributes=xxx
+ * Returns products that have StoreInventory in this store but have NOT been inventoried (not in finalized sessions for the specified month)
+ * If no month is provided, defaults to current month
  */
 export async function GET(req: Request) {
   try {
@@ -30,6 +37,13 @@ export async function GET(req: Request) {
     const brand = url.searchParams.get("brand");
     const attributesStr = url.searchParams.get("attributes");
     const search = url.searchParams.get("search");
+    let monthStr = url.searchParams.get("month");
+
+    // Default to current month if not provided
+    if (!monthStr) {
+      const now = new Date();
+      monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    }
 
     if (!storeId) {
       return NextResponse.json(
@@ -49,6 +63,11 @@ export async function GET(req: Request) {
       );
     }
 
+    // Parse month to get date range
+    const [year, month] = monthStr.split("-").map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+
     // Step 1: Get all variation IDs from StoreInventory for THIS store with stock > 0
     const storeInventoryRecords = await StoreInventory.find({
       store: storeObjectId,
@@ -63,10 +82,11 @@ export async function GET(req: Request) {
       stockMap.set(record.variationId, record.quantity);
     }
 
-    // Step 2: Get all variations that have been inventoried in finalized sessions for this store
+    // Step 2: Get all variations that have been inventoried in finalized sessions for this store in the selected month
     const finalizedSessions = await InventoryCheckSession.find({
       store: storeObjectId,
       status: "finalized",
+      finalizedAt: { $gte: startDate, $lte: endDate },
     }).select("scannedItems");
 
     const inventoriedVariationIds = new Set<string>();

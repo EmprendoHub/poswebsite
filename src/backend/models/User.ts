@@ -85,7 +85,14 @@ const UserSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["cliente", "organizador"],
+      enum: [
+        "cliente",
+        "organizador",
+        "pos",
+        "manager",
+        "super_admin",
+        "director",
+      ],
       default: "cliente",
     },
     assignedStore: {

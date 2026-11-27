@@ -89,6 +89,7 @@ interface LookupResult {
 
 type View =
   | "store-select"
+  | "store-actions"
   | "filter-select"
   | "scanning"
   | "report"
@@ -102,7 +103,7 @@ export default function InventarioContent({
 }: {
   storeSlug?: string;
 }) {
-  const initialView: View = storeSlug ? "filter-select" : "store-select";
+  const initialView: View = storeSlug ? "store-actions" : "store-select";
   const [view, setView] = useState<View>(initialView);
   const [stores, setStores] = useState<Store[]>([]);
   const [pastSessions, setPastSessions] = useState<CheckSession[]>([]);
@@ -178,6 +179,11 @@ export default function InventarioContent({
   });
   const [pendingSearchQuery, setPendingSearchQuery] = useState("");
   const [showPendingFilterModal, setShowPendingFilterModal] = useState(false);
+  const [pendingMonth, setPendingMonth] = useState<string>(() => {
+    // Set default to current month in YYYY-MM format
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
   const pendingFilterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -203,7 +209,8 @@ export default function InventarioContent({
       const currentStore = stores.find((s: Store) => s.slug === storeSlug);
       if (currentStore) {
         setSelectedStore(currentStore);
-        setStores(stores);
+        // When accessing from POS, only show the current store, not all stores
+        setStores(storeSlug ? [currentStore] : stores);
         setPastSessions(data.sessions || []);
         // Initialize session for this store
         setActiveSession({
@@ -251,6 +258,7 @@ export default function InventarioContent({
       attrs?: string[],
       search?: string,
       brand?: string,
+      month?: string,
     ) => {
       if (!selectedStore) return;
       setPendingLoading(true);
@@ -262,6 +270,7 @@ export default function InventarioContent({
       if (attrs?.length) params.append("attributes", attrs.join(","));
       if (search) params.append("search", search);
       if (brand) params.append("brand", brand);
+      if (month) params.append("month", month);
 
       const res = await fetch(
         `/api/admin/inventory-check/pending-inventory?${params}`,
@@ -418,7 +427,6 @@ export default function InventarioContent({
 
   // View pending inventory
   const handleViewPendingInventory = async (store: Store) => {
-    setSelectedStore(store);
     setPendingProducts([]);
     setPendingSearchQuery("");
     setPendingFilters({
@@ -428,11 +436,31 @@ export default function InventarioContent({
       attributes: [],
     });
     if (!categories.length) await fetchCategories();
+    setSelectedStore(store);
     setView("pending-inventory");
-    // Call fetchPendingProducts immediately with the new store
-    setTimeout(() => {
-      fetchPendingProducts("", "", [], "", "");
-    }, 0);
+
+    // Fetch pending products directly with the store parameter and current month
+    setPendingLoading(true);
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    setPendingMonth(currentMonth);
+
+    const params = new URLSearchParams({
+      storeId: store._id,
+      month: currentMonth,
+    });
+
+    try {
+      const res = await fetch(
+        `/api/admin/inventory-check/pending-inventory?${params}`,
+      );
+      const data = await res.json();
+      setPendingProducts(data.products || []);
+    } catch (error) {
+      console.error("Error fetching pending products:", error);
+    } finally {
+      setPendingLoading(false);
+    }
   };
 
   // Export pending inventory to PDF
@@ -802,6 +830,129 @@ export default function InventarioContent({
 
   // Store select view
   if (view === "store-select") {
+    // If coming from POS with storeSlug, redirect to store-actions
+    if (storeSlug && selectedStore) {
+      return (
+        <div className="max-w-7xl mx-auto py-6 px-4">
+          <div className="flex items-center gap-3 mb-8">
+            <h1 className="font-bold text-2xl">{selectedStore.name}</h1>
+            <span className="text-muted-foreground text-sm">
+              Selecciona una acción para comenzar
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* New count with filters */}
+            <button
+              onClick={() => setView("filter-select")}
+              disabled={false}
+              className="flex items-start gap-4 p-6 rounded-lg border border-muted hover:bg-muted/50 transition-colors text-left group"
+            >
+              <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                <MdFilterList size={20} className="text-primary" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-base mb-1">
+                  Nuevo conteo con filtros
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Selecciona productos por categoría, marca o búsqueda
+                </p>
+              </div>
+            </button>
+
+            {/* Resume in progress session */}
+            {pastSessions
+              .filter((s) => s.storeName === selectedStore.name)
+              .find((s) => s.status === "in_progress") && (
+              <button
+                onClick={() => {
+                  const inProgress = pastSessions
+                    .filter((s) => s.storeName === selectedStore.name)
+                    .find((s) => s.status === "in_progress");
+                  if (inProgress) handleResume(inProgress, selectedStore);
+                }}
+                className="flex items-start gap-4 p-6 rounded-lg border border-yellow-500/50 bg-yellow-500/5 hover:bg-yellow-500/10 transition-colors text-left group"
+              >
+                <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-lg bg-yellow-500/20 group-hover:bg-yellow-500/30 transition-colors">
+                  <MdQrCodeScanner size={20} className="text-yellow-500" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-base mb-1">
+                    Continuar (
+                    {pastSessions
+                      .filter((s) => s.storeName === selectedStore.name)
+                      .find((s) => s.status === "in_progress")?.scannedItems
+                      ?.length ?? 0}
+                    )
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Reanudar el conteo en progreso
+                  </p>
+                </div>
+              </button>
+            )}
+
+            {/* View past reports */}
+            {pastSessions.filter(
+              (s) =>
+                s.storeName === selectedStore.name && s.status === "finalized",
+            ).length > 0 && (
+              <button
+                onClick={() => {
+                  const storeSessions = pastSessions.filter(
+                    (s) => s.storeName === selectedStore.name,
+                  );
+                  setPastSessions(storeSessions);
+                  setView("past-reports");
+                }}
+                className="flex items-start gap-4 p-6 rounded-lg border border-muted hover:bg-muted/50 transition-colors text-left group"
+              >
+                <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
+                  <MdBarChart size={20} className="text-blue-500" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-base mb-1">
+                    Reportes (
+                    {
+                      pastSessions.filter(
+                        (s) =>
+                          s.storeName === selectedStore.name &&
+                          s.status === "finalized",
+                      ).length
+                    }
+                    )
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Ver conteos finalizados
+                  </p>
+                </div>
+              </button>
+            )}
+
+            {/* View pending inventory */}
+            <button
+              onClick={() => handleViewPendingInventory(selectedStore)}
+              disabled={false}
+              className="flex items-start gap-4 p-6 rounded-lg border border-orange-500/50 bg-orange-500/5 hover:bg-orange-500/10 transition-colors text-left group"
+            >
+              <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-lg bg-orange-500/20 group-hover:bg-orange-500/30 transition-colors">
+                <MdInventory size={20} className="text-orange-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-base mb-1">
+                  Productos por inventariar
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Ver productos que aún necesitan ser contados
+                </p>
+              </div>
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="max-w-4xl mx-auto py-8 px-4">
         <div className="flex items-center gap-3 mb-8">
@@ -956,6 +1107,111 @@ export default function InventarioContent({
             </div>
           </div>
         )}
+      </div>
+    );
+  }
+
+  // Store actions view (when coming from POS with storeSlug)
+  if (view === "store-actions" && selectedStore) {
+    const storeSessions = pastSessions.filter(
+      (s) => s.storeName === selectedStore.name,
+    );
+    const inProgress = storeSessions.find((s) => s.status === "in_progress");
+    const finalized = storeSessions.filter((s) => s.status === "finalized");
+
+    return (
+      <div className="max-w-7xl mx-auto py-6 px-4">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-8">
+          <h1 className="font-bold text-2xl">{selectedStore.name}</h1>
+          <span className="text-muted-foreground text-sm">
+            Selecciona una acción para comenzar
+          </span>
+        </div>
+
+        {/* Action buttons */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* New count with filters */}
+          <button
+            onClick={() => setView("filter-select")}
+            disabled={false}
+            className="flex items-start gap-4 p-6 rounded-lg border border-muted hover:bg-muted/50 transition-colors text-left group"
+          >
+            <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+              <MdFilterList size={20} className="text-primary" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-base mb-1">
+                Nuevo conteo con filtros
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Selecciona productos por categoría, marca o búsqueda
+              </p>
+            </div>
+          </button>
+
+          {/* Resume in progress session */}
+          {inProgress && (
+            <button
+              onClick={() => handleResume(inProgress, selectedStore)}
+              className="flex items-start gap-4 p-6 rounded-lg border border-yellow-500/50 bg-yellow-500/5 hover:bg-yellow-500/10 transition-colors text-left group"
+            >
+              <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-lg bg-yellow-500/20 group-hover:bg-yellow-500/30 transition-colors">
+                <MdQrCodeScanner size={20} className="text-yellow-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-base mb-1">
+                  Continuar ({inProgress.scannedItems?.length ?? 0})
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Reanudar el conteo en progreso
+                </p>
+              </div>
+            </button>
+          )}
+
+          {/* View past reports */}
+          {finalized.length > 0 && (
+            <button
+              onClick={() => {
+                setPastSessions(storeSessions);
+                setView("past-reports");
+              }}
+              className="flex items-start gap-4 p-6 rounded-lg border border-muted hover:bg-muted/50 transition-colors text-left group"
+            >
+              <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
+                <MdBarChart size={20} className="text-blue-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-base mb-1">
+                  Reportes ({finalized.length})
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Ver conteos finalizados
+                </p>
+              </div>
+            </button>
+          )}
+
+          {/* View pending inventory */}
+          <button
+            onClick={() => handleViewPendingInventory(selectedStore)}
+            disabled={false}
+            className="flex items-start gap-4 p-6 rounded-lg border border-orange-500/50 bg-orange-500/5 hover:bg-orange-500/10 transition-colors text-left group"
+          >
+            <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-lg bg-orange-500/20 group-hover:bg-orange-500/30 transition-colors">
+              <MdInventory size={20} className="text-orange-500" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-base mb-1">
+                Productos por inventariar
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Ver productos que aún necesitan ser contados
+              </p>
+            </div>
+          </button>
+        </div>
       </div>
     );
   }
@@ -2586,6 +2842,47 @@ export default function InventarioContent({
               </span>
             )}
           </button>
+
+          <input
+            type="month"
+            value={pendingMonth}
+            onChange={(e) => {
+              const newMonth = e.target.value;
+              setPendingMonth(newMonth);
+              // Fetch products with new month
+              setPendingLoading(true);
+              const params = new URLSearchParams({
+                storeId: selectedStore?._id || "",
+                month: newMonth,
+              });
+              if (pendingFilters.mainCategory)
+                params.append("mainCategory", pendingFilters.mainCategory);
+              if (pendingFilters.subCategory)
+                params.append("subCategory", pendingFilters.subCategory);
+              if (pendingFilters.brand)
+                params.append("brand", pendingFilters.brand);
+              if (pendingFilters.attributes?.length)
+                params.append(
+                  "attributes",
+                  pendingFilters.attributes.join(","),
+                );
+              if (pendingSearchQuery)
+                params.append("search", pendingSearchQuery);
+
+              fetch(`/api/admin/inventory-check/pending-inventory?${params}`)
+                .then((res) => res.json())
+                .then((data) => {
+                  setPendingProducts(data.products || []);
+                  setPendingLoading(false);
+                })
+                .catch((error) => {
+                  console.error("Error fetching pending products:", error);
+                  setPendingLoading(false);
+                });
+            }}
+            className="px-4 py-2.5 rounded-lg text-sm font-medium border border-muted hover:bg-muted transition-colors"
+            title="Seleccionar mes"
+          />
         </div>
 
         {/* Products list */}
